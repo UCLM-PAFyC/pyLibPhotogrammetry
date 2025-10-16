@@ -1,0 +1,30 @@
+{
+    "name": "Ground Control Points Accuracy Analysis",
+    "contributions": {
+        "methodology": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ],
+        "software": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ]
+    },
+    "src": "library function",
+    "description": "A process to analize the accuracy of GCPs",
+    "doc": "",
+    "parameters": [
+        {
+            "label": "Results report file",
+            "argparser": "",
+            "description": "Output file path for results report",
+            "mandatory": true,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/PhToolsOutput/gcp_analysis.txt",
+            "type": "file",
+            "file_mode": "write",
+            "domain": [
+                ".txt"
+            ],
+            "output_format": "{:s}"
+        }
+    ]
+}

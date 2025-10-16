@@ -1,0 +1,70 @@
+{
+    "name": "Get Image Footprints",
+    "contributions": {
+        "methodology": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ],
+        "software": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ]
+    },
+    "src": "library function",
+    "description": "A process to get the images footprints using a DEM",
+    "doc": "",
+    "parameters": [
+        {
+            "label": "Raster layer DEM",
+            "argparser": "",
+            "description": "Raster layer digital elevation model, converted to meters using: scale * ND + offset",
+            "mandatory": true,
+            "output": false,
+            "value": {
+                "file_path": "D:/PhotogrammetryToolsProjects/EjemploCandado/metashape/dsm5cm.tif",
+                "layer_index": 1,
+                "scale": 1.0,
+                "offset": 0.0
+            },
+            "type": "raster_layer",
+            "file_mode": "read",
+            "domain": [
+                ".tif",
+                ".tiff"
+            ],
+            "output_format": "{:s}"
+        },
+        {
+            "label": "DEM CRS",
+            "argparser": "",
+            "description": "A valid CRS identifier (EPSG:25830+5782, EPSG:25830, ...) for replace the internal CRS of the DEM. Empty for no use",
+            "mandatory": true,
+            "output": false,
+            "value": "EPSG:25830",
+            "type": "string",
+            "output_format": "{:>s}"
+        },
+        {
+            "label": "Number of points by footprint side",
+            "argparser": "",
+            "description": "Number of points to get for definition of the each side of the footprint",
+            "mandatory": true,
+            "output": false,
+            "value": 11,
+            "type": "integer",
+            "domain": [
+                3,
+                33
+            ],
+            "output_format": "{:10d}"
+        },
+        {
+            "label": "Process only enabled images",
+            "argparser": "",
+            "description": "Process only enabled images",
+            "mandatory": true,
+            "output": false,
+            "value": true,
+            "type": "boolean",
+            "output_format": "{:>10s}"
+        }
+    ]
+}
