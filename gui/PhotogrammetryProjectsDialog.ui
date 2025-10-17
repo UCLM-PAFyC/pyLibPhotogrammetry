@@ -72,9 +72,9 @@
          </spacer>
         </item>
         <item row="1" column="8">
-         <widget class="QPushButton" name="importPushButton">
+         <widget class="QPushButton" name="addProjectPushButton">
           <property name="text">
-           <string>Import</string>
+           <string>Add Project</string>
           </property>
          </widget>
         </item>
