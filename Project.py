@@ -23,6 +23,8 @@ sys.path.append(os.path.join(current_path, '../..'))
 # sys.path.insert(0, '..')
 # sys.path.insert(0, '../..')
 
+from pyLibProcesses.defs import defs_project as processes_defs_project
+from pyLibProcesses.defs import defs_processes as processes_defs_processes
 from pyLibPhotogrammetry.defs import defs_project, defs_processes
 from pyLibPhotogrammetry.defs import defs_images as defs_img
 from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
@@ -924,12 +926,12 @@ class Project:
             str_error = ('Loading gpgk:\n{}\nError:\n{}'.
                          format(self.file_path, str_error))
             return str_error
-        if not defs_project.PROCESESS_LAYER_NAME in layer_names:
+        if not processes_defs_project.PROCESESS_LAYER_NAME in layer_names:
             str_error = ('Loading gpgk:\n{}\nError: not exists layer:\n{}'.
-                         format(self.file_path, defs_project.MANAGEMENT_LAYER_NAME))
+                         format(self.file_path, processes_defs_project.MANAGEMENT_LAYER_NAME))
             return str_error
-        layer_name = defs_project.PROCESESS_LAYER_NAME
-        fields = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME]
+        layer_name = processes_defs_project.PROCESESS_LAYER_NAME
+        fields = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME]
         str_error, features = GDALTools.get_features(self.file_path,
                                                      layer_name,
                                                      fields)
@@ -938,10 +940,10 @@ class Project:
                          format(self.file_path, str_error))
             return str_error
         for feature in features:
-            process_label = feature[defs_project.PROCESESS_FIELD_LABEL]
+            process_label = feature[processes_defs_project.PROCESESS_FIELD_LABEL]
             process_dict = {}
-            for field_name in defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME]:
-                if field_name == defs_project.PROCESESS_FIELD_GEOMETRY:
+            for field_name in processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME]:
+                if field_name == processes_defs_project.PROCESESS_FIELD_GEOMETRY:
                     continue
                 field_value = ''
                 if field_name in feature:
@@ -955,8 +957,8 @@ class Project:
     def process_gcps_accuracy_analysis(self,
                                        process):
         str_error = ''
-        name = process[defs_processes.PROCESS_FIELD_NAME]
-        parametes_manager = process[defs_processes.PROCESS_FIELD_PARAMETERS]
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
         if not defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
@@ -1280,8 +1282,8 @@ class Project:
                                      process,
                                      dialog):
         str_error = ''
-        name = process[defs_processes.PROCESS_FIELD_NAME]
-        parametes_manager = process[defs_processes.PROCESS_FIELD_PARAMETERS]
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
         if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
@@ -1547,8 +1549,6 @@ class Project:
             return str_error
         return str_error
 
-
-
     def project_definition_gui(self,
                                is_process_creation):
         str_error = ""
@@ -1603,12 +1603,12 @@ class Project:
                             process,
                             dialog):
         str_error = ''
-        process_name = process[defs_processes.PROCESS_FIELD_NAME]
+        process_name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         if process[
-            defs_processes.PROCESS_FIELD_SRC].casefold() != defs_processes.PROCESSES_SRC_TYPE_LIBRARY_FUNCTION.casefold():
+            processes_defs_processes.PROCESS_FIELD_SRC].casefold() != processes_defs_processes.PROCESSES_SRC_TYPE_LIBRARY_FUNCTION.casefold():
             str_error = ('Process: {} has a field: {} not equal to: {}'
-                         .format(process_name, defs_processes.PROCESS_FIELD_SRC,
-                                 defs_processes.PROCESSES_SRC_TYPE_LIBRARY_FUNCTION))
+                         .format(process_name, processes_defs_processes.PROCESS_FIELD_SRC,
+                                 processes_defs_processes.PROCESSES_SRC_TYPE_LIBRARY_FUNCTION))
             return str_error
         find_funtion = False
         if process_name.casefold() == defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_NAME.casefold():
@@ -1744,64 +1744,64 @@ class Project:
         features = []
         feature = []
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_LABEL
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_LABEL
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_LABEL]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_LABEL]
         field[defs_gdal.FIELD_VALUE_TAG] = process_label
         feature.append(field)
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_AUTHOR
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_AUTHOR
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_AUTHOR]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_AUTHOR]
         field[defs_gdal.FIELD_VALUE_TAG] = process_author
         feature.append(field)
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_DESCRIPTION
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_DESCRIPTION
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_DESCRIPTION]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_DESCRIPTION]
         field[defs_gdal.FIELD_VALUE_TAG] = process_description
         feature.append(field)
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_DATE_TIME
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_DATE_TIME
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_DATE_TIME]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_DATE_TIME]
         field[defs_gdal.FIELD_VALUE_TAG] = process_date_time_as_string
         feature.append(field)
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_PROCESS_CONTENT
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_PROCESS_CONTENT
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_PROCESS_CONTENT]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_PROCESS_CONTENT]
         field[defs_gdal.FIELD_VALUE_TAG] = process_content
         feature.append(field)
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_LOG
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_LOG
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_LOG]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_LOG]
         field[defs_gdal.FIELD_VALUE_TAG] = process_log
         feature.append(field)
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_OUTPUT
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_OUTPUT
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_OUTPUT]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_OUTPUT]
         field[defs_gdal.FIELD_VALUE_TAG] = process_output
         feature.append(field)
         feature.append(field)
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_REMARKS
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_REMARKS
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_REMARKS]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_REMARKS]
         field[defs_gdal.FIELD_VALUE_TAG] = process_remarks
         feature.append(field)
         field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_GEOMETRY
+        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_GEOMETRY
         field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_GEOMETRY]
-        field[defs_gdal.FIELD_VALUE_TAG] = defs_project.fields_by_layer[
-            defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_GEOMETRY]
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_GEOMETRY]
+        field[defs_gdal.FIELD_VALUE_TAG] = processes_defs_project.fields_by_layer[
+            processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_GEOMETRY]
         feature.append(field)
         features.append(feature)
         features_by_layer = {}
-        features_by_layer[defs_project.PROCESESS_LAYER_NAME] = features
+        features_by_layer[processes_defs_project.PROCESESS_LAYER_NAME] = features
         if not process_label in self.process_by_label:
             str_error = GDALTools.write_features(self.file_path, features_by_layer)
             # str_error = self.gpkg_tools.write(self.file_name,
@@ -1812,24 +1812,24 @@ class Project:
             features_filters = []
             feature_filters= []
             filter = {}
-            filter[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_LABEL
+            filter[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_LABEL
             filter[defs_gdal.FIELD_TYPE_TAG] \
-                = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_LABEL]
+                = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_LABEL]
             filter[defs_gdal.FIELD_VALUE_TAG] = process_label
             feature_filters.append(filter)
             features_filters.append(feature_filters)
             features_filters_by_layer = {}
-            features_filters_by_layer[defs_project.PROCESESS_LAYER_NAME] = features_filters
+            features_filters_by_layer[processes_defs_project.PROCESESS_LAYER_NAME] = features_filters
             str_error = GDALTools.update_features(self.file_path, features_by_layer, features_filters_by_layer)
         if not str_error:
-            self.process_by_label[process_label][defs_project.PROCESESS_FIELD_LABEL] = process_label
-            self.process_by_label[process_label][defs_project.PROCESESS_FIELD_AUTHOR] = process_author
-            self.process_by_label[process_label][defs_project.PROCESESS_FIELD_DESCRIPTION] = process_description
-            self.process_by_label[process_label][defs_project.PROCESESS_FIELD_DATE_TIME] = process_date_time_as_string
-            self.process_by_label[process_label][defs_project.PROCESESS_FIELD_PROCESS_CONTENT] = process_content
-            self.process_by_label[process_label][defs_project.PROCESESS_FIELD_LOG] = process_log
-            self.process_by_label[process_label][defs_project.PROCESESS_FIELD_OUTPUT] = process_output
-            self.process_by_label[process_label][defs_project.PROCESESS_FIELD_REMARKS] = process_remarks
+            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_LABEL] = process_label
+            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_AUTHOR] = process_author
+            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_DESCRIPTION] = process_description
+            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_DATE_TIME] = process_date_time_as_string
+            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_PROCESS_CONTENT] = process_content
+            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_LOG] = process_log
+            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_OUTPUT] = process_output
+            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_REMARKS] = process_remarks
         return str_error
 
     def set_definition_from_json(self, json_content):
