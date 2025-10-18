@@ -212,7 +212,133 @@ class PhotogrammetryProjectsDialog(QDialog):
         self.update_gui()
         return
 
-    def on_click(self):
+    @QtCore.pyqtSlot(QtWidgets.QTableWidgetItem)
+    def on_click(self, item):
+        row = item.row()
+        column = item.column()
+        id = self.tableWidget.item(row, 0).text()
+        current_text = item.text()
+        label = self.tableWidget.horizontalHeaderItem(column).text()
+        tool_tip_text = self.tableWidget.horizontalHeaderItem(column).toolTip()
+        title = label + ":"
+        if label == defs_phprj.HEADER_DESCRIPTION_TAG:
+            text = self.photogrammetry_projects[id][defs_phprj.FIELD_DESCRIPTION]
+            readOnly = False
+            dialog =  SimpleTextEditDialog(title, text, readOnly)
+            ret = dialog.exec()
+            text = dialog.get_text()
+            if text != self.photogrammetry_projects[id][defs_phprj.FIELD_DESCRIPTION]:
+                self.photogrammetry_projects[id][defs_phprj.FIELD_DESCRIPTION] = text
+            return
+        elif label == defs_phprj.HEADER_DATE_TAG:
+            # return
+            str_date = self.photogrammetry_projects[id][defs_phprj.FIELD_DATE]
+            date = QDate.fromString(str_date, defs_phprj.DATE_FORMAT)
+            title = "Select Project date"
+            dialog = CalendarDialog(self, title, date)
+            dialog_result = dialog.exec()
+            date = dialog.calendar.selectedDate()
+            # if dialog_result == QDialog.Accepted:
+            #     return str_error, is_saved
+            # return str_error, is_saved
+            str_date = date.toString(defs_phprj.DATE_FORMAT)
+            self.photogrammetry_projects[id][defs_phprj.FIELD_DATE] = str_date
+            item.setText(str_date)
+        elif (label == defs_phprj.HEADER_ORTHOMOSAIC_TAG
+              or label == defs_phprj.HEADER_DSM_TAG
+              or label == defs_phprj.HEADER_DTM_TAG
+              or label == defs_phprj.HEADER_POINT_CLOUD_TAG):
+            file_extensions = None
+            tile = ''
+            previous_file_path = ''
+            name_filter = ''
+            if label == defs_phprj.HEADER_ORTHOMOSAIC_TAG:
+                file_extensions = defs_phprj.orthomosaic_file_extensions
+                title = "Select Orthomosaic file"
+                name_filter = "Orthomosaic file ("
+                previous_file_path = self.photogrammetry_projects[id][defs_phprj.FIELD_ORTHOMOSAIC]
+            elif label == defs_phprj.HEADER_DSM_TAG or label == defs_phprj.HEADER_DTM_TAG:
+                file_extensions = defs_phprj.dem_file_extensions
+                if label == defs_phprj.HEADER_DSM_TAG:
+                    title = "Select DSM file"
+                    name_filter = "DSM file ("
+                    previous_file_path = self.photogrammetry_projects[id][defs_phprj.FIELD_DSM]
+                else:
+                    title = "Select DTM file"
+                    name_filter = "DTM file ("
+                    previous_file_path = self.photogrammetry_projects[id][defs_phprj.FIELD_DTM]
+            else:
+                file_extensions = defs_phprj.point_cloud_file_extensions
+                title = "Select Point Cloud file"
+                name_filter = "Point Cloud file ("
+                previous_file_path = self.photogrammetry_projects[id][defs_phprj.FIELD_POINT_CLOUD]
+            for i in range(len(file_extensions)):
+                file_extension = file_extensions[i]
+                if i > 0:
+                    name_filter += ' '
+                name_filter += '*.' + file_extension
+            name_filter += ')'
+            if previous_file_path:
+                previous_file_path = os.path.normpath(previous_file_path)
+            dlg = QFileDialog()
+            dlg.setWindowTitle(title)
+            dlg.setDirectory(self.last_path)
+            dlg.setFileMode(QFileDialog.ExistingFile)
+            dlg.setNameFilter(name_filter)
+            file_path = ''
+            if dlg.exec_():
+                file_names = dlg.selectedFiles()
+                file_path = file_names[0]
+            else:
+                return
+            # fileName, aux = QFileDialog.getSaveFileName(self, title, self.path, "Project File (*.json)")
+            if file_path:
+                file_path = os.path.normpath(file_path)
+                if previous_file_path and file_path == previous_file_path:
+                    return
+                if file_path != previous_file_path:
+                    if label == defs_phprj.HEADER_ORTHOMOSAIC_TAG:
+                        self.photogrammetry_projects[id][defs_phprj.FIELD_ORTHOMOSAIC] = file_path
+                    elif label == defs_phprj.HEADER_DSM_TAG:
+                        self.photogrammetry_projects[id][defs_phprj.FIELD_DSM] = file_path
+                    elif label == defs_phprj.HEADER_DTM_TAG:
+                        self.photogrammetry_projects[id][defs_phprj.FIELD_DTM] = file_path
+                    elif label == defs_phprj.HEADER_POINT_CLOUD_TAG:
+                        self.photogrammetry_projects[id][defs_phprj.FIELD_POINT_CLOUD] = file_path
+                    item.setText(file_path)
+        elif (label == defs_phprj.HEADER_ORTHOMOSAIC_CRS_TAG
+              or label == defs_phprj.HEADER_DSM_CRS_TAG
+              or label == defs_phprj.HEADER_DTM_CRS_TAG
+              or label == defs_phprj.HEADER_POINT_CLOUD_CRS_TAG):
+            tile = ''
+            previous_crs_id = ''
+            if label == defs_phprj.HEADER_ORTHOMOSAIC_CRS_TAG:
+                file_extensions = defs_phprj.orthomosaic_file_extensions
+                title = "Select Orthomosaic CRS"
+                previous_crs_id = self.photogrammetry_projects[id][defs_phprj.FIELD_ORTHOMOSAIC_CRS]
+            elif label == defs_phprj.HEADER_DSM_TAG:
+                    title = "Select DSM CRS"
+                    previous_crs_id = self.photogrammetry_projects[id][defs_phprj.FIELD_DSM_CRS]
+            elif label == defs_phprj.HEADER_DTM_CRS_TAG:
+                    title = "Select DTM CRS"
+                    previous_crs_id = self.photogrammetry_projects[id][defs_phprj.FIELD_DTM_CRS]
+            else:
+                title = "Select Point Cloud CRS"
+                previous_crs_id = self.photogrammetry_projects[id][defs_phprj.FIELD_POINT_CLOUD_CRS]
+            dialog = CompoundProjectedCRSDialog(self.project.crs_tools, previous_crs_id)
+            dialog_result = dialog.exec()
+            if dialog.is_accepted:
+                crs_id = dialog.crs_id
+                if crs_id != previous_crs_id:
+                    if label == defs_phprj.HEADER_ORTHOMOSAIC_CRS_TAG:
+                        self.photogrammetry_projects[id][defs_phprj.FIELD_ORTHOMOSAIC_CRS] = crs_id
+                    elif label == defs_phprj.HEADER_DSM_CRS_TAG:
+                        self.photogrammetry_projects[id][defs_phprj.FIELD_DSM_CRS] = crs_id
+                    elif label == defs_phprj.HEADER_DTM_CRS_TAG:
+                        self.photogrammetry_projects[id][defs_phprj.FIELD_DTM_CRS] = crs_id
+                    elif label == defs_phprj.HEADER_POINT_CRS_CLOUD_TAG:
+                        self.photogrammetry_projects[id][defs_phprj.FIELD_POINT_CLOUD_CRS] = crs_id
+                    item.setText(crs_id)
         return
 
     def remove(self):
@@ -238,6 +364,15 @@ class PhotogrammetryProjectsDialog(QDialog):
         return
 
     def save(self):
+        self.project.photogrammetry_projects = dict(self.photogrammetry_projects)
+        str_aux_error = self.project.save_to_json()
+        if str_aux_error:
+            str_error = ('Error saving project:\n{}'.
+                         format(str_aux_error))
+            Tools.error_msg(str_error)
+        else:
+            str_msg = "Process completed"
+            Tools.info_msg(str_msg)
         return
 
     def select_crs(self):

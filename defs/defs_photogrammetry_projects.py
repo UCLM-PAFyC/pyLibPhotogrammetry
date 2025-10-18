@@ -18,6 +18,10 @@ FORMAT_PHOTOGRAMMETRY_TOOLS_FILE_EXTENSION = 'gpkg'
 FORMAT_GEOMATIC_PRODUCTS = 'Geomatic Products'
 FORMAT_GEOMATIC_PRODUCTS_FILE_EXTENSION = '' # no need a project file
 
+orthomosaic_file_extensions = ['tif']
+dem_file_extensions = ['tif']
+point_cloud_file_extensions = ['laz', 'las']
+
 extension_by_format = {}
 extension_by_format[FORMAT_PHOTOGRAMMETRY_TOOLS] = FORMAT_PHOTOGRAMMETRY_TOOLS_FILE_EXTENSION
 extension_by_format[FORMAT_GEOMATIC_PRODUCTS] = FORMAT_GEOMATIC_PRODUCTS_FILE_EXTENSION
