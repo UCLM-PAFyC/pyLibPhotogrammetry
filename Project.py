@@ -324,17 +324,17 @@ class Project:
 
     def create_processes_layer(self):
         str_error = ''
-        str_error, exists_layer = GDALTools.exists_layer(self.file_path, defs_project.PROCESESS_LAYER_NAME)
+        str_error, exists_layer = GDALTools.exists_layer(self.file_path, processes_defs_project.PROCESESS_LAYER_NAME)
         if str_error:
             return str_error
         if exists_layer:
             return str_error
         layers_definition = {}
-        layers_definition[defs_project.PROCESESS_LAYER_NAME] = {}
-        layers_definition[defs_project.PROCESESS_LAYER_NAME] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME]
+        layers_definition[processes_defs_project.PROCESESS_LAYER_NAME] = {}
+        layers_definition[processes_defs_project.PROCESESS_LAYER_NAME] \
+            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME]
         layers_crs_id = {}
-        layers_crs_id[defs_project.PROCESESS_LAYER_NAME] = None
+        layers_crs_id[processes_defs_project.PROCESESS_LAYER_NAME] = None
         ignore_existing_layers = True # create new gpkg
         str_error = GDALTools.create_vector(self.file_path,
                                             layers_definition,
@@ -818,29 +818,28 @@ class Project:
                          format(defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME,
                                 file_path, str_error))
             return str_error
-        if len(features) != 1: # not import metashape markers xml file yet
-            return str_error
-            # str_error = ('Loading {} from management from gpgk:\n{}\nError: not one value for field: {} in layer: {}'.
-            #              format(defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME,
-            #                     file_name, defs_project.MANAGEMENT_FIELD_CONTENT, defs_project.MANAGEMENT_LAYER_NAME))
-            # return str_error
-        markers_xml_json_content = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
-        markers_xml_file_path = features[0][defs_project.MANAGEMENT_FIELD_REMARKS]
-        # json_acceptable_string = value.replace("'", "\"")
-        # management_json_content = json.loads(json_acceptable_string)
-        markers_xml_json_content = json.loads(markers_xml_json_content)
-        str_error = self.load_from_db_metashape_markers(markers_xml_json_content,
-                                                        markers_xml_file_path)
-        if str_error:
-            str_error = ('\nSetting metashape markers from project file:\n{}\nerror:\n{}'.format(file_path, str_error))
-            return str_error
+        # if len(features) != 1: # not import metashape markers xml file yet
+        #     return str_error
+        #     # str_error = ('Loading {} from management from gpgk:\n{}\nError: not one value for field: {} in layer: {}'.
+        #     #              format(defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME,
+        #     #                     file_name, defs_project.MANAGEMENT_FIELD_CONTENT, defs_project.MANAGEMENT_LAYER_NAME))
+        #     # return str_error
+        if len(features) == 1: # not import metashape markers xml file yet
+            markers_xml_json_content = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
+            markers_xml_file_path = features[0][defs_project.MANAGEMENT_FIELD_REMARKS]
+            # json_acceptable_string = value.replace("'", "\"")
+            # management_json_content = json.loads(json_acceptable_string)
+            markers_xml_json_content = json.loads(markers_xml_json_content)
+            str_error = self.load_from_db_metashape_markers(markers_xml_json_content,
+                                                            markers_xml_file_path)
+            if str_error:
+                str_error = ('\nSetting metashape markers from project file:\n{}\nerror:\n{}'.format(file_path, str_error))
+                return str_error
 
-        # images
-        str_error = self.load_images_data_from_db(file_path)
-        if str_error:
-            return str_error
-
-
+            # images
+            str_error = self.load_images_data_from_db(file_path)
+            if str_error:
+                return str_error
         self.file_path = file_path
         return str_error
 
@@ -928,7 +927,7 @@ class Project:
             return str_error
         if not processes_defs_project.PROCESESS_LAYER_NAME in layer_names:
             str_error = ('Loading gpgk:\n{}\nError: not exists layer:\n{}'.
-                         format(self.file_path, processes_defs_project.MANAGEMENT_LAYER_NAME))
+                         format(self.file_path, processes_defs_project.PROCESESS_LAYER_NAME))
             return str_error
         layer_name = processes_defs_project.PROCESESS_LAYER_NAME
         fields = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME]
