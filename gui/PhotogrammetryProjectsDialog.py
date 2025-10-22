@@ -388,7 +388,7 @@ class PhotogrammetryProjectsDialog(QDialog):
         date = None
         str_date = self.dateLineEdit.text()
         if str_date:
-            date = QDate.fromDate(str_date, defs_phprj.DATE_FORMAT)
+            date = QDate.fromString(str_date, defs_phprj.DATE_FORMAT)
         title = "Select Project date"
         dialog = CalendarDialog(self, title, date)
         dialog_result = dialog.exec()
