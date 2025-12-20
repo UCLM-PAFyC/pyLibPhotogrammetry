@@ -954,7 +954,8 @@ class Project:
         return str_error
 
     def process_gcps_accuracy_analysis(self,
-                                       process):
+                                       process,
+                                       dialog = None):
         str_error = ''
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
@@ -1596,33 +1597,6 @@ class Project:
         str_error = GDALTools.remove_features(self.file_path, features_filters_by_layer)
         if not str_error:
             self.process_by_label.pop(process_label)
-        return str_error
-
-    def run_library_process(self,
-                            process,
-                            dialog):
-        str_error = ''
-        process_name = process[processes_defs_processes.PROCESS_FIELD_NAME]
-        if process[
-            processes_defs_processes.PROCESS_FIELD_SRC].casefold() != processes_defs_processes.PROCESSES_SRC_TYPE_LIBRARY_FUNCTION.casefold():
-            str_error = ('Process: {} has a field: {} not equal to: {}'
-                         .format(process_name, processes_defs_processes.PROCESS_FIELD_SRC,
-                                 processes_defs_processes.PROCESSES_SRC_TYPE_LIBRARY_FUNCTION))
-            return str_error
-        find_funtion = False
-        if process_name.casefold() == defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_NAME.casefold():
-            find_funtion = True
-            str_error = self.process_gcps_accuracy_analysis(process)
-            if str_error:
-                return str_error
-        elif process_name.casefold() == defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_NAME.casefold():
-            find_funtion = True
-            str_error = self.process_get_image_footprints(process, dialog)
-            if str_error:
-                return str_error
-        if not find_funtion:
-            str_error = ('Not exists process: {}'
-                         .format(process_name))
         return str_error
 
     def save_map_view(self,

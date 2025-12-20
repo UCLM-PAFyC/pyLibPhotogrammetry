@@ -8,7 +8,10 @@
             "David Hernández López, david.hernandez@uclm.es"
         ]
     },
-    "src": "library function",
+    "src": {
+		"class": "pyLibPhotogrammetry.Project",
+		"method": "process_gcps_accuracy_analysis"
+	},
     "description": "A process to analize the accuracy of GCPs",
     "doc": "",
     "parameters": [
