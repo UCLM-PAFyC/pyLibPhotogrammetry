@@ -957,18 +957,20 @@ class Project:
                                        process,
                                        dialog = None):
         str_error = ''
+        end_date_time = None
+        log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
         if not defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
-            return str_error
+            return str_error, end_date_time, log
         parameter_output_file = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL]
         output_file_path = str(parameter_output_file)
         if not output_file_path:
             str_error = ('Process {} has a empty parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
-            return str_error
+            return str_error, end_date_time, log
         content  = 'GROUND CONTROL POINTS ACCURACY ANALYSIS'
         content += '\n======================================='
         content += '\nProject definition: '
@@ -985,7 +987,7 @@ class Project:
             if str_error:
                 str_error = ('For AT Block: {}, getting is geographic CRS: {}\nError:\n{}'
                              .format(at_block_label, at_block.crs_id, str_error))
-                return str_error
+                return str_error, end_date_time, log
             gcp_crs2d_precision = 4
             ellipsoid_a = ellipsoid_rf = ellipsoid_b = ellipsoid_e2 = None
             if at_block_crs_is_geographic:
@@ -993,7 +995,7 @@ class Project:
                 if str_error:
                     str_error = ('For AT Block: {}, getting ellipsoid from CRS: {}\nError:\n{}'
                                  .format(at_block_label, at_block.crs_id, str_error))
-                    return str_error
+                    return str_error, end_date_time, log
                 ellipsoid_a = ellipsoid.semi_major_metre
                 ellipsoid_rf = ellipsoid.inverse_flattening
                 ellipsoid_b = ellipsoid.semi_minor_metre
@@ -1067,7 +1069,7 @@ class Project:
                     str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
                         = camera.from_chunk_to_sensor(gcp_chunk)
                     if str_error:
-                        return str_error
+                        return str_error, end_date_time, log
                     # set undistoted computed as measured for test backwar-forward model
                     image_point.set_measured_undistorted_values(position_undistorted_image)
                     error_column = column_m - position_image[0]
@@ -1125,7 +1127,7 @@ class Project:
                                                       compute_backward_camera_coordinates,
                                                       use_distortion, use_ppa)
                 if str_error:
-                    return str_error
+                    return str_error, end_date_time, log
                 error_fc = gcp.position[0] - position[0]
                 error_sc = gcp.position[1] - position[1]
                 error_tc = gcp.position[2] - position[2]
@@ -1203,7 +1205,7 @@ class Project:
                                                       compute_backward_camera_coordinates,
                                                       use_distortion, use_ppa)
                 if str_error:
-                    return str_error
+                    return str_error, end_date_time, log
                 error_fc = gcp.position[0] - position[0]
                 error_sc = gcp.position[1] - position[1]
                 error_tc = gcp.position[2] - position[2]
@@ -1276,18 +1278,22 @@ class Project:
                 f.write(content)
         except Exception as e:
             str_error = ('Process {}\nError occurred when opening:\n{}\nto read:\n{}'.format(name, output_file_path, e))
-        return str_error
+            return str_error, end_date_time, log
+        end_date_time = datetime.datetime.now()
+        return str_error, end_date_time, log
 
     def process_get_image_footprints(self,
                                      process,
                                      dialog):
         str_error = ''
+        end_date_time = None
+        log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
         if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
-            return str_error
+            return str_error, end_date_time, log
         parameter_dem_file_path = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM]
         parameter_dem_file_as_dict = json.loads(str(parameter_dem_file_path))
         dem_file_path = parameter_dem_file_as_dict[defs_pars.TAG_FILE_PATH]
@@ -1298,15 +1304,15 @@ class Project:
         if not dem_file_path:
             str_error = ('Process: {} has a empty parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
-            return str_error
+            return str_error, end_date_time, log
         if not os.path.exists(dem_file_path):
             str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
                          format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
-            return str_error
+            return str_error, end_date_time, log
         if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS))
-            return str_error
+            return str_error, end_date_time, log
         parameter_dem_crs_id = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS]
         dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
         # if not dem_crs_id:
@@ -1316,7 +1322,7 @@ class Project:
         if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP))
-            return str_error
+            return str_error, end_date_time, log
         parameter_nop = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP]
         str_nop = str(parameter_nop)
         number_of_points_by_side = 3
@@ -1325,11 +1331,11 @@ class Project:
         except ValueError:
             str_error = ('Process: {} does not have a integer parameter: {}, is: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP, str_nop))
-            return str_error
+            return str_error, end_date_time, log
         if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES))
-            return str_error
+            return str_error, end_date_time, log
         parameter_enabled_images = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES]
         str_enabled = str(parameter_enabled_images)
         only_enabled_images = True
@@ -1343,12 +1349,12 @@ class Project:
                 if str_error:
                     str_error = ('Setting CRS to raster DEM from file: {}\nError:\n{}'
                                  .format(dem_file_path, str_error))
-                    return str_error
+                    return str_error, end_date_time, log
             str_error = raster_dem.set_from_file(dem_file_path)
             if str_error:
                 str_error = ('Setting raster DEM from file: {}\nError:\n{}'
                              .format(dem_file_path, str_error))
-                return str_error
+                return str_error, end_date_time, log
             raster_dem.set_check_domain(False) # get solution for out points
             self.raster_dem_by_file_path[dem_file_path] = raster_dem
         else:
@@ -1357,12 +1363,12 @@ class Project:
         if str_error:
             str_error = ('Loading in memory raster DEM from file: {}\nError:\n{}'
                          .format(dem_file_path, str_error))
-            return str_error
+            return str_error, end_date_time, log
         str_error = self.update_enabled_images_from_db()
         if str_error:
             str_error = ('Updating enabled images from file: {}\nError:\n{}'
                          .format(self.file_path, str_error))
-            return str_error
+            return str_error, end_date_time, log
         cameras_to_process = []
         for at_block_label in self.at_block_by_label:
             at_block = self.at_block_by_label[at_block_label]
@@ -1401,7 +1407,7 @@ class Project:
                     dialog.processProgressBar.reset()
                 str_error = ('Computing footprint for image: {}\nError:\n{}'
                              .format(camera.label, str_error))
-                return str_error
+                return str_error, end_date_time, log
             footprint_geometry = None
             try:
                 footprint_geometry = ogr.CreateGeometryFromWkt(footprint_wkt)
@@ -1413,7 +1419,7 @@ class Project:
                     dialog.processInformationGroupBox.setEnabled(False)
                     dialog.processLineEdit.clear()
                     dialog.processProgressBar.reset()
-                return str_error
+                return str_error, end_date_time, log
             if not footprint_geometry.IsValid():
                 str_error = ('Computing footprint for image: {}\nInvalid geometry'.format(camera.label))
                 if dialog:
@@ -1421,7 +1427,7 @@ class Project:
                     dialog.processInformationGroupBox.setEnabled(False)
                     dialog.processLineEdit.clear()
                     dialog.processProgressBar.reset()
-                return str_error
+                return str_error, end_date_time, log
             footprint_geometry_wkb = None
             try:
                 footprint_geometry_wkb = footprint_geometry.ExportToWkb()
@@ -1433,7 +1439,7 @@ class Project:
                     dialog.processInformationGroupBox.setEnabled(False)
                     dialog.processLineEdit.clear()
                     dialog.processProgressBar.reset()
-                return str_error
+                return str_error, end_date_time, log
             undistorted_footprint_geometry = None
             try:
                 undistorted_footprint_geometry = ogr.CreateGeometryFromWkt(undistorted_footprint_wkt)
@@ -1445,7 +1451,7 @@ class Project:
                     dialog.processInformationGroupBox.setEnabled(False)
                     dialog.processLineEdit.clear()
                     dialog.processProgressBar.reset()
-                return str_error
+                return str_error, end_date_time, log
             if not undistorted_footprint_geometry.IsValid():
                 str_error = ('Computing undistorted footprint for image: {}\nInvalid geometry'.format(camera.label))
                 if dialog:
@@ -1453,7 +1459,7 @@ class Project:
                     dialog.processInformationGroupBox.setEnabled(False)
                     dialog.processLineEdit.clear()
                     dialog.processProgressBar.reset()
-                return str_error
+                return str_error, end_date_time, log
             undistorted_footprint_geometry_wkb = None
             try:
                 undistorted_footprint_geometry_wkb = undistorted_footprint_geometry.ExportToWkb()
@@ -1465,7 +1471,7 @@ class Project:
                     dialog.processInformationGroupBox.setEnabled(False)
                     dialog.processLineEdit.clear()
                     dialog.processProgressBar.reset()
-                return str_error
+                return str_error, end_date_time, log
             feature = []
             field = {}
             field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_FP_FIELD_CHUNK_LABEL
@@ -1540,14 +1546,15 @@ class Project:
         str_error = GDALTools.write_features(self.file_path, features_by_layer)
         if str_error:
             str_error = ('Error storing footprints:\n{}'.format(str_error))
-            return str_error
+            return str_error, end_date_time, log
         features_by_layer = {}
         features_by_layer[defs_project.IMAGES_UNDISTORTED_FP_TABLE_NAME] = undistorted_features
         str_error = GDALTools.write_features(self.file_path, features_by_layer)
         if str_error:
             str_error = ('Error storing footprints:\n{}'.format(str_error))
-            return str_error
-        return str_error
+            return str_error, end_date_time, log
+        end_date_time = datetime.datetime.now()
+        return str_error, end_date_time, log
 
     def project_definition_gui(self,
                                is_process_creation):
