@@ -1590,6 +1590,8 @@ class Project:
     def remove_process(self,
                        process_label):
         str_error = ''
+        self.sqls_to_process.clear()
+
         features_filters = []
         feature_filters = []
         filter = {}
