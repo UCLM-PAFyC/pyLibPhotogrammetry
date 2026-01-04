@@ -961,15 +961,15 @@ class Project:
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
-        if not defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL in parametes_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
-                         format(name, defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
+                         format(name, defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
             return str_error, end_date_time, log
-        parameter_output_file = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL]
+        parameter_output_file = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL]
         output_file_path = str(parameter_output_file)
         if not output_file_path:
             str_error = ('Process {} has a empty parameter: {}'.
-                         format(name, defs_project.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
+                         format(name, defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
             return str_error, end_date_time, log
         content  = 'GROUND CONTROL POINTS ACCURACY ANALYSIS'
         content += '\n======================================='
@@ -1290,11 +1290,11 @@ class Project:
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
-        if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM in parametes_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
-                         format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
             return str_error, end_date_time, log
-        parameter_dem_file_path = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM]
+        parameter_dem_file_path = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM]
         parameter_dem_file_as_dict = json.loads(str(parameter_dem_file_path))
         dem_file_path = parameter_dem_file_as_dict[defs_pars.TAG_FILE_PATH]
         dem_file_path = os.path.normpath(dem_file_path)
@@ -1303,40 +1303,40 @@ class Project:
         dem_file_offset = parameter_dem_file_as_dict[defs_pars.TAG_OFFSET]
         if not dem_file_path:
             str_error = ('Process: {} has a empty parameter: {}'.
-                         format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
             return str_error, end_date_time, log
         if not os.path.exists(dem_file_path):
             str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
-                         format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
             return str_error, end_date_time, log
-        if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS in parametes_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
-                         format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS))
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS))
             return str_error, end_date_time, log
-        parameter_dem_crs_id = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS]
+        parameter_dem_crs_id = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS]
         dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
         # if not dem_crs_id:
         #     str_error = ('Process: {} has a empty parameter: {}'.
         #                  format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS))
         #     return str_error
-        if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP in parametes_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
-                         format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP))
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP))
             return str_error, end_date_time, log
-        parameter_nop = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP]
+        parameter_nop = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP]
         str_nop = str(parameter_nop)
         number_of_points_by_side = 3
         try:
             number_of_points_by_side = int(str_nop)
         except ValueError:
             str_error = ('Process: {} does not have a integer parameter: {}, is: {}'.
-                         format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP, str_nop))
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP, str_nop))
             return str_error, end_date_time, log
-        if not defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES in parametes_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES in parametes_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
-                         format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES))
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES))
             return str_error, end_date_time, log
-        parameter_enabled_images = parametes_manager.parameters[defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES]
+        parameter_enabled_images = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES]
         str_enabled = str(parameter_enabled_images)
         only_enabled_images = True
         if str_enabled.casefold() == 'false':
