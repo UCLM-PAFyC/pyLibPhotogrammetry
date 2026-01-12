@@ -1767,7 +1767,6 @@ class Project:
             = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_OUTPUT]
         field[defs_gdal.FIELD_VALUE_TAG] = process_output
         feature.append(field)
-        feature.append(field)
         field = {}
         field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_REMARKS
         field[defs_gdal.FIELD_TYPE_TAG] \
