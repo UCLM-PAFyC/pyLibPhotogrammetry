@@ -6,44 +6,11 @@ import sys
 current_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_path, '..'))
 
-# from defs import defs_paths
-# common_libs_absolute_path = os.path.join(current_path, defs_paths.COMMON_LIBS_RELATIVE_PATH)
-# sys.path.append(common_libs_absolute_path)
-from pyLibCRSs import CRSsDefines as defs_crs
+# from pyLibCRSs import CRSsDefines as defs_crs
 from pyLibGDAL import defs_gdal
-from pyLibProject.defs import defs_project_definition
+# from pyLibProject.defs import defs_project_definition
 # from pyLibProject.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
 from pyLibProject.defs import defs_project as defs_project_lib
-
-CRS_DEFAULT = defs_project_definition.CRS_DEFAULT
-CRS_PROJECTED_DEFAULT = defs_project_definition.CRS_PROJECTED_DEFAULT
-CRS_VERTICAL_DEFAULT = defs_project_definition.CRS_VERTICAL_DEFAULT
-EPSG_STRING_PREFIX = defs_project_definition.EPSG_STRING_PREFIX
-QDATE_TO_STRING_FORMAT = defs_project_definition.QDATE_TO_STRING_FORMAT
-TIME_STRING_FORMAT = defs_project_definition.TIME_STRING_FORMAT
-DATE_STRING_FORMAT = defs_project_definition.DATE_STRING_FORMAT
-DATE_TIME_STRING_FORMAT = defs_project_definition.DATE_TIME_STRING_FORMAT
-QDATETIME_TO_STRING_FORMAT_FOR_FILE_NAME = defs_project_definition.QDATETIME_TO_STRING_FORMAT_FOR_FILE_NAME
-TEMPLATES_PATH = defs_project_lib.TEMPLATES_PATH
-NO_COMBO_SELECT = defs_project_lib.NO_COMBO_SELECT
-TEMPLATE_PROJECT_FILE = defs_project_lib.TEMPLATES_PATH
-create_options = defs_project_lib.create_options
-SETTINGS_FILE = "settings.ini"
-PROJECT_FILE_SUFFIX = defs_project_lib.PROJECT_FILE_GPKG_SUFFIX
-
-MANAGEMENT_LAYER_NAME = defs_project_lib.MANAGEMENT_LAYER_NAME
-MANAGEMENT_FIELD_NAME = defs_project_lib.MANAGEMENT_FIELD_NAME
-MANAGEMENT_FIELD_CONTENT = defs_project_lib.MANAGEMENT_FIELD_CONTENT
-MANAGEMENT_FIELD_TEMP = defs_project_lib.MANAGEMENT_FIELD_TEMP
-MANAGEMENT_FIELD_REMARKS = defs_project_lib.MANAGEMENT_FIELD_REMARKS
-MANAGEMENT_FIELD_GEOMETRY = defs_gdal.LAYERS_GEOMETRY_POSTGIS_TAG
-
-LOCATIONS_LAYER_NAME = defs_project_lib.LOCATIONS_LAYER_NAME
-LOCATIONS_FIELD_NAME = defs_project_lib.LOCATIONS_FIELD_NAME
-LOCATIONS_FIELD_CONTENT = defs_project_lib.LOCATIONS_FIELD_CONTENT
-LOCATIONS_FIELD_TEMP = defs_project_lib.LOCATIONS_FIELD_TEMP
-LOCATIONS_FIELD_REMARKS = defs_project_lib.LOCATIONS_FIELD_REMARKS
-LOCATIONS_FIELD_GEOMETRY = defs_gdal.LAYERS_GEOMETRY_POSTGIS_TAG
 
 fields_by_layer = defs_project_lib.fields_by_layer
 
@@ -190,21 +157,6 @@ fields_by_layer[IMAGES_UNDISTORTED_FP_TABLE_NAME][IMAGES_UNDISTORTED_FP_FIELD_IM
 IMAGES_UNDISTORTED_FP_FIELD_FP_GEOM = defs_gdal.LAYERS_GEOMETRY_POSTGIS_TAG
 fields_by_layer[IMAGES_UNDISTORTED_FP_TABLE_NAME][IMAGES_UNDISTORTED_FP_FIELD_FP_GEOM] = defs_gdal.geometry_type_by_name['polygon']
 IMAGES_UNDISTORTED_FP_LINEAR_PRECISION = 12
-
-
-PROJECT_DEFINITION_DIALOG_TITLE = defs_project_definition.PROJECT_DEFINITION_DIALOG_TITLE
-PROJECT_DEFINITIONS_MANAGEMENT_FIELD_NAME = defs_project_definition.PROJECT_DEFINITIONS_MANAGEMENT_FIELD_NAME
-PROJECT_DEFINITIONS_TAG = defs_project_definition.PROJECT_DEFINITIONS_TAG
-PROJECT_DEFINITIONS_TAG_NAME = defs_project_definition.PROJECT_DEFINITIONS_TAG_NAME
-PROJECT_DEFINITIONS_TAG_TAG = defs_project_definition.PROJECT_DEFINITIONS_TAG_TAG
-PROJECT_DEFINITIONS_TAG_AUTHOR = defs_project_definition.PROJECT_DEFINITIONS_TAG_AUTHOR
-PROJECT_DEFINITIONS_TAG_PROJECTED_CRS = defs_project_definition.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS
-PROJECT_DEFINITIONS_TAG_VERTICAL_CRS = defs_project_definition.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS
-PROJECT_DEFINITIONS_TAG_OUTPUT_PATH = defs_project_definition.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH
-PROJECT_DEFINITIONS_TAG_DESCRIPTION = defs_project_definition.PROJECT_DEFINITIONS_TAG_DESCRIPTION
-PROJECT_DEFINITIONS_TAG_START_DATE = defs_project_definition.PROJECT_DEFINITIONS_TAG_START_DATE
-PROJECT_DEFINITIONS_TAG_FINISH_DATE = defs_project_definition.PROJECT_DEFINITIONS_TAG_FINISH_DATE
-PROJECT_DEFINITIONS_TAG_CRS = defs_project_definition.defs_crs.CRS_LABEL
 
 METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME = "Metashape Markers XML File"
 RASTER_DEM_PRECISION_CODE = defs_gdal.RASTER_DEM_CENTIMETER_PRECISION_CODE

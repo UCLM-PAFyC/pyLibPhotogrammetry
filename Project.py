@@ -30,7 +30,8 @@ from pyLibPhotogrammetry.defs import defs_images as defs_img
 from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
 from pyLibParameters import defs_pars
 from pyLibParameters.ParametersManager import ParametersManager
-from pyLibPhotogrammetry.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
+from pyLibProject.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
+# from pyLibPhotogrammetry.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
 from pyLibPhotogrammetry.lib.ATBlockMetashape import ATBlockMetashape
 from pyLibPhotogrammetry.lib.IExifTool import IExifTool
 
@@ -55,8 +56,9 @@ class Project:
         # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_GEO3D_CRS] = None
         # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_GEO2D_CRS] = None
         # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_ECEF_CRS] = None
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = defs_project.CRS_PROJECTED_DEFAULT
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = defs_project.CRS_VERTICAL_DEFAULT
+        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = defs_project.CRS_PROJECTED_DEFAULT
+        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = defs_project.CRS_VERTICAL_DEFAULT
+        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_CRS] = defs_project.CRS_DEFAULT
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH] = None
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_DESCRIPTION] = None
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_START_DATE] = None
@@ -256,7 +258,7 @@ class Project:
             layers_definition[layer_name] \
                 = defs_project.fields_by_layer[layer_name]
             layers_crs_id = {}
-            if defs_project.fields_by_layer[layer_name][defs_gdal.LAYERS_GEOMETRY_TAG] == defs_gdal.geometry_type_by_name['none']:
+            if defs_project.fields_by_layer[layer_name][defs_gdal.LAYERS_GEOMETRY_POSTGIS_TAG] == defs_gdal.geometry_type_by_name['none']:
                 layers_crs_id[layer_name] = None
             else:
                 # project_crs_id =  self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
@@ -287,7 +289,7 @@ class Project:
             layers_definition[layer_name] \
                 = defs_project.fields_by_layer[layer_name]
             layers_crs_id = {}
-            if defs_project.fields_by_layer[layer_name][defs_gdal.LAYERS_GEOMETRY_TAG] == defs_gdal.geometry_type_by_name['none']:
+            if defs_project.fields_by_layer[layer_name][defs_gdal.LAYERS_GEOMETRY_POSTGIS_TAG] == defs_gdal.geometry_type_by_name['none']:
                 layers_crs_id[layer_name] = None
             else:
                 # project_crs_id =  self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
@@ -540,15 +542,16 @@ class Project:
 
     def initialize(self):
         self.crs_tools = CRSsTools()
-        epsg_crs_prefix = defs_crs.EPSG_TAG + ':'
-        crs_2d_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-        crs_2d_epsg_code = int(crs_2d_id.replace(epsg_crs_prefix, ''))
-        self.crs_id = epsg_crs_prefix + str(crs_2d_epsg_code)
-        crs_vertical_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
-        if crs_vertical_id != defs_crs.VERTICAL_ELLIPSOID_TAG:
-            crs_vertical_epsg_code = int(crs_vertical_id.replace(epsg_crs_prefix, ''))
-            self.crs_id += ('+' + str(crs_vertical_epsg_code))
-        # self.gpkg_tools = GpkgTools(self.crs_tools)
+        # epsg_crs_prefix = defs_crs.EPSG_TAG + ':'
+        # crs_2d_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
+        # crs_2d_epsg_code = int(crs_2d_id.replace(epsg_crs_prefix, ''))
+        # self.crs_id = epsg_crs_prefix + str(crs_2d_epsg_code)
+        # crs_vertical_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
+        # if crs_vertical_id != defs_crs.VERTICAL_ELLIPSOID_TAG:
+        #     crs_vertical_epsg_code = int(crs_vertical_id.replace(epsg_crs_prefix, ''))
+        #     self.crs_id += ('+' + str(crs_vertical_epsg_code))
+        # # self.gpkg_tools = GpkgTools(self.crs_tools)
+        self.crs_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_CRS]
         if self.qgis_iface:
             self.qgis_iface.set_project(self)
         return
@@ -1557,11 +1560,14 @@ class Project:
         return str_error, end_date_time, log
 
     def project_definition_gui(self,
-                               is_process_creation):
+                               is_process_creation,
+                               parent_widget = None):
         str_error = ""
         definition_is_saved = False
         title = defs_project.PROJECT_DEFINITION_DIALOG_TITLE
-        dialog = ProjectDefinitionDialog(self, title, is_process_creation)
+        # dialog = ProjectDefinitionDialog(self, title, is_process_creation)
+        dialog = ProjectDefinitionDialog(self, title, is_process_creation,
+                                         display_sucess_save = False, parent = parent_widget)
         dialog_result = dialog.exec()
         definition_is_saved = dialog.is_saved
         if dialog_result != QDialog.Accepted:
@@ -1604,6 +1610,16 @@ class Project:
         str_error = GDALTools.remove_features(self.file_path, features_filters_by_layer)
         if not str_error:
             self.process_by_label.pop(process_label)
+        return str_error
+
+    def save(self, is_process_creation = True):
+        str_error = ''
+        str_aux_error = self.save_management(True)
+        if str_aux_error:
+            str_error = ('Error updating project definition:\n{}'.
+                         format(str_aux_error))
+        else:
+            self.is_saved = True
         return str_error
 
     def save_map_view(self,
@@ -1825,13 +1841,13 @@ class Project:
             str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR,
                                                            defs_project.PROJECT_DEFINITIONS_TAG))
             return str_error
-        if not defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS in json_content:
-            str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS,
-                                                           defs_project.PROJECT_DEFINITIONS_TAG))
-            return str_error
-        if not defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS in json_content:
-            str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS,
-                                                           defs_project.PROJECT_DEFINITIONS_TAG))
+        crs_projected_id = None
+        crs_vertical_id = None
+        crs_id = None
+        if ((not defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS in json_content
+                or not defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS in json_content)
+                and not defs_project.PROJECT_DEFINITIONS_TAG_CRS in json_content):
+            str_error = ("No CRS data in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG))
             return str_error
         if not defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH in json_content:
             str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH,
@@ -1848,8 +1864,35 @@ class Project:
         name = json_content[defs_project.PROJECT_DEFINITIONS_TAG_NAME]
         tag = json_content[defs_project.PROJECT_DEFINITIONS_TAG_TAG]
         author = json_content[defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR]
-        crs_projected_id = json_content[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-        crs_vertical_id = json_content[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
+        # crs_projected_id = json_content[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
+        # crs_vertical_id = json_content[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
+        if( not crs_projected_id is None and not crs_vertical_id is None):
+            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = crs_projected_id
+            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = crs_vertical_id
+            epsg_crs_prefix = defs_crs.EPSG_TAG + ':'
+            crs_2d_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
+            crs_2d_epsg_code = int(crs_2d_id.replace(epsg_crs_prefix, ''))
+            self.crs_id = epsg_crs_prefix + str(crs_2d_epsg_code)
+            crs_vertical_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
+            if crs_vertical_id != defs_crs.VERTICAL_ELLIPSOID_TAG:
+                crs_vertical_epsg_code = int(crs_vertical_id.replace(epsg_crs_prefix, ''))
+                self.crs_id += ('+' + str(crs_vertical_epsg_code))
+        else:
+            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_CRS] = crs_id
+            self.crs_id = crs_id
+            if not '+' in crs_id:
+                crs_projected_id = crs_id
+                crs_vertical_id = None
+            else:
+                epsg_crs_prefix = defs_crs.EPSG_TAG + ':'
+                srs_id = crs_id.replace(defs_crs.EPSG_STRING_PREFIX, ' ')
+                srs_id = srs_id.replace('+', ' ')
+                srs_id = srs_id.strip()
+                values = srs_id.split(' ')
+                crs_projected_id = epsg_crs_prefix + values[0]
+                crs_vertical_id = epsg_crs_prefix + values[1]
+            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = crs_projected_id
+            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = crs_vertical_id
         output_path = json_content[defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH]
         description = json_content[defs_project.PROJECT_DEFINITIONS_TAG_DESCRIPTION]
         start_date = json_content[defs_project.PROJECT_DEFINITIONS_TAG_START_DATE]
@@ -1867,8 +1910,8 @@ class Project:
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_NAME] = name
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_TAG] = tag
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR] = author
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = crs_projected_id
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = crs_vertical_id
+        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = crs_projected_id
+        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = crs_vertical_id
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH] = output_path
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_DESCRIPTION] = description
         self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_START_DATE] = start_date
