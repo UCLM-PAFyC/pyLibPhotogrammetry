@@ -9,7 +9,7 @@
         ]
     },
     "src": {
-        "class": "pyLibPhotogrammetry.Project",
+        "class": "pyLibPhotogrammetry.ProjectPhotogrammetry",
         "method": "process_get_image_footprints"
     },
     "description": "A process to get the images footprints using a DEM",

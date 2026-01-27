@@ -1,6 +1,9 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
+from PyQt5.QtWidgets import QApplication, QMessageBox, QDialog, QFileDialog, QPushButton, QComboBox
+from PyQt5.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
+
 import os, sys
 import json
 import xmltodict
@@ -717,6 +720,609 @@ class ProjectPhotogrammetry(Project):
         self.file_path = file_path
         return str_error
 
+    def process_gcps_accuracy_analysis(self,
+                                       process,
+                                       dialog = None):
+        str_error = ''
+        end_date_time = None
+        log = None
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL in parametes_manager.parameters:
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        parameter_output_file = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL]
+        output_file_path = str(parameter_output_file)
+        if not output_file_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        content  = 'GROUND CONTROL POINTS ACCURACY ANALYSIS'
+        content += '\n======================================='
+        content += '\nProject definition: '
+        content += '\n- Name ..........................: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_NAME]
+        content += '\n- Author ........................: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_AUTHOR]
+        content += '\n- CRS id ........................: ' + self.crs_id
+        content += '\n  Projected CRS id ..............: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
+        content += '\n- Vertical CRS id ...............: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
+        # content += '\n- Metashape markers xml file ....: ' + self.metashape_markers_xml_file
+        content += '\n- Number of AT Blocks ...........: ' + str(len(self.at_block_by_label))
+        for at_block_label in self.at_block_by_label:
+            at_block = self.at_block_by_label[at_block_label]
+            str_error, at_block_crs_is_geographic = self.crs_tools.is_geographic(at_block.crs_id)
+            if str_error:
+                str_error = ('For AT Block: {}, getting is geographic CRS: {}\nError:\n{}'
+                             .format(at_block_label, at_block.crs_id, str_error))
+                return str_error, end_date_time, log
+            gcp_crs2d_precision = 4
+            ellipsoid_a = ellipsoid_rf = ellipsoid_b = ellipsoid_e2 = None
+            if at_block_crs_is_geographic:
+                str_error, ellipsoid = self.crs_tools.get_ellipsoid(at_block.crs_id)
+                if str_error:
+                    str_error = ('For AT Block: {}, getting ellipsoid from CRS: {}\nError:\n{}'
+                                 .format(at_block_label, at_block.crs_id, str_error))
+                    return str_error, end_date_time, log
+                ellipsoid_a = ellipsoid.semi_major_metre
+                ellipsoid_rf = ellipsoid.inverse_flattening
+                ellipsoid_b = ellipsoid.semi_minor_metre
+                ellipsoid_e2 = ellipsoid.es
+                gcp_crs2d_precision = 9
+            content += '\nAT Block label ..................: ' + at_block.label
+            content += '\n- CRS id ........................: ' + at_block.crs_id
+            content += '\n- Cameras CRS id ................: ' + at_block.camera_crs_id
+            content += '\n- GCPs CRS id ...................: ' + at_block.gcps_crs_id
+            content += '\n- Cameras data in AT Block CRSs (only master cameras for compound cameras):'
+            content += "\n      Id  Longitude.DEG   Latitude.DEG         H          X.CRS          Y.CRS          H.CRS         ECEF.X         ECEF.Y         ECEF.Z     Chunk.X     Chunk.Y     Chunk.Z  Label"
+            for camera_id in at_block.camera_by_id:
+                camera = at_block.camera_by_id[camera_id]
+                label = camera.label
+                if not isinstance(camera.pc, np.ndarray): # not orientated images
+                    continue
+                pc = camera.get_pc()
+                pc_ecef = camera.get_pc_ecef()
+                pc_chunk = camera.get_pc_chunk()
+                pc_geo3d = camera.get_pc_geo3d()
+                content += '\n{:>8s}'.format(str(camera.id))
+                content += '{:15.9f}'.format(pc_geo3d[0])
+                content += '{:15.9f}'.format(pc_geo3d[1])
+                content += '{:10.4f}'.format(pc_geo3d[2])
+                content += '{:15.4f}'.format(pc[0])
+                content += '{:15.4f}'.format(pc[1])
+                content += '{:15.4f}'.format(pc[2])
+                content += '{:15.4f}'.format(pc_ecef[0])
+                content += '{:15.4f}'.format(pc_ecef[1])
+                content += '{:15.4f}'.format(pc_ecef[2])
+                content += '{:12.4f}'.format(pc_chunk[0])
+                content += '{:12.4f}'.format(pc_chunk[1])
+                content += '{:12.4f}'.format(pc_chunk[2])
+                content += '  {}'.format(camera.label)
+            content += '\n- GCPs data in AT Block CRSs:'
+            content += '\n      Id          X.CRS          Y.CRS         H         ECEF.X         ECEF.Y         ECEF.Z     Chunk.X     Chunk.Y     Chunk.Z  Label'
+            gcp_label_max_length = 0
+            for gcp_id in at_block.gcps_by_id:
+                gcp = at_block.gcps_by_id[gcp_id]
+                content += '\n{:>8s}'.format(str(gcp.id))
+                content += '{:15.4f}'.format(gcp.position[0])
+                content += '{:15.4f}'.format(gcp.position[1])
+                content += '{:10.4f}'.format(gcp.position[2])
+                content += '{:15.4f}'.format(gcp.position_ecef[0])
+                content += '{:15.4f}'.format(gcp.position_ecef[1])
+                content += '{:15.4f}'.format(gcp.position_ecef[2])
+                content += '{:12.4f}'.format(gcp.position_chunk[0])
+                content += '{:12.4f}'.format(gcp.position_chunk[1])
+                content += '{:12.4f}'.format(gcp.position_chunk[2])
+                content += '  {}'.format(gcp.label)
+                if len(gcp.label) > gcp_label_max_length:
+                    gcp_label_max_length = len(gcp.label)
+            content += '\n- From object space to image space (photogrammetric backward projection), ignoring no pinned image points:'
+            content += '\n  GCP.Id    Column       Row   ColumnM      RowM  ErrorC  ErrorR Error2d  Image                              Und.Column   Und.Row  Change  GCP.Label'
+            for gcp_id in at_block.image_points_by_gcp_id:
+                if not gcp_id in at_block.gcps_by_id:
+                    continue
+                gcp = at_block.gcps_by_id[gcp_id]
+                gcp_chunk = gcp.position_chunk
+                image_points = at_block.image_points_by_gcp_id[gcp_id]
+                for i in range(len(image_points)):
+                    image_point = image_points[i]
+                    if not image_point.pinned:
+                        continue
+                    if not defs_img.IMAGE_POINT_MEASURED in image_point.values:
+                        continue
+                    camera = image_point.camera
+                    image_point_measured_coordinates = image_point.values[defs_img.IMAGE_POINT_MEASURED]
+                    column_m = image_point_measured_coordinates[0]
+                    row_m = image_point_measured_coordinates[1]
+                    str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                        = camera.from_chunk_to_sensor(gcp_chunk)
+                    if str_error:
+                        return str_error, end_date_time, log
+                    # set undistoted computed as measured for test backwar-forward model
+                    image_point.set_measured_undistorted_values(position_undistorted_image)
+                    error_column = column_m - position_image[0]
+                    error_row = row_m - position_image[1]
+                    error_2d = np.sqrt((error_column * error_column) + (error_row * error_row))
+                    undistort_change_column = position_undistorted_image[0] - position_image[0]
+                    undistort_change_row = position_undistorted_image[1] - position_image[1]
+                    undistort_change_2d = np.sqrt(undistort_change_column ** 2. + undistort_change_row ** 2.)
+                    content += '\n{:>8s}'.format(str(gcp.id))
+                    content += '{:10.2f}'.format(position_image[0])
+                    content += '{:10.2f}'.format(position_image[1])
+                    content += '{:10.2f}'.format(column_m)
+                    content += '{:10.2f}'.format(row_m)
+                    content += '{:8.2f}'.format(error_column)
+                    content += '{:8.2f}'.format(error_row)
+                    content += '{:8.2f}'.format(error_2d)
+                    content += '  {:35s}'.format(camera.label)
+                    content += '{:10.2f}'.format(position_undistorted_image[0])
+                    content += '{:10.2f}'.format(position_undistorted_image[1])
+                    content += '{:8.2f}'.format(undistort_change_2d)
+                    content += '  {:s}'.format(gcp.label)
+            content += '\n- From image space to object space (photogrammetric forward projection), ignoring no pinned image points:'
+            for gcp_id in at_block.image_points_by_gcp_id:
+                if not gcp_id in at_block.gcps_by_id:
+                    continue
+                gcp = at_block.gcps_by_id[gcp_id]
+                gcp_chunk = gcp.position_chunk
+                image_points = at_block.image_points_by_gcp_id[gcp_id]
+                image_measured_coordinates_by_camera_id = {}
+                image_undistorted_coordinates_by_camera_id = {}
+                number_of_measured_image_points = 0
+                for i in range(len(image_points)):
+                    image_point = image_points[i]
+                    if not image_point.pinned:
+                        continue
+                    if not defs_img.IMAGE_POINT_MEASURED in image_point.values:
+                        continue
+                    camera = image_point.camera
+                    image_point_measured_coordinates = image_point.values[defs_img.IMAGE_POINT_MEASURED]
+                    image_measured_coordinates_by_camera_id[camera.id] = image_point_measured_coordinates
+                    image_point_measured_undistorted_coordinates = image_point.undistorted_values[defs_img.IMAGE_POINT_MEASURED]
+                    image_undistorted_coordinates_by_camera_id[camera.id] = image_point_measured_undistorted_coordinates
+                    number_of_measured_image_points = number_of_measured_image_points + 1
+                if number_of_measured_image_points < 2:
+                    content += "\n  - GCP .........................: "
+                    content += gcp.label
+                    content += "\n    The point has not been measured in the minimum number of images"
+                    continue
+                compute_backward_camera_coordinates = True
+                use_distortion = True
+                use_ppa = True
+                str_error, position, std_position, image_position_backward_error_by_camera_id \
+                    = at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
+                                                      at_block.crs_id,
+                                                      compute_backward_camera_coordinates,
+                                                      use_distortion, use_ppa)
+                if str_error:
+                    return str_error, end_date_time, log
+                error_fc = gcp.position[0] - position[0]
+                error_sc = gcp.position[1] - position[1]
+                error_tc = gcp.position[2] - position[2]
+                if ellipsoid_a:
+                    latitude = gcp.position[1] * np.pi / 180.
+                    rp = ellipsoid_a / np.sqrt(1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) * np.cos(latitude)
+                    rm = ellipsoid_a * (1 - ellipsoid_e2) / ((1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) ** 3./2.)
+                    error_fc = rp * error_fc * np.pi / 180.
+                    error_sc = rm * error_sc * np.pi / 180.
+                content += "\n  - GCP ...........................: "
+                content += gcp.label.ljust(gcp_label_max_length)
+                if not ellipsoid_a:
+                    content += "      X.GCPsCRS      Y.GCPsCRS      H.GCPsCRS"
+                else:
+                    content += "   Long.GCPsCRS    Lat.GCPsCRS      H.GCPsCRS"
+                content += "\n    - Measured coordinates ........: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(gcp.position[0]))
+                    content += ("{:15.9f}".format(gcp.position[1]))
+                else:
+                    content += ("{:15.4f}".format(gcp.position[0]))
+                    content += ("{:15.4f}".format(gcp.position[1]))
+                content += ("{:15.4f}".format(gcp.position[2]))
+                content += "\n    - Computed coordinates ........: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(position[0]))
+                    content += ("{:15.9f}".format(position[1]))
+                else:
+                    content += ("{:15.4f}".format(position[0]))
+                    content += ("{:15.4f}".format(position[1]))
+                content += ("{:15.4f}".format(position[2]))
+                content += "\n    - Std computed coordinates ....: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(std_position[0]))
+                    content += ("{:15.9f}".format(std_position[1]))
+                else:
+                    content += ("{:15.4f}".format(std_position[0]))
+                    content += ("{:15.4f}".format(std_position[1]))
+                content += ("{:15.4f}".format(std_position[2]))
+                content += "\n    - Error computed coordinates ..: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:12.4f}(E)".format(error_fc))
+                    content += ("{:12.4f}(N)".format(error_sc))
+                else:
+                    content += ("{:15.4f}".format(error_fc))
+                    content += ("{:15.4f}".format(error_sc))
+                content += ("{:15.4f}".format(error_tc))
+                content += "\n   ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
+                for camera_id in image_position_backward_error_by_camera_id:
+                    measured = image_measured_coordinates_by_camera_id[camera_id]
+                    error_computed = image_position_backward_error_by_camera_id[camera_id]
+                    error_c = error_computed[0]
+                    error_r = error_computed[1]
+                    error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
+                    camera = at_block.camera_by_id[camera_id]
+                    content += '\n{:10.2f}'.format(measured[0])
+                    content += '{:10.2f}'.format(measured[1])
+                    content += '{:10.2f}'.format(measured[0] - error_c)
+                    content += '{:10.2f}'.format(measured[1] - error_r)
+                    content += '{:8.2f}'.format(error_c)
+                    content += '{:8.2f}'.format(error_r)
+                    content += '{:8.2f}'.format(error_2d)
+                    content += '  {:s}'.format(camera.label)
+                # undistorted computed image points
+                compute_backward_camera_coordinates = True
+                use_distortion = False
+                use_ppa = True
+                str_error, position, std_position, image_position_backward_error_by_camera_id \
+                    = at_block.from_sensors_to_object(image_undistorted_coordinates_by_camera_id,
+                                                      at_block.crs_id,
+                                                      compute_backward_camera_coordinates,
+                                                      use_distortion, use_ppa)
+                if str_error:
+                    return str_error, end_date_time, log
+                error_fc = gcp.position[0] - position[0]
+                error_sc = gcp.position[1] - position[1]
+                error_tc = gcp.position[2] - position[2]
+                if ellipsoid_a:
+                    latitude = gcp.position[1] * np.pi / 180.
+                    rp = ellipsoid_a / np.sqrt(1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) * np.cos(latitude)
+                    rm = ellipsoid_a * (1 - ellipsoid_e2) / ((1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) ** 3./2.)
+                    error_fc = rp * error_fc * np.pi / 180.
+                    error_sc = rm * error_sc * np.pi / 180.
+                content += "\n  - GCP (undistorted computed) ....: "
+                content += gcp.label.ljust(gcp_label_max_length)
+                if not ellipsoid_a:
+                    content += "      X.GCPsCRS      Y.GCPsCRS      H.GCPsCRS"
+                else:
+                    content += "   Long.GCPsCRS    Lat.GCPsCRS      H.GCPsCRS"
+                content += "\n    - Measured coordinates ........: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(gcp.position[0]))
+                    content += ("{:15.9f}".format(gcp.position[1]))
+                else:
+                    content += ("{:15.4f}".format(gcp.position[0]))
+                    content += ("{:15.4f}".format(gcp.position[1]))
+                content += ("{:15.4f}".format(gcp.position[2]))
+                content += "\n    - Computed coordinates ........: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(position[0]))
+                    content += ("{:15.9f}".format(position[1]))
+                else:
+                    content += ("{:15.4f}".format(position[0]))
+                    content += ("{:15.4f}".format(position[1]))
+                content += ("{:15.4f}".format(position[2]))
+                content += "\n    - Std computed coordinates ....: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(std_position[0]))
+                    content += ("{:15.9f}".format(std_position[1]))
+                else:
+                    content += ("{:15.4f}".format(std_position[0]))
+                    content += ("{:15.4f}".format(std_position[1]))
+                content += ("{:15.4f}".format(std_position[2]))
+                content += "\n    - Error computed coordinates ..: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:12.4f}(E)".format(error_fc))
+                    content += ("{:12.4f}(N)".format(error_sc))
+                else:
+                    content += ("{:15.4f}".format(error_fc))
+                    content += ("{:15.4f}".format(error_sc))
+                content += ("{:15.4f}".format(error_tc))
+                content += "\n   ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
+                for camera_id in image_position_backward_error_by_camera_id:
+                    measured = image_undistorted_coordinates_by_camera_id[camera_id]
+                    error_computed = image_position_backward_error_by_camera_id[camera_id]
+                    error_c = error_computed[0]
+                    error_r = error_computed[1]
+                    error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
+                    camera = at_block.camera_by_id[camera_id]
+                    content += '\n{:10.2f}'.format(measured[0])
+                    content += '{:10.2f}'.format(measured[1])
+                    content += '{:10.2f}'.format(measured[0] - error_c)
+                    content += '{:10.2f}'.format(measured[1] - error_r)
+                    content += '{:8.2f}'.format(error_c)
+                    content += '{:8.2f}'.format(error_r)
+                    content += '{:8.2f}'.format(error_2d)
+                    content += '  {:s}'.format(camera.label)
+        try:
+            with open(output_file_path, "w") as f:
+                f.write(content)
+        except Exception as e:
+            str_error = ('Process {}\nError occurred when opening:\n{}\nto read:\n{}'.format(name, output_file_path, e))
+            return str_error, end_date_time, log
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
+    def process_get_image_footprints(self,
+                                     process,
+                                     dialog):
+        str_error = ''
+        end_date_time = None
+        log = None
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM in parametes_manager.parameters:
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        parameter_dem_file_path = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM]
+        parameter_dem_file_as_dict = json.loads(str(parameter_dem_file_path))
+        dem_file_path = parameter_dem_file_as_dict[defs_pars.TAG_FILE_PATH]
+        dem_file_path = os.path.normpath(dem_file_path)
+        dem_layer_index = parameter_dem_file_as_dict[defs_pars.TAG_LAYER_INDEX]
+        dem_file_scale = parameter_dem_file_as_dict[defs_pars.TAG_SCALE]
+        dem_file_offset = parameter_dem_file_as_dict[defs_pars.TAG_OFFSET]
+        if not dem_file_path:
+            str_error = ('Process: {} has a empty parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        if not os.path.exists(dem_file_path):
+            str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS in parametes_manager.parameters:
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS))
+            return str_error, end_date_time, log
+        parameter_dem_crs_id = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS]
+        dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
+        # if not dem_crs_id:
+        #     str_error = ('Process: {} has a empty parameter: {}'.
+        #                  format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS))
+        #     return str_error
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP in parametes_manager.parameters:
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP))
+            return str_error, end_date_time, log
+        parameter_nop = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP]
+        str_nop = str(parameter_nop)
+        number_of_points_by_side = 3
+        try:
+            number_of_points_by_side = int(str_nop)
+        except ValueError:
+            str_error = ('Process: {} does not have a integer parameter: {}, is: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP, str_nop))
+            return str_error, end_date_time, log
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES in parametes_manager.parameters:
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES))
+            return str_error, end_date_time, log
+        parameter_enabled_images = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES]
+        str_enabled = str(parameter_enabled_images)
+        only_enabled_images = True
+        if str_enabled.casefold() == 'false':
+            only_enabled_images = False
+        raster_dem = None
+        if not dem_file_path in self.raster_dem_by_file_path:
+            raster_dem = RasterDEM(defs_project_photogrammetry.RASTER_DEM_PRECISION_CODE)
+            if dem_crs_id:
+                str_error = raster_dem.set_crs_id_by_user(dem_crs_id)
+                if str_error:
+                    str_error = ('Setting CRS to raster DEM from file: {}\nError:\n{}'
+                                 .format(dem_file_path, str_error))
+                    return str_error, end_date_time, log
+            str_error = raster_dem.set_from_file(dem_file_path)
+            if str_error:
+                str_error = ('Setting raster DEM from file: {}\nError:\n{}'
+                             .format(dem_file_path, str_error))
+                return str_error, end_date_time, log
+            raster_dem.set_check_domain(False) # get solution for out points
+            self.raster_dem_by_file_path[dem_file_path] = raster_dem
+        else:
+            raster_dem = self.raster_dem_by_file_path[dem_file_path]
+        str_error = raster_dem.load()
+        if str_error:
+            str_error = ('Loading in memory raster DEM from file: {}\nError:\n{}'
+                         .format(dem_file_path, str_error))
+            return str_error, end_date_time, log
+        str_error = self.update_enabled_images_from_db()
+        if str_error:
+            str_error = ('Updating enabled images from file: {}\nError:\n{}'
+                         .format(self.file_path, str_error))
+            return str_error, end_date_time, log
+        cameras_to_process = []
+        for at_block_label in self.at_block_by_label:
+            at_block = self.at_block_by_label[at_block_label]
+            for camera_id in at_block.camera_by_id:
+                camera = at_block.camera_by_id[camera_id]
+                camera_enabled = camera.get_enabled() # multisensor ...
+                if camera_enabled:
+                    if camera.is_usefull():
+                        cameras_to_process.append(camera)
+        if dialog:
+            dialog.processInformationGroupBox.setEnabled(True)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            dialog.processLineEdit.setText('Getting image footprints ...')
+            dialog.processLineEdit.adjustSize()
+            dialog.processProgressBar.setMaximum(len(cameras_to_process))
+            dialog.processLineEdit.adjustSize()
+            QApplication.processEvents()
+        features = []
+        undistorted_features = []
+        for i in range(len(cameras_to_process)):
+            if dialog:
+                dialog.processProgressBar.setValue(i)
+                QApplication.processEvents()
+            camera = cameras_to_process[i]
+            camera_id = camera.id
+            # if camera_id < 26:
+            #     continue
+            str_error, footprint_wkt, undistorted_footprint_wkt = camera.compute_footprint(raster_dem,
+                                                                                           number_of_points_by_side)
+            if str_error:
+                if dialog:
+                    dialog.processProgressBar.setValue(len(cameras_to_process))
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                str_error = ('Computing footprint for image: {}\nError:\n{}'
+                             .format(camera.label, str_error))
+                return str_error, end_date_time, log
+            footprint_geometry = None
+            try:
+                footprint_geometry = ogr.CreateGeometryFromWkt(footprint_wkt)
+            except Exception as e:
+                str_error = ('Computing footprint for image: {}\nGDAL error:\n{}'
+                             .format(camera.label, e.args[0]))
+                if dialog:
+                    dialog.processProgressBar.setValue(len(cameras_to_process))
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                return str_error, end_date_time, log
+            if not footprint_geometry.IsValid():
+                str_error = ('Computing footprint for image: {}\nInvalid geometry'.format(camera.label))
+                if dialog:
+                    dialog.processProgressBar.setValue(len(cameras_to_process))
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                return str_error, end_date_time, log
+            footprint_geometry_wkb = None
+            try:
+                footprint_geometry_wkb = footprint_geometry.ExportToWkb()
+            except Exception as e:
+                str_error = ('Exporting to WKB computed footprint for image: {}\nGDAL error:\n{}'
+                             .format(camera.label, e.args[0]))
+                if dialog:
+                    dialog.processProgressBar.setValue(len(cameras_to_process))
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                return str_error, end_date_time, log
+            undistorted_footprint_geometry = None
+            try:
+                undistorted_footprint_geometry = ogr.CreateGeometryFromWkt(undistorted_footprint_wkt)
+            except Exception as e:
+                str_error = ('Computing undistorted footprint for image: {}\nGDAL error:\n{}'
+                             .format(camera.label, e.args[0]))
+                if dialog:
+                    dialog.processProgressBar.setValue(len(cameras_to_process))
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                return str_error, end_date_time, log
+            if not undistorted_footprint_geometry.IsValid():
+                str_error = ('Computing undistorted footprint for image: {}\nInvalid geometry'.format(camera.label))
+                if dialog:
+                    dialog.processProgressBar.setValue(len(cameras_to_process))
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                return str_error, end_date_time, log
+            undistorted_footprint_geometry_wkb = None
+            try:
+                undistorted_footprint_geometry_wkb = undistorted_footprint_geometry.ExportToWkb()
+            except Exception as e:
+                str_error = ('Exporting to WKB computed undistorted footprint for image: {}\nGDAL error:\n{}'
+                             .format(camera.label, e.args[0]))
+                if dialog:
+                    dialog.processProgressBar.setValue(len(cameras_to_process))
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                return str_error, end_date_time, log
+            feature = []
+            field = {}
+            field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_FP_FIELD_CHUNK_LABEL
+            field[defs_gdal.FIELD_TYPE_TAG] \
+                = defs_project.fields_by_layer[defs_project_photogrammetry.IMAGES_FP_TABLE_NAME][
+                defs_project_photogrammetry.IMAGES_FP_FIELD_CHUNK_LABEL]
+            field[defs_gdal.FIELD_VALUE_TAG] = camera.at_block.label
+            feature.append(field)
+            field = {}
+            field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_FP_FIELD_IMAGE_ID
+            field[defs_gdal.FIELD_TYPE_TAG] \
+                = defs_project.fields_by_layer[defs_project_photogrammetry.IMAGES_FP_TABLE_NAME][
+                defs_project_photogrammetry.IMAGES_FP_FIELD_IMAGE_ID]
+            field[defs_gdal.FIELD_VALUE_TAG] = camera.id
+            feature.append(field)
+            field = {}
+            field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_FP_FIELD_IMAGE_FILE_NAME
+            field[defs_gdal.FIELD_TYPE_TAG] \
+                = defs_project.fields_by_layer[defs_project_photogrammetry.IMAGES_FP_TABLE_NAME][
+                defs_project_photogrammetry.IMAGES_FP_FIELD_IMAGE_FILE_NAME]
+            field[defs_gdal.FIELD_VALUE_TAG] = camera.image_file_path
+            feature.append(field)
+            field = {}
+            field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_FP_FIELD_FP_GEOM
+            field[defs_gdal.FIELD_TYPE_TAG] \
+                = defs_project.fields_by_layer[defs_project_photogrammetry.IMAGES_FP_TABLE_NAME][
+                defs_project_photogrammetry.IMAGES_FP_FIELD_FP_GEOM]
+            field[defs_gdal.FIELD_VALUE_TAG] = footprint_geometry_wkb
+            feature.append(field)
+            features.append(feature)
+            # undistorted
+            feature = []
+            field = {}
+            field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_FIELD_CHUNK_LABEL
+            field[defs_gdal.FIELD_TYPE_TAG] \
+                = defs_project.fields_by_layer[defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_TABLE_NAME][
+                defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_FIELD_CHUNK_LABEL]
+            field[defs_gdal.FIELD_VALUE_TAG] = camera.at_block.label
+            feature.append(field)
+            field = {}
+            field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_FIELD_IMAGE_ID
+            field[defs_gdal.FIELD_TYPE_TAG] \
+                = defs_project.fields_by_layer[defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_TABLE_NAME][
+                defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_FIELD_IMAGE_ID]
+            field[defs_gdal.FIELD_VALUE_TAG] = camera.id
+            feature.append(field)
+            field = {}
+            field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_FIELD_IMAGE_FILE_NAME
+            field[defs_gdal.FIELD_TYPE_TAG] \
+                = defs_project.fields_by_layer[defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_TABLE_NAME][
+                defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_FIELD_IMAGE_FILE_NAME]
+            field[defs_gdal.FIELD_VALUE_TAG] = camera.undistort_image_file_path
+            feature.append(field)
+            field = {}
+            field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_FIELD_FP_GEOM
+            field[defs_gdal.FIELD_TYPE_TAG] \
+                = defs_project.fields_by_layer[defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_TABLE_NAME][
+                defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_FIELD_FP_GEOM]
+            field[defs_gdal.FIELD_VALUE_TAG] = undistorted_footprint_geometry_wkb
+            feature.append(field)
+            undistorted_features.append(feature)
+            self.footprint_geometry = footprint_geometry
+            self.undistorted_footprint_geometry = undistorted_footprint_geometry
+        if dialog:
+            dialog.processProgressBar.setValue(len(cameras_to_process))
+            dialog.processInformationGroupBox.setEnabled(False)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            QApplication.processEvents()
+        features_by_layer = {}
+        features_by_layer[defs_project_photogrammetry.IMAGES_FP_TABLE_NAME] = features
+        str_error = GDALTools.write_features(self.file_path, features_by_layer)
+        if str_error:
+            str_error = ('Error storing footprints:\n{}'.format(str_error))
+            return str_error, end_date_time, log
+        features_by_layer = {}
+        features_by_layer[defs_project_photogrammetry.IMAGES_UNDISTORTED_FP_TABLE_NAME] = undistorted_features
+        str_error = GDALTools.write_features(self.file_path, features_by_layer)
+        if str_error:
+            str_error = ('Error storing footprints:\n{}'.format(str_error))
+            return str_error, end_date_time, log
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
     def project_definition_gui(self,
                                is_process_creation,
                                parent_widget = None):
@@ -740,3 +1346,85 @@ class ProjectPhotogrammetry(Project):
             self.is_saved = True
         return str_error
 
+    def save_process(self,
+                     process_content,
+                     process_author,
+                     process_label,
+                     process_description,
+                     process_log,
+                     process_date_time_as_string,
+                     process_output,
+                     process_remarks):
+        return super().save_process(process_content,
+                                    process_author,
+                                    process_label,
+                                    process_description,
+                                    process_log,
+                                    process_date_time_as_string,
+                                    process_output,
+                                    process_remarks,
+                                    file_path = self.file_path)
+
+    def update_enabled_images_from_db(self):
+        str_error = ''
+        layer_name = defs_project_photogrammetry.IMAGES_TABLE_NAME
+        camera_label_field_name = defs_project_photogrammetry.IMAGES_FIELD_LABEL
+        block_label_field_name = defs_project_photogrammetry.IMAGES_FIELD_CHUNK_LABEL
+        camera_id_field_name = defs_project_photogrammetry.IMAGES_FIELD_CAMERA_ID
+        enabled_field_name = defs_project_photogrammetry.IMAGES_FIELD_ENABLED
+        fields = {}
+        fields[camera_label_field_name] = defs_project.fields_by_layer[layer_name][camera_label_field_name]
+        fields[block_label_field_name] = defs_project.fields_by_layer[layer_name][block_label_field_name]
+        fields[camera_id_field_name] = defs_project.fields_by_layer[layer_name][camera_id_field_name]
+        fields[enabled_field_name] = defs_project.fields_by_layer[layer_name][enabled_field_name]
+        fid_field_name = defs_gdal.LAYERS_FIELD_FID_FIELD_NAME
+        fields[fid_field_name] = defs_gdal.LAYERS_FIELD_FID_FIELD_TYPE
+        filter_fields = {}
+        # filter_field_name = defs_project.MANAGEMENT_FIELD_NAME
+        # filter_field_value = defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME
+        # filter_fields[filter_field_name] = filter_field_value
+        str_error, features = GDALTools.get_features(self.file_path,
+                                                     layer_name,
+                                                     fields,
+                                                     filter_fields)
+        if str_error:
+            str_error += ('Getting layer {} from gpgk:\n{}\nError:\n{}'.
+                          format(defs_project_photogrammetry.IMAGES_TABLE_NAME,
+                                 self.file_path, str_error))
+            return str_error
+        if len(features) == 0:  # not import metashape markers xml file yet
+            str_error += ('There are no features in layer {} from gpgk:\n{}'.
+                          format(defs_project_photogrammetry.IMAGES_TABLE_NAME,
+                                 self.file_path))
+            return str_error
+        for i in range(len(features)):
+            feature = features[i]
+            block_label = feature[defs_project_photogrammetry.IMAGES_FIELD_CHUNK_LABEL]
+            camera_label = feature[defs_project_photogrammetry.IMAGES_FIELD_LABEL]
+            if not block_label in self.at_block_by_label:
+                str_error = ('Not exists block: {} for camera: {} in layer {} from gpgk:\n{}'.
+                             format(block_label, camera_label, defs_project_photogrammetry.IMAGES_TABLE_NAME,
+                                    self.file_path))
+            camera_id = feature[defs_project_photogrammetry.IMAGES_FIELD_CAMERA_ID]
+            camera = self.at_block_by_label[block_label].get_camera_from_camera_id(camera_id)
+            if not camera:
+                str_error = ('Not exists camera: {} in block: {} in layer {} from gpgk:\n{}'.
+                             format(camera_label, block_label, defs_project_photogrammetry.IMAGES_TABLE_NAME,
+                                    self.file_path))
+            # camera.fid = feature[defs_gdal.LAYERS_FIELD_FID_FIELD_NAME]
+            value = feature[defs_project_photogrammetry.IMAGES_FIELD_ENABLED]
+            camera.enabled = True
+            if value == 0:
+                camera.enabled = False
+            # if value:
+            #     try:
+            #         int_value = int(value)
+            #     except ValueError:
+            #         str_error = ('Invalid value in field: {} for camera: {} in block: {} for camera: {} in layer {} from gpgk:\n{}'.
+            #                      format(defs_project.IMAGES_FIELD_ENABLED, camera_label, block_label,
+            #                             defs_project.IMAGES_TABLE_NAME, file_path))
+            #         return str_error
+            #     if int_value == 0:
+            #         enabled = False
+            #     camera.enabled = enabled
+        return str_error

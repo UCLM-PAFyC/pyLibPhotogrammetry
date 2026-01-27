@@ -9,7 +9,7 @@
         ]
     },
     "src": {
-        "class": "pyLibPhotogrammetry.Project",
+        "class": "pyLibPhotogrammetry.ProjectPhotogrammetry",
         "method": "process_gcps_accuracy_analysis"
     },
     "description": "Description:\n\nA process to analize the accuracy of GCPs",
