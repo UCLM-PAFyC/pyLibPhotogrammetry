@@ -367,9 +367,8 @@ class SensorMetashape(Sensor):
             Z = rotated_coor[2]
         return str_error, X, Y, Z
 
-
-    def set_from_metashape_xml(self,
-                               xml_element):
+    def set_from_xml(self,
+                     xml_element):
         str_error = ''
         #id
         if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_ATTRIBUTE_ID in xml_element:

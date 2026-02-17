@@ -63,8 +63,8 @@ class CalibrationMetashape(Calibration):
         str_error = ('Invalid type: {}'.format(self.type))
         return str_error
 
-    def set_from_metashape_xml(self,
-                               xml_element):
+    def set_from_xml(self,
+                     xml_element):
         str_error = ''
         #type
         if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_TYPE in xml_element:

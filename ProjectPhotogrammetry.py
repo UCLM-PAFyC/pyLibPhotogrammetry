@@ -435,7 +435,7 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Not exists tag: {} in graphos XML file:\n{}'.
                          format(defs_msm.GRAPHOS_DOCUMENT_TAG, file_path))
             return str_error
-        root = value_as_dict[defs_msm.GRAPHOS_DOCUMENT_TAG]
+        root = value_as_dict[defs_gr.GRAPHOS_DOCUMENT_TAG]
         # if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
         #     str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
         #                  format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
