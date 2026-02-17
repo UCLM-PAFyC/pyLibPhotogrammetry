@@ -38,11 +38,13 @@ from pyLibPhotogrammetry.defs import defs_project_photogrammetry as defs_project
 from pyLibPhotogrammetry.defs import defs_processes
 from pyLibPhotogrammetry.defs import defs_images as defs_img
 from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
+from pyLibPhotogrammetry.defs import defs_graphos as defs_gr
 from pyLibParameters import defs_pars
 from pyLibParameters.ParametersManager import ParametersManager
 from pyLibProject.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
 # from pyLibPhotogrammetry.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
 from pyLibPhotogrammetry.lib.ATBlockMetashape import ATBlockMetashape
+from pyLibPhotogrammetry.lib.ATBlockGraphos import ATBlockGraphos
 from pyLibPhotogrammetry.lib.IExifTool import IExifTool
 
 from pyLibCRSs import CRSsDefines as defs_crs
@@ -56,7 +58,9 @@ class ProjectPhotogrammetry(Project):
     def __init__(self, qgis_iface, settings, crs_tools):
         super().__init__(qgis_iface, settings, crs_tools)
         self.file_path = None
-        self.metashape_markers_xml_file = None
+        self.is_graphos_model = False
+        self.is_metashape_model = True
+        self.xml_file_content = None
         self.at_block_by_label = {}
         self.raster_dem_by_file_path = {}
 
@@ -250,14 +254,42 @@ class ProjectPhotogrammetry(Project):
                  return camera
          return None
 
-    def import_metashape_markers(self,
-                                 file_path):
+    def import_from_json_content(self,
+                                 file_path,
+                                 value_as_dict):
         str_error = ''
-        if self.metashape_markers_xml_file:
-            str_error = ('Metashape markers XML file has already been imported into the project')
+        self.is_graphos_model = False
+        self.is_metashape_model = True
+        at_blocks = []
+        at_block_tag = ''
+        if not defs_gr.GRAPHOS_DOCUMENT_TAG in value_as_dict:
+            str_aux_error, at_blocks = self.import_metashape_markers(file_path, value_as_dict)
+            at_block_tag = defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL
+        else:
+            str_aux_error, at_blocks = self.import_graphos(file_path, value_as_dict)
+            self.is_graphos_model = True
+            self.is_metashape_model = False
+            at_block_tag = 'No defined'
+        if str_aux_error:
+            str_error = ('Error importing:\n{}'.format(str_aux_error))
+            return str_error
+        for at_block in at_blocks:
+            if at_block.label in self.at_block_by_label:
+                str_error = ('Exists previous chunk: {} equal label as in XML file:\n{}'.
+                             format(at_block.label, at_block_tag, file_path))
+                return str_error
+            self.at_block_by_label[at_block.label] = at_block
+        self.xml_file_content = value_as_dict
+        return str_error
+
+    def import_from_xml_file(self,
+                             file_path):
+        str_error = ''
+        if self.xml_file_content:
+            str_error = ('XML file has already been imported into the project')
             return str_error
         if not os.path.exists(file_path):
-            str_error = ('Not exists metashape markers XML file: {}'.format(file_path))
+            str_error = ('Not exists XML file: {}'.format(file_path))
             return str_error
         with open(file_path, 'r', encoding='utf-8') as file:
             value_as_xml = file.read()
@@ -266,40 +298,10 @@ class ProjectPhotogrammetry(Project):
         except xmltodict.expat.ExpatError as e:
             str_error = ('Parsing XML file: {}\nError:\n{}'.format(file_path, str(e)))
             return str_error
-        # value_as_string = str(value_as_dict)
-        # build project from xml
-        if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG in value_as_dict:
-            str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG, file_path))
+        str_aux_error = self.import_from_json_content(file_path, value_as_dict)
+        if str_aux_error:
+            str_error = ('Importing from XML file: {}\nError:\n{}'.format(file_path, str_aux_error))
             return str_error
-        root = value_as_dict[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG]
-        if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
-            str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
-            return str_error
-        version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
-        if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
-            str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
-            return str_error
-        chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
-        if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
-            str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
-            return str_error
-
-        # several blocks???
-        at_block = ATBlockMetashape(file_path, self)
-        str_error = at_block.set_from_metashape_xml(chunk_element)
-        if str_error:
-            return str_error
-        if at_block.label in self.at_block_by_label:
-            str_error = ('Exists previous chunk: {} equal label as in metashape markers XML file:\n{}'.
-                         format(at_block.label, defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
-            return str_error
-        self.at_block_by_label[at_block.label] = at_block
-
-        self.metashape_markers_xml_file = value_as_dict
         # store in db metashape markers xml
         value_as_json = json.dumps(value_as_dict, indent=4)
         features = []
@@ -424,40 +426,110 @@ class ProjectPhotogrammetry(Project):
             return str_error
         return str_error
 
-    def load_from_db_metashape_markers(self,
-                                       value_as_dict,
-                                       file_path):
+    def import_graphos(self,
+                       file_path,
+                       value_as_dict):
         str_error = ''
+        at_blocks = []
+        if not defs_gr.GRAPHOS_DOCUMENT_TAG in value_as_dict:
+            str_error = ('Not exists tag: {} in graphos XML file:\n{}'.
+                         format(defs_msm.GRAPHOS_DOCUMENT_TAG, file_path))
+            return str_error
+        root = value_as_dict[defs_msm.GRAPHOS_DOCUMENT_TAG]
+        # if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
+        #     str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
+        #                  format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
+        #     return str_error
+        # version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
+        # if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
+        #     str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
+        #                  format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
+        #     return str_error
+        # chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
+        # if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
+        #     str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
+        #                  format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
+        #     return str_error
+        at_block_element = root
+
+        # several blocks???
+        at_block = ATBlockGraphos(file_path, self)
+        str_error = at_block.set_from_xml(at_block_element)
+        at_blocks.append(at_block)
+        if str_error:
+            return str_error, at_blocks
+
+        return str_error, at_blocks
+
+    def import_metashape_markers(self,
+                                 file_path,
+                                 value_as_dict):
+        str_error = ''
+        at_blocks = []
+        # value_as_string = str(value_as_dict)
+        # build project from xml
         if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG in value_as_dict:
             str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
                          format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG, file_path))
-            return str_error
+            return str_error, at_blocks
         root = value_as_dict[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG]
         if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
             str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
                          format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
-            return str_error
+            return str_error, at_blocks
         version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
         if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
             str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
                          format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
-            return str_error
+            return str_error, at_blocks
         chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
         if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
             str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
                          format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
-            return str_error
+            return str_error, at_blocks
+
+        # several blocks???
         at_block = ATBlockMetashape(file_path, self)
-        str_error = at_block.set_from_metashape_xml(chunk_element)
+        str_error = at_block.set_from_xml(chunk_element)
+        at_blocks.append(at_block)
         if str_error:
-            return str_error
-        if at_block.label in self.at_block_by_label:
-            str_error = ('Exists previous chunk: {} equal label as in metashape markers XML file:\n{}'.
-                         format(at_block.label, defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
-            return str_error
-        self.metashape_markers_xml_file = value_as_dict
-        self.at_block_by_label[at_block.label] = at_block
-        return str_error
+            return str_error, at_blocks
+        return str_error, at_blocks
+
+    # def load_from_db_metashape_markers(self,
+    #                                    value_as_dict,
+    #                                    file_path):
+    #     str_error = ''
+    #     if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG in value_as_dict:
+    #         str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
+    #                      format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG, file_path))
+    #         return str_error
+    #     root = value_as_dict[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG]
+    #     if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
+    #         str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
+    #                      format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
+    #         return str_error
+    #     version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
+    #     if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
+    #         str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
+    #                      format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
+    #         return str_error
+    #     chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
+    #     if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
+    #         str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
+    #                      format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
+    #         return str_error
+    #     at_block = ATBlockMetashape(file_path, self)
+    #     str_error = at_block.set_from_xml(chunk_element)
+    #     if str_error:
+    #         return str_error
+    #     if at_block.label in self.at_block_by_label:
+    #         str_error = ('Exists previous chunk: {} equal label as in metashape markers XML file:\n{}'.
+    #                      format(at_block.label, defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
+    #         return str_error
+    #     self.xml_file_content = value_as_dict
+    #     self.at_block_by_label[at_block.label] = at_block
+    #     return str_error
 
     def load_images_data_from_db(self,
                                  file_path):
@@ -702,15 +774,17 @@ class ProjectPhotogrammetry(Project):
         #     #                     file_name, defs_project.MANAGEMENT_FIELD_CONTENT, defs_project.MANAGEMENT_LAYER_NAME))
         #     # return str_error
         if len(features) == 1: # not import metashape markers xml file yet
-            markers_xml_json_content = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
-            markers_xml_file_path = features[0][defs_project.MANAGEMENT_FIELD_REMARKS]
+            json_content = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
+            xml_file_path = features[0][defs_project.MANAGEMENT_FIELD_REMARKS]
             # json_acceptable_string = value.replace("'", "\"")
             # management_json_content = json.loads(json_acceptable_string)
-            markers_xml_json_content = json.loads(markers_xml_json_content)
-            str_error = self.load_from_db_metashape_markers(markers_xml_json_content,
-                                                            markers_xml_file_path)
+            json_content = json.loads(json_content)
+            # str_error = self.load_from_db_metashape_markers(xml_file_path,
+            #                                                 json_content)
+            str_error = self.import_from_json_content(xml_file_path,
+                                                      json_content)
             if str_error:
-                str_error = ('\nSetting metashape markers from project file:\n{}\nerror:\n{}'.format(file_path, str_error))
+                str_error = ('\nSetting from project file:\n{}\nerror:\n{}'.format(file_path, str_error))
                 return str_error
 
             # images

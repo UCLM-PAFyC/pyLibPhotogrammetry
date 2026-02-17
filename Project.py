@@ -406,7 +406,7 @@ class Project:
 
         # several blocks???
         at_block = ATBlockMetashape(file_path, self)
-        str_error = at_block.set_from_metashape_xml(chunk_element)
+        str_error = at_block.set_from_xml(chunk_element)
         if str_error:
             return str_error
         if at_block.label in self.at_block_by_label:
@@ -910,7 +910,7 @@ class Project:
                          format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
             return str_error
         at_block = ATBlockMetashape(file_path, self)
-        str_error = at_block.set_from_metashape_xml(chunk_element)
+        str_error = at_block.set_from_xml(chunk_element)
         if str_error:
             return str_error
         if at_block.label in self.at_block_by_label:

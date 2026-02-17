@@ -236,8 +236,8 @@ class ATBlockMetashape(ATBlock):
             image_position_backward_error_by_camera_id[camera_id] = error_camera_coordinates
         return str_error, position, std_position, image_position_backward_error_by_camera_id
 
-    def set_from_metashape_xml(self,
-                               xml_element):
+    def set_from_xml(self,
+                     xml_element):
         str_error = ''
         label = xml_element[defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL]
         if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_ENABLED in xml_element:
@@ -487,7 +487,7 @@ class ATBlockMetashape(ATBlock):
         for i in range(len(sensors_list)):
             sensor_element = sensors_list[i]
             sensor = SensorMetashape(self)
-            str_error = sensor.set_from_metashape_xml(sensor_element)
+            str_error = sensor.set_from_xml(sensor_element)
             if str_error:
                 str_error = ('Loading sensor position: {}\nError:\n{}'.format(str(i+1), str_error))
                 return str_error
@@ -561,7 +561,7 @@ class ATBlockMetashape(ATBlock):
             for i in range(len(cameras_group_camera_list_element)):
                 camera_element = cameras_group_camera_list_element[i]
                 camera = CameraMetashape(self)
-                str_error = camera.set_from_metashape_xml(camera_element)
+                str_error = camera.set_from_xml(camera_element)
                 if str_error:
                     str_error = ('Loading camera position: {}\nError:\n{}'.format(str(i + 1), str_error))
                     return str_error
@@ -584,7 +584,7 @@ class ATBlockMetashape(ATBlock):
         for i in range(len(camera_list_element)):
             camera_element = camera_list_element[i]
             camera = CameraMetashape(self)
-            str_error = camera.set_from_metashape_xml(camera_element)
+            str_error = camera.set_from_xml(camera_element)
             if str_error:
                 str_error = ('Loading camera position: {}\nError:\n{}'.format(str(i+1), str_error))
                 return str_error
@@ -617,7 +617,7 @@ class ATBlockMetashape(ATBlock):
         for i in range(len(markers_list_element)):
             marker_element = markers_list_element[i]
             gcp = ObjectPointMetashape(self)
-            str_error = gcp.set_from_metashape_xml(marker_element)
+            str_error = gcp.set_from_xml(marker_element)
             if str_error:
                 str_error = ('Loading marker position: {}\nError:\n{}'.format(str(i+1), str_error))
                 return str_error

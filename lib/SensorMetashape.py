@@ -708,7 +708,7 @@ class SensorMetashape(Sensor):
         for i in range(len(calibrations_list)):
             calibration_element = calibrations_list[i]
             calibration = CalibrationMetashape(self)
-            str_error = calibration.set_from_metashape_xml(calibration_element)
+            str_error = calibration.set_from_xml(calibration_element)
             if str_error:
                 str_error = ('Loading calibration position: {}\n in sensor: {} in metashape markers XML file:\n{}'.
                              format(str(i+1), self.label, self.at_block.file_path))
