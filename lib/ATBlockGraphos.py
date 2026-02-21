@@ -25,7 +25,7 @@ from pyLibCRSs.CRSsTools import CRSsTools
 from pyLibPhotogrammetry.lib.ATBlock import ATBlock
 from pyLibPhotogrammetry.lib.SensorGraphos import SensorGraphos
 from pyLibPhotogrammetry.lib.CameraGraphos import CameraGraphos
-# from pyLibPhotogrammetry.lib.ObjectPointMetashape import ObjectPointMetashape
+from pyLibPhotogrammetry.lib.ObjectPointGraphos import ObjectPointGraphos
 from pyLibPhotogrammetry.lib.ImagePoint import ImagePoint
 
 class ATBlockGraphos(ATBlock):
@@ -133,10 +133,10 @@ class ATBlockGraphos(ATBlock):
                                     defs_gr.GRAPHOS_XML_IMAGES_IMAGE_TAG,
                                     defs_gr.GRAPHOS_XML_IMAGES_IMAGES_TAG, str(i+1), self.file_path))
             file_path = image_content[defs_gr.GRAPHOS_XML_IMAGES_IMAGE_FILE_TAG]
-            file_basename_with_extension = os.path.basename(file_path)
+            file_basename_without_extension = os.path.basename(file_path).split('.')[0]
             camera_id = image_content[defs_gr.GRAPHOS_XML_IMAGES_IMAGE_ID_TAG]
             sensor_id_by_camera_id[camera_id] = sensor_id
-            camera_file_basename_by_camera_id[camera_id] = file_basename_with_extension
+            camera_file_basename_by_camera_id[camera_id] = file_basename_without_extension
 
         # ORIENTATIONS GRAPHOS === CAMERAS METASHAPE
         if not defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG in xml_element:
@@ -149,12 +149,37 @@ class ATBlockGraphos(ATBlock):
                          format(defs_gr.GRAPHOS_XML_ORIENTATIONS_CRS_TAG,
                                 defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, self.file_path))
             return str_error
-        crs_id_enu = orientations_element[defs_gr.GRAPHOS_XML_ORIENTATIONS_CRS_TAG]
+        crs_enu_id = orientations_element[defs_gr.GRAPHOS_XML_ORIENTATIONS_CRS_TAG]
         if not defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_TAG in orientations_element:
             str_error = ('Not exists element: {} in: {} in at block in XML file:\n{}'.
                          format(defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_TAG,
                                 defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, self.file_path))
             return str_error
+        crs_geo2d_id = self.project.crs_tools.get_crs_geo2d_for_crs(crs_enu_id)
+        if crs_geo2d_id is None:
+            str_error = ('Error getting GEO 2D CRS from value:\n{}\nin element: {} in: {} in at block in XML file:\n{}'.
+                         format(crs_enu_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_TAG,
+                                defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, self.file_path))
+            return str_error
+        crs_ecef_ids = self.project.crs_tools.get_crs_ecef_ids_for_crs_geo2d_id(crs_geo2d_id)
+        if crs_ecef_ids is None:
+            str_error = ('Error getting ECEF CRS from value:\n{}\nin element: {} in: {} in at block in XML file:\n{}'.
+                         format(crs_enu_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_TAG,
+                                defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, self.file_path))
+            return str_error
+        crs_ecef_id = crs_ecef_ids[0]
+        crs_geo3d_ids = self.project.crs_tools.get_crs_geo3d_ids_for_crs_geo2d_id(crs_geo2d_id)
+        if crs_geo3d_ids is None:
+            str_error = ('Error getting GE= 3D CRS from value:\n{}\nin element: {} in: {} in at block in XML file:\n{}'.
+                         format(crs_enu_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_TAG,
+                                defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, self.file_path))
+            return str_error
+        crs_geo3d_id = crs_geo3d_ids[0]
+        # self.crs_enu_id = crs_enu_id
+        self.crs_enu_id = crs_enu_id
+        self.crs_geo2d_id = crs_geo2d_id
+        self.crs_ecef_id = crs_ecef_id
+        self.crs_geo3d_id = crs_geo3d_id
         orientation_images_content = orientations_element[defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_TAG]
         if not isinstance(orientation_images_content, list):
             str_error = ('Element: {} in: {}\nis not a list in at block in XML file:\n{}'.
@@ -170,12 +195,20 @@ class ATBlockGraphos(ATBlock):
                                     defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, str(i + 1), self.file_path))
                 return str_error
             camera_id = camera_element[defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_ID_TAG]
+            if not camera_id in sensor_id_by_camera_id:
+                str_error = ('Not found sensor for camera id: {} in: {} in: {}\nat block in XML file:\n{}'.
+                             format(camera_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_ID_TAG,
+                                    defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_TAG,
+                                    defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, self.file_path))
+                return str_error
+            camera_sensor_id = sensor_id_by_camera_id[camera_id]
             if not camera_id in camera_file_basename_by_camera_id:
                 str_error = ('Not found image for camera id: {} in: {} in: {}\nat block in XML file:\n{}'.
                              format(camera_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_ID_TAG,
                                     defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_TAG,
                                     defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, self.file_path))
                 return str_error
+            camera_label = camera_file_basename_by_camera_id[camera_id]
             if not defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_X_TAG in camera_element:
                 str_error = ('Not exists element: {} in: {} in: {} in in image number: {}\nat block in XML file:\n{}'.
                              format(defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_X_TAG,
@@ -183,9 +216,9 @@ class ATBlockGraphos(ATBlock):
                                     defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, str(i + 1), self.file_path))
                 return str_error
             camera_x_str = camera_element[defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_X_TAG]
-            camera_x = None
+            camera_enu_x = None
             try:
-                camera_x = float(camera_x_str)
+                camera_enu_x = float(camera_x_str)
             except ValueError:
                 str_error = ('For camera id: {} in element: {} value: {} is not a double\nat block in XML file:\n{}'.
                              format(camera_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG,
@@ -198,9 +231,9 @@ class ATBlockGraphos(ATBlock):
                                     defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, str(i + 1), self.file_path))
                 return str_error
             camera_y_str = camera_element[defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_Y_TAG]
-            camera_y = None
+            camera_enu_y = None
             try:
-                camera_y = float(camera_y_str)
+                camera_enu_y = float(camera_y_str)
             except ValueError:
                 str_error = ('For camera id: {} in element: {} value: {} is not a double\nat block in XML file:\n{}'.
                              format(camera_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG,
@@ -213,9 +246,9 @@ class ATBlockGraphos(ATBlock):
                                     defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG, str(i + 1), self.file_path))
                 return str_error
             camera_z_str = camera_element[defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_Z_TAG]
-            camera_z = None
+            camera_enu_z = None
             try:
-                camera_z = float(camera_z_str)
+                camera_enu_z = float(camera_z_str)
             except ValueError:
                 str_error = ('For camera id: {} in element: {} value: {} is not a double\nat block in XML file:\n{}'.
                              format(camera_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG,
@@ -241,13 +274,122 @@ class ATBlockGraphos(ATBlock):
                              format(camera_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG,
                                     defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_ROT_TAG, self.file_path))
                 return str_error
-            camera_rotation = np.zeros((3, 3))
+            camera_enu_rot = np.zeros((3, 3))
             for row in range(0, 3):
                 for col in range(0, 3):
                     pos = row * 3 + col
-                    camera_rotation[row, col] = rot_values[pos]
+                    camera_enu_rot[row, col] = rot_values[pos]
+            camera = CameraGraphos(self)
+            str_error = camera.initialize(camera_id, camera_sensor_id, camera_label,
+                                          camera_enu_x, camera_enu_y, camera_enu_z, camera_enu_rot)
+            if str_error:
+                str_error = ('Initializing camera id: {} in element: {} value: {} \nat block in XML file:\n{}\nError:\n{}'.
+                             format(camera_id, defs_gr.GRAPHOS_XML_ORIENTATIONS_TAG,
+                                    defs_gr.GRAPHOS_XML_ORIENTATIONS_IMAGES_IMAGE_ROT_TAG, self.file_path, str_error))
+                return str_error
+            self.camera_by_id[camera.id] = camera
 
+        # GROUND CONTROL POINTS GRAPHOS, needed for project crs_id, at least
+        if not defs_gr.GRAPHOS_XML_GCPS_TAG in xml_element:
+            str_error = ('Not exists element: {} in at block in XML file:\n{}'.
+                         format(defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+            return str_error
+        gcps_element = xml_element[defs_gr.GRAPHOS_XML_GCPS_TAG]
+        if not defs_gr.GRAPHOS_XML_GCPS_CRS_TAG in gcps_element:
+            str_error = ('Not exists element: {} in: {} in at block in XML file:\n{}'.
+                         format(defs_gr.GRAPHOS_XML_GCPS_CRS_TAG,
+                                defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+            return str_error
+        self.crs_id = gcps_element[defs_gr.GRAPHOS_XML_GCPS_CRS_TAG]
+        if defs_gr.GRAPHOS_XML_GCPS_GCP_TAG in gcps_element:
+            gcps_list = gcps_element[defs_gr.GRAPHOS_XML_GCPS_GCP_TAG]
+            if not isinstance(gcps_list, list):
+                str_error = ('Element: {} in: {}\nis not a list in at block in XML file:\n{}'.
+                             format(defs_gr.GRAPHOS_XML_GCPS_GCP_TAG,
+                                    defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+                return str_error
+            for i in range(len(gcps_list)):
+                gcp_content = gcps_list[i]
+                # name
+                if not defs_gr.GRAPHOS_XML_GCPS_GCP_NAME_TAG in gcp_content:
+                    str_error = ('Not {} in element: {} position: {} in: {}\nin at block in XML file:\n{}'.
+                                 format(defs_gr.GRAPHOS_XML_GCPS_GCP_NAME_, defs_gr.GRAPHOS_XML_GCPS_GCP_TAG,
+                                        str(i+1), defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+                    return str_error
+                gcp_name = gcp_content[defs_gr.GRAPHOS_XML_GCPS_GCP_NAME_TAG]
+                # x
+                if not defs_gr.GRAPHOS_XML_GCPS_GCP_X_TAG in gcp_content:
+                    str_error = ('Not {} in GCP: {} in: {}\nin at block in XML file:\n{}'.
+                                 format(defs_gr.GRAPHOS_XML_GCPS_GCP_X_TAG, gcp_name,
+                                        str(i+1), defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+                    return str_error
+                gcp_x_str = gcp_content[defs_gr.GRAPHOS_XML_GCPS_GCP_X_TAG]
+                gcp_x = None
+                try:
+                    gcp_x = float(gcp_x_str)
+                except ValueError:
+                    str_error = ('Not x float in GCP: {} in: {}\nin at block in XML file:\n{}'.
+                                 format(defs_gr.GRAPHOS_XML_GCPS_GCP_X_TAG, gcp_name,
+                                        str(i+1), defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+                    return str_error
+                # y
+                if not defs_gr.GRAPHOS_XML_GCPS_GCP_Y_TAG in gcp_content:
+                    str_error = ('Not {} in GCP: {} in: {}\nin at block in XML file:\n{}'.
+                                 format(defs_gr.GRAPHOS_XML_GCPS_GCP_X_TAG, gcp_name,
+                                        str(i+1), defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+                    return str_error
+                gcp_y_str = gcp_content[defs_gr.GRAPHOS_XML_GCPS_GCP_Y_TAG]
+                gcp_y = None
+                try:
+                    gcp_y = float(gcp_y_str)
+                except ValueError:
+                    str_error = ('Not y float in GCP: {} in: {}\nin at block in XML file:\n{}'.
+                                 format(defs_gr.GRAPHOS_XML_GCPS_GCP_Y_TAG, gcp_name,
+                                        str(i+1), defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+                    return str_error
+                # z
+                if not defs_gr.GRAPHOS_XML_GCPS_GCP_Z_TAG in gcp_content:
+                    str_error = ('Not {} in GCP: {} in: {}\nin at block in XML file:\n{}'.
+                                 format(defs_gr.GRAPHOS_XML_GCPS_GCP_Z_TAG, gcp_name,
+                                        str(i+1), defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+                    return str_error
+                gcp_z_str = gcp_content[defs_gr.GRAPHOS_XML_GCPS_GCP_Z_TAG]
+                gcp_z = None
+                try:
+                    gcp_z = float(gcp_z_str)
+                except ValueError:
+                    str_error = ('Not z float in GCP: {} in: {}\nin at block in XML file:\n{}'.
+                                 format(defs_gr.GRAPHOS_XML_GCPS_GCP_Z_TAG, gcp_name,
+                                        str(i+1), defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path))
+                    return str_error
+                gcp = ObjectPointGraphos(self)
+                str_error = gcp.initialize(gcp_name, gcp_x, gcp_y, gcp_z, self.crs_id)
+                if str_error:
+                    str_error = ('Initializing GCP: {} in: {}\nin at block in XML file:\n{}\nError:\n{}'.
+                                 format(defs_gr.GRAPHOS_XML_GCPS_GCP_Z_TAG, gcp_name,
+                                        str(i+1), defs_gr.GRAPHOS_XML_GCPS_TAG, self.file_path, str_error))
+                    return str_error
+
+
+
+
+            GRAPHOS_XML_GCPS_GCP_NAME_TAG = "Name"
+            GRAPHOS_XML_GCPS_GCP_X_TAG = "x"
+            GRAPHOS_XML_GCPS_GCP_Y_TAG = "y"
+            GRAPHOS_XML_GCPS_GCP_Z_TAG = "z"
+            GRAPHOS_XML_GCPS_GCP_ERROR_TAG = "error"
+            GRAPHOS_XML_GCPS_GCP_IMAGE_POINTS_TAG = "ImagePoints"
+            GRAPHOS_XML_GCPS_GCP_IMAGE_POINT_TAG = "ImagePoint"
+            GRAPHOS_XML_GCPS_GCP_IMAGE_POINT_TAG = "ImagePoint"
+            GRAPHOS_XML_GCPS_GCP_IMAGE_POINT_IMAGE_ID_TAG = "@image_id"
+            GRAPHOS_XML_GCPS_GCP_IMAGE_POINT_IMAGE_X_TAG = "x"
+            GRAPHOS_XML_GCPS_GCP_IMAGE_POINT_IMAGE_Y_TAG = "y"
+            GRAPHOS_XML_GCPS_GCP_IMAGE_POINT_IMAGE_ERROR_X_TAG = "ex"
+            GRAPHOS_XML_GCPS_GCP_IMAGE_POINT_IMAGE_ERROR_Y_TAG = "ey"
             yo = 1
+
+
+        yo = 1
             # camera = CameraGraphos(self)
             # str_error = camera.set_from_xml(camera_element)
             # if str_error:

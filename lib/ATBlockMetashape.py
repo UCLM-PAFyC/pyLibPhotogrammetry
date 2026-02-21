@@ -400,14 +400,14 @@ class ATBlockMetashape(ATBlock):
                     format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
                 return str_error
             camera_crs_ecef_ids = self.project.crs_tools.get_crs_ecef_ids_for_crs_geo2d_id(camera_crs_geo2d_id)
-            if crs_ecef_ids is None:
+            if camera_crs_ecef_ids is None:
                 str_error = (
                     'Getting CRS ECEF from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
                     format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
                 return str_error
             camera_crs_ecef_id = camera_crs_ecef_ids[0]
             camera_crs_geo3d_ids = self.project.crs_tools.get_crs_geo3d_ids_for_crs_geo2d_id(camera_crs_geo2d_id)
-            if crs_geo3d_ids is None:
+            if camera_crs_geo3d_ids is None:
                 str_error = (
                     'Getting CRS geographic 3D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
                     format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
@@ -443,14 +443,14 @@ class ATBlockMetashape(ATBlock):
                     format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
                 return str_error
             gcps_crs_ecef_ids = self.project.crs_tools.get_crs_ecef_ids_for_crs_geo2d_id(gcps_crs_geo2d_id)
-            if crs_ecef_ids is None:
+            if gcps_crs_ecef_ids is None:
                 str_error = (
                     'Getting CRS ECEF from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
                     format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
                 return str_error
             gcps_crs_ecef_id = gcps_crs_ecef_ids[0]
             gcps_crs_geo3d_ids = self.project.crs_tools.get_crs_geo3d_ids_for_crs_geo2d_id(gcps_crs_geo2d_id)
-            if crs_geo3d_ids is None:
+            if gcps_crs_geo3d_ids is None:
                 str_error = (
                     'Getting CRS geographic 3D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
                     format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
