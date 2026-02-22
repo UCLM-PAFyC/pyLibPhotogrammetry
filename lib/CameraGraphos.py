@@ -41,6 +41,7 @@ class CameraGraphos(Camera):
         self.pc_enu = None
         self.pc_ecef = None
         self.pc_geo3d = None
+        self.enu_rot = None
 
     def initialize(self, id, sensor_id, label, enu_x, enu_y, enu_z, enu_rot):
         str_error = ''
@@ -59,7 +60,7 @@ class CameraGraphos(Camera):
                          format(self.label, str_error))
             return str_error
         self.pc_geo3d = np.array(pc_geo3d[0])
-        self.pc = self.pc_geo3d
+        # self.pc = self.pc_geo3d
         pc_ecef = [[self.pc_geo3d[0], self.pc_geo3d[1], self.pc_geo3d[2]]]
         str_error = self.crs_tools.operation(self.at_block.crs_geo3d_id, self.at_block.crs_ecef_id, pc_ecef)
         if str_error:
@@ -68,18 +69,19 @@ class CameraGraphos(Camera):
             return str_error
         self.pc_ecef = np.array(pc_ecef[0])
         # self.pc_geo3d = np.array(pc_geo3d[0])
-        # self.pc = self.pc_geo3d
-        # str_error, crs_is_geographic = self.crs_tools.is_geographic(self.at_block.crs_id)
-        # if str_error:
-        #     str_error = ('In camera: {} in metashape markers XML file:\n{}\nError getting is geographic chunk CRS:\n{}'.
-        #                  format(self.label, self.at_block.file_path, str_error))
-        #     return str_error
-        # if not crs_is_geographic:
-        #     str_error = self.crs_tools.operation(self.at_block.crs_geo3d_id, self.at_block.crs_id, pc_geo3d)
-        #     if str_error:
-        #         str_error = ('In camera: {} in metashape markers XML file:\n{}\nError in ECEF to Geo3D operation:\n{}'.
-        #                      format(self.label, self.at_block.file_path, str_error))
-        #         return str_error
-        #     self.pc = np.array(pc_geo3d[0])
-
+        self.pc = self.pc_geo3d
+        str_error, crs_is_geographic = self.crs_tools.is_geographic(self.at_block.crs_id)
+        if str_error:
+            str_error = ('In camera: {} \nError getting is geographic chunk CRS:\n{}'.
+                         format(self.label, str_error))
+            return str_error
+        if not crs_is_geographic:
+            str_error = self.crs_tools.operation(self.at_block.crs_geo3d_id, self.at_block.crs_id, pc_geo3d)
+            if str_error:
+                str_error = ('In camera: {} \nError in ECEF to Geo3D operation:\n{}'.
+                             format(self.label, str_error))
+                return str_error
+            self.pc = np.array(pc_geo3d[0])
+        self.enu_rot = enu_rot
+        self.enabled = True
         return str_error

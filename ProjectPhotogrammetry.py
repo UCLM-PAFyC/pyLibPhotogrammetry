@@ -344,10 +344,6 @@ class ProjectPhotogrammetry(Project):
             at_block = self.at_block_by_label[at_block_label]
             for camera_id in at_block.camera_by_id:
                 camera = at_block.camera_by_id[camera_id]
-                # if camera.label != "IMG_0022_1" and camera.label != "IMG_0194_1":
-                #     continue
-                if "IMG_0022" in camera.label:
-                    yo = 1
                 feature = []
                 field = {}
                 field[defs_gdal.FIELD_NAME_TAG] = defs_project_photogrammetry.IMAGES_FIELD_LABEL
