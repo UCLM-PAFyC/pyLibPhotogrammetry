@@ -335,8 +335,8 @@ class CameraMetashape(Camera):
                 return is_usefull
         return is_usefull
 
-    def set_from_metashape_xml(self,
-                               xml_element):
+    def set_from_xml(self,
+                     xml_element):
         str_error = ''
         #id
         if not defs_msm.METASHAPE_MARKERS_XML_CAMERA_ATTRIBUTE_ID in xml_element:

@@ -29,8 +29,8 @@ class ObjectPointMetashape(ObjectPoint):
         super().__init__(at_block)
         self.position_chunk = None
 
-    def set_from_metashape_xml(self,
-                               xml_element):
+    def set_from_xml(self,
+                     xml_element):
         str_error = ''
         #id
         if not defs_msm.METASHAPE_MARKERS_XML_MARKERS_MARKER_ATTRIBUTE_ID in xml_element:

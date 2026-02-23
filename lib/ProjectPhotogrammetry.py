@@ -4,8 +4,9 @@
 from PyQt5.QtWidgets import QApplication, QMessageBox, QDialog, QFileDialog, QPushButton, QComboBox
 from PyQt5.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
 
-import os
-import sys
+import os, sys
+import json
+import xmltodict
 import math
 import random
 import re
@@ -19,20 +20,32 @@ gdal.UseExceptions()
 
 current_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_path, '..'))
-sys.path.append(os.path.join(current_path, '../..'))
-# sys.path.insert(0, '..')
-# sys.path.insert(0, '../..')
 
+from PyQt5.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
+
+# common_libs_absolute_path = os.path.join(current_path, defs_paths.COMMON_LIBS_RELATIVE_PATH)
+# sys.path.append(common_libs_absolute_path)
+
+from pyLibProject.defs import defs_project_definition
+from pyLibProject.lib.Project import Project
+# from pyLibProject.defs import defs_project
+# from pyLibProject.defs import defs_layers_groups
+# from pyLibProject.defs import defs_layers
 from pyLibProcesses.defs import defs_project as processes_defs_project
 from pyLibProcesses.defs import defs_processes as processes_defs_processes
-from pyLibPhotogrammetry.defs import defs_project, defs_processes
+# from pyLibPhotogrammetry.defs import defs_project as defs_project_lib
+# from pyLibPhotogrammetry.defs import defs_project_photogrammetry as defs_project_photogrammetry
+from pyLibPhotogrammetry.defs import defs_project as defs_project
+from pyLibPhotogrammetry.defs import defs_processes
 from pyLibPhotogrammetry.defs import defs_images as defs_img
 from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
+from pyLibPhotogrammetry.defs import defs_graphos as defs_gr
 from pyLibParameters import defs_pars
 from pyLibParameters.ParametersManager import ParametersManager
 from pyLibProject.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
 # from pyLibPhotogrammetry.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
 from pyLibPhotogrammetry.lib.ATBlockMetashape import ATBlockMetashape
+from pyLibPhotogrammetry.lib.ATBlockGraphos import ATBlockGraphos
 from pyLibPhotogrammetry.lib.IExifTool import IExifTool
 
 from pyLibCRSs import CRSsDefines as defs_crs
@@ -42,34 +55,13 @@ from pyLibGDAL import defs_gdal
 from pyLibGDAL.GDALTools import GDALTools
 from pyLibGDAL.RasterDEM import RasterDEM
 
-class Project:
-    def __init__(self,
-                 qgis_iface,
-                 settings):
-        self.qgis_iface = qgis_iface
-        self.settings = settings
+class ProjectPhotogrammetry(Project):
+    def __init__(self, qgis_iface, settings, crs_tools):
+        super().__init__(qgis_iface, settings, crs_tools)
         self.file_path = None
-        self.project_definition = {}
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_NAME] = None
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_TAG] = None
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR] = None
-        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_GEO3D_CRS] = None
-        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_GEO2D_CRS] = None
-        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_ECEF_CRS] = None
-        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = defs_project.CRS_PROJECTED_DEFAULT
-        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = defs_project.CRS_VERTICAL_DEFAULT
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_CRS] = defs_project.CRS_DEFAULT
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH] = None
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_DESCRIPTION] = None
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_START_DATE] = None
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_FINISH_DATE] = None
-        self.crs_id = ''
-        self.crs_tools = None
-        # self.gpkg_tools = None
-        self.map_views = {}
-        self.process_by_label = {}
-        self.initialize()
-        self.metashape_markers_xml_file = None
+        self.is_graphos_model = False
+        self.is_metashape_model = True
+        self.xml_file_content = None
         self.at_block_by_label = {}
         self.raster_dem_by_file_path = {}
 
@@ -163,18 +155,6 @@ class Project:
                 camera.exif = exif_as_dict
         return str_error
 
-    def add_map_view(self,
-                      map_view_id,
-                      map_view_wkb_geometry):
-        str_error = ''
-        if map_view_id in self.map_views:
-            str_error = ('Exists a previous location with name: {}'.format(map_view_id))
-            return str_error
-        update = False
-        return self.save_map_view(map_view_id,
-                                  map_view_wkb_geometry,
-                                  update)
-
     def add_undistort_image_files(self,
                                   files,
                                   dialog):
@@ -247,102 +227,24 @@ class Project:
                 camera.undistort_image_file_path = undistort_image_file_path
         return str_error
 
-    def create_layer_managment(self,
-                               file_path):
+    def create(self, file_path, parent_widget = None):
         str_error = ''
-        for layer_name in defs_project.fields_by_layer:
-            if layer_name != defs_project.MANAGEMENT_LAYER_NAME:
-                continue
-            layers_definition = {}
-            layers_definition[layer_name] = {}
-            layers_definition[layer_name] \
-                = defs_project.fields_by_layer[layer_name]
-            layers_crs_id = {}
-            if defs_project.fields_by_layer[layer_name][defs_gdal.LAYERS_GEOMETRY_POSTGIS_TAG] == defs_gdal.geometry_type_by_name['none']:
-                layers_crs_id[layer_name] = None
-            else:
-                # project_crs_id =  self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-                # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = defs_project.CRS_VERTICAL_DEFAULT
-                layer_crs_id = self.crs_id
-                layers_crs_id[layer_name] = layer_crs_id
-            ignore_existing_layers = False  # create new gpkg
-            create_options = defs_project.create_options
-            str_error = GDALTools.create_vector(file_path,
-                                                layers_definition,
-                                                layers_crs_id,
-                                                ignore_existing_layers,
-                                                create_options)
-            if str_error:
-                str_error = ('Creating layer:\n{}\nin file:\n{}\nError:\n{}'.format(layer_name, file_path, str_error))
-                return str_error
-        self.file_path = file_path
-        return str_error
-
-    def create_layers(self,
-                      file_path):
-        str_error = ''
-        for layer_name in defs_project.fields_by_layer:
-            if layer_name == defs_project.MANAGEMENT_LAYER_NAME:
-                continue
-            layers_definition = {}
-            layers_definition[layer_name] = {}
-            layers_definition[layer_name] \
-                = defs_project.fields_by_layer[layer_name]
-            layers_crs_id = {}
-            if defs_project.fields_by_layer[layer_name][defs_gdal.LAYERS_GEOMETRY_POSTGIS_TAG] == defs_gdal.geometry_type_by_name['none']:
-                layers_crs_id[layer_name] = None
-            else:
-                # project_crs_id =  self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-                # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = defs_project.CRS_VERTICAL_DEFAULT
-                layer_crs_id = self.crs_id
-                layers_crs_id[layer_name] = layer_crs_id
-            ignore_existing_layers = True  # create new gpkg
-            create_options = defs_project.create_options
-            str_error = GDALTools.create_vector(file_path,
-                                                layers_definition,
-                                                layers_crs_id,
-                                                ignore_existing_layers,
-                                                create_options)
-            if str_error:
-                str_error = ('Creating layer:\n{}\nin file:\n{}\nError:\n{}'.format(layer_name, file_path, str_error))
-                return str_error
-        return str_error
-
-    # def create_locations_layer(self):
-    #     str_error = ''
-    #     layers_definition = {}
-    #     layers_definition[defs_project.LOCATIONS_LAYER_NAME] = {}
-    #     layers_definition[defs_project.LOCATIONS_LAYER_NAME] \
-    #         = defs_project.fields_by_layer[defs_project.LOCATIONS_LAYER_NAME]
-    #     layers_crs_id = {}
-    #     layers_crs_id[defs_project.LOCATIONS_LAYER_NAME] \
-    #         = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-    #     ignore_existing_layers = True # no create new gpkg
-    #     str_error = GDALTools.create_vector(self.file_path,
-    #                                         layers_definition,
-    #                                         layers_crs_id,
-    #                                         ignore_existing_layers)
-    #     return str_error
-
-    def create_processes_layer(self):
-        str_error = ''
-        str_error, exists_layer = GDALTools.exists_layer(self.file_path, processes_defs_project.PROCESESS_LAYER_NAME)
+        definition_is_saved = False
+        is_process_creation = True
+        # create layers
+        str_error = super().create_layers(file_path = file_path)
         if str_error:
-            return str_error
-        if exists_layer:
-            return str_error
-        layers_definition = {}
-        layers_definition[processes_defs_project.PROCESESS_LAYER_NAME] = {}
-        layers_definition[processes_defs_project.PROCESESS_LAYER_NAME] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME]
-        layers_crs_id = {}
-        layers_crs_id[processes_defs_project.PROCESESS_LAYER_NAME] = None
-        ignore_existing_layers = True # create new gpkg
-        str_error = GDALTools.create_vector(self.file_path,
-                                            layers_definition,
-                                            layers_crs_id,
-                                            ignore_existing_layers)
-        return str_error
+            str_error = ('Creating project for file:\n{}\nError:\n{}'
+                         .format(file_path, str_error))
+            return str_error, definition_is_saved
+        self.file_path = file_path
+        str_error, definition_is_saved = self.project_definition_gui(is_process_creation, parent_widget)
+        if str_error:
+            str_error = ('Project definition, error:\n{}'.format(str_error))
+            return str_error, definition_is_saved
+        if not definition_is_saved:
+            return str_error, definition_is_saved
+        return str_error, definition_is_saved
 
     def get_camera_from_image_file_path(self,
                                         image_file_path):
@@ -353,27 +255,42 @@ class Project:
                  return camera
          return None
 
-    def get_map_views(self):
-        return self.map_views.keys()
-
-    def get_map_view_wkb_geometry(self,
-                                  map_view_id):
+    def import_from_json_content(self,
+                                 file_path,
+                                 value_as_dict):
         str_error = ''
-        wkb_geometry = None
-        if not map_view_id in self.map_views:
-            str_error = ('Not exists location: {}'.format(map_view_id))
+        self.is_graphos_model = False
+        self.is_metashape_model = True
+        at_blocks = []
+        at_block_tag = ''
+        if not defs_gr.GRAPHOS_DOCUMENT_TAG in value_as_dict:
+            str_aux_error, at_blocks = self.import_metashape_markers(file_path, value_as_dict)
+            at_block_tag = defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL
+        else:
+            str_aux_error, at_blocks = self.import_graphos(file_path, value_as_dict)
+            self.is_graphos_model = True
+            self.is_metashape_model = False
+            at_block_tag = 'No defined'
+        if str_aux_error:
+            str_error = ('Error importing:\n{}'.format(str_aux_error))
             return str_error
-        wkb_geometry = self.map_views[map_view_id]
-        return str_error, wkb_geometry
+        for at_block in at_blocks:
+            if at_block.label in self.at_block_by_label:
+                str_error = ('Exists previous chunk: {} equal label as in XML file:\n{}'.
+                             format(at_block.label, at_block_tag, file_path))
+                return str_error
+            self.at_block_by_label[at_block.label] = at_block
+        self.xml_file_content = value_as_dict
+        return str_error
 
-    def import_metashape_markers(self,
-                                 file_path):
+    def import_from_xml_file(self,
+                             file_path):
         str_error = ''
-        if self.metashape_markers_xml_file:
-            str_error = ('Metashape markers XML file has already been imported into the project')
+        if self.xml_file_content:
+            str_error = ('XML file has already been imported into the project')
             return str_error
         if not os.path.exists(file_path):
-            str_error = ('Not exists metashape markers XML file: {}'.format(file_path))
+            str_error = ('Not exists XML file: {}'.format(file_path))
             return str_error
         with open(file_path, 'r', encoding='utf-8') as file:
             value_as_xml = file.read()
@@ -382,40 +299,10 @@ class Project:
         except xmltodict.expat.ExpatError as e:
             str_error = ('Parsing XML file: {}\nError:\n{}'.format(file_path, str(e)))
             return str_error
-        # value_as_string = str(value_as_dict)
-        # build project from xml
-        if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG in value_as_dict:
-            str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG, file_path))
+        str_aux_error = self.import_from_json_content(file_path, value_as_dict)
+        if str_aux_error:
+            str_error = ('Importing from XML file: {}\nError:\n{}'.format(file_path, str_aux_error))
             return str_error
-        root = value_as_dict[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG]
-        if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
-            str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
-            return str_error
-        version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
-        if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
-            str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
-            return str_error
-        chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
-        if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
-            str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
-            return str_error
-
-        # several blocks???
-        at_block = ATBlockMetashape(file_path, self)
-        str_error = at_block.set_from_xml(chunk_element)
-        if str_error:
-            return str_error
-        if at_block.label in self.at_block_by_label:
-            str_error = ('Exists previous chunk: {} equal label as in metashape markers XML file:\n{}'.
-                         format(at_block.label, defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
-            return str_error
-        self.at_block_by_label[at_block.label] = at_block
-
-        self.metashape_markers_xml_file = value_as_dict
         # store in db metashape markers xml
         value_as_json = json.dumps(value_as_dict, indent=4)
         features = []
@@ -458,10 +345,6 @@ class Project:
             at_block = self.at_block_by_label[at_block_label]
             for camera_id in at_block.camera_by_id:
                 camera = at_block.camera_by_id[camera_id]
-                # if camera.label != "IMG_0022_1" and camera.label != "IMG_0194_1":
-                #     continue
-                if "IMG_0022" in camera.label:
-                    yo = 1
                 feature = []
                 field = {}
                 field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_FIELD_LABEL
@@ -540,21 +423,110 @@ class Project:
             return str_error
         return str_error
 
-    def initialize(self):
-        self.crs_tools = CRSsTools()
-        # epsg_crs_prefix = defs_crs.EPSG_TAG + ':'
-        # crs_2d_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-        # crs_2d_epsg_code = int(crs_2d_id.replace(epsg_crs_prefix, ''))
-        # self.crs_id = epsg_crs_prefix + str(crs_2d_epsg_code)
-        # crs_vertical_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
-        # if crs_vertical_id != defs_crs.VERTICAL_ELLIPSOID_TAG:
-        #     crs_vertical_epsg_code = int(crs_vertical_id.replace(epsg_crs_prefix, ''))
-        #     self.crs_id += ('+' + str(crs_vertical_epsg_code))
-        # # self.gpkg_tools = GpkgTools(self.crs_tools)
-        self.crs_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_CRS]
-        if self.qgis_iface:
-            self.qgis_iface.set_project(self)
-        return
+    def import_graphos(self,
+                       file_path,
+                       value_as_dict):
+        str_error = ''
+        at_blocks = []
+        if not defs_gr.GRAPHOS_DOCUMENT_TAG in value_as_dict:
+            str_error = ('Not exists tag: {} in graphos XML file:\n{}'.
+                         format(defs_msm.GRAPHOS_DOCUMENT_TAG, file_path))
+            return str_error
+        root = value_as_dict[defs_gr.GRAPHOS_DOCUMENT_TAG]
+        # if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
+        #     str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
+        #                  format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
+        #     return str_error
+        # version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
+        # if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
+        #     str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
+        #                  format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
+        #     return str_error
+        # chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
+        # if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
+        #     str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
+        #                  format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
+        #     return str_error
+        at_block_element = root
+
+        # several blocks???
+        at_block = ATBlockGraphos(file_path, self)
+        str_error = at_block.set_from_xml(at_block_element)
+        at_blocks.append(at_block)
+        if str_error:
+            return str_error, at_blocks
+
+        return str_error, at_blocks
+
+    def import_metashape_markers(self,
+                                 file_path,
+                                 value_as_dict):
+        str_error = ''
+        at_blocks = []
+        # value_as_string = str(value_as_dict)
+        # build project from xml
+        if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG in value_as_dict:
+            str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
+                         format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG, file_path))
+            return str_error, at_blocks
+        root = value_as_dict[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG]
+        if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
+            str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
+                         format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
+            return str_error, at_blocks
+        version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
+        if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
+            str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
+                         format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
+            return str_error, at_blocks
+        chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
+        if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
+            str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
+                         format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
+            return str_error, at_blocks
+
+        # several blocks???
+        at_block = ATBlockMetashape(file_path, self)
+        str_error = at_block.set_from_xml(chunk_element)
+        at_blocks.append(at_block)
+        if str_error:
+            return str_error, at_blocks
+        return str_error, at_blocks
+
+    # def load_from_db_metashape_markers(self,
+    #                                    value_as_dict,
+    #                                    file_path):
+    #     str_error = ''
+    #     if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG in value_as_dict:
+    #         str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
+    #                      format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG, file_path))
+    #         return str_error
+    #     root = value_as_dict[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG]
+    #     if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
+    #         str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
+    #                      format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
+    #         return str_error
+    #     version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
+    #     if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
+    #         str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
+    #                      format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
+    #         return str_error
+    #     chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
+    #     if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
+    #         str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
+    #                      format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
+    #         return str_error
+    #     at_block = ATBlockMetashape(file_path, self)
+    #     str_error = at_block.set_from_xml(chunk_element)
+    #     if str_error:
+    #         return str_error
+    #     if at_block.label in self.at_block_by_label:
+    #         str_error = ('Exists previous chunk: {} equal label as in metashape markers XML file:\n{}'.
+    #                      format(at_block.label, defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
+    #         return str_error
+    #     self.xml_file_content = value_as_dict
+    #     self.at_block_by_label[at_block.label] = at_block
+    #     return str_error
 
     def load_images_data_from_db(self,
                                  file_path):
@@ -748,8 +720,6 @@ class Project:
                 return str_error
             camera.undistorted_footprint_geometry = ogr_geometry
 
-
-
         return str_error
 
     def load_project(self, file_path):
@@ -765,37 +735,10 @@ class Project:
                          format(file_path, defs_project.MANAGEMENT_LAYER_NAME))
             return str_error
 
-        # "Project Definition"
-        layer_name = defs_project.MANAGEMENT_LAYER_NAME
-        fields = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME]
-        fields = {}
-        field_name = defs_project.MANAGEMENT_FIELD_CONTENT
-        fields[field_name] = defs_project.fields_by_layer[layer_name][field_name]
-        filter_fields = {}
-        filter_field_name = defs_project.MANAGEMENT_FIELD_NAME
-        filter_field_value = defs_project.PROJECT_DEFINITIONS_MANAGEMENT_FIELD_NAME
-        filter_fields[filter_field_name] = filter_field_value
-        str_error, features = GDALTools.get_features(file_path,
-                                                     layer_name,
-                                                     fields,
-                                                     filter_fields)
+        str_error = super().load_project_definition(file_path = file_path)
         if str_error:
-            str_error = ('Getting {} from management from gpgk:\n{}\nError:\n{}'.
-                         format(defs_project.PROJECT_DEFINITIONS_MANAGEMENT_FIELD_NAME,
-                                file_path, str_error))
-            return str_error
-        if len(features) != 1:
-            str_error = ('Loading {} from management from gpgk:\n{}\nError: not one value for field: {} in layer: {}'.
-                         format(defs_project.PROJECT_DEFINITIONS_MANAGEMENT_FIELD_NAME,
-                                file_path, defs_project.MANAGEMENT_FIELD_CONTENT, defs_project.MANAGEMENT_LAYER_NAME))
-            return str_error
-        value = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
-        # json_acceptable_string = value.replace("'", "\"")
-        # management_json_content = json.loads(json_acceptable_string)
-        project_definition_json_content = json.loads(value)
-        str_error = self.set_definition_from_json(project_definition_json_content)
-        if str_error:
-            str_error = ('\nSetting definition from json project file:\n{}\nerror:\n{}'.format(file_path, str_error))
+            str_error = ('Loading project definition from gpgk:\n{}\nError:\n{}'.
+                         format(file_path, str_error))
             return str_error
 
         # To do: one case for each project type. At the moment, only metashape
@@ -828,15 +771,17 @@ class Project:
         #     #                     file_name, defs_project.MANAGEMENT_FIELD_CONTENT, defs_project.MANAGEMENT_LAYER_NAME))
         #     # return str_error
         if len(features) == 1: # not import metashape markers xml file yet
-            markers_xml_json_content = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
-            markers_xml_file_path = features[0][defs_project.MANAGEMENT_FIELD_REMARKS]
+            json_content = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
+            xml_file_path = features[0][defs_project.MANAGEMENT_FIELD_REMARKS]
             # json_acceptable_string = value.replace("'", "\"")
             # management_json_content = json.loads(json_acceptable_string)
-            markers_xml_json_content = json.loads(markers_xml_json_content)
-            str_error = self.load_from_db_metashape_markers(markers_xml_json_content,
-                                                            markers_xml_file_path)
+            json_content = json.loads(json_content)
+            # str_error = self.load_from_db_metashape_markers(xml_file_path,
+            #                                                 json_content)
+            str_error = self.import_from_json_content(xml_file_path,
+                                                      json_content)
             if str_error:
-                str_error = ('\nSetting metashape markers from project file:\n{}\nerror:\n{}'.format(file_path, str_error))
+                str_error = ('\nSetting from project file:\n{}\nerror:\n{}'.format(file_path, str_error))
                 return str_error
 
             # images
@@ -844,116 +789,6 @@ class Project:
             if str_error:
                 return str_error
         self.file_path = file_path
-        return str_error
-
-    def load_map_views_from_db(self):
-        str_error = ''
-        file_name = self.file_path
-        # str_error, layer_names = self.gpkg_tools.get_layers_names(file_name)
-        str_error, layer_names = GDALTools.get_layers_names(file_name)
-        if str_error:
-            str_error = ('Loading gpgk:\n{}\nError:\n{}'.
-                         format(file_name, str_error))
-            return str_error
-        if not defs_project.LOCATIONS_LAYER_NAME in layer_names:
-            str_error = ('Loading gpgk:\n{}\nError: not exists layer:\n{}'.
-                         format(file_name, defs_project.LOCATIONS_LAYER_NAME))
-            return str_error
-        layer_name = defs_project.LOCATIONS_LAYER_NAME
-        fields = defs_project.fields_by_layer[defs_project.LOCATIONS_LAYER_NAME]
-        fields = {}
-        field_name = defs_project.LOCATIONS_FIELD_NAME
-        fields[field_name] = defs_project.fields_by_layer[layer_name][field_name]
-        field_geometry = defs_project.LOCATIONS_FIELD_GEOMETRY
-        fields[field_geometry] = defs_project.fields_by_layer[layer_name][field_geometry]
-        filter_fields = None
-        # str_error, features = self.gpkg_tools.get_features(file_name,
-        #                                                    layer_name,
-        #                                                    fields,
-        #                                                    filter_fields)
-        str_error, features = GDALTools.get_features(file_name,
-                                                     layer_name,
-                                                     fields,
-                                                     filter_fields)
-        if str_error:
-            str_error = ('Getting locations from gpgk:\n{}\nError:\n{}'.
-                         format(file_name, str_error))
-            return str_error
-        self.map_views.clear()
-        for i in range(len(features)):
-            name = features[i][defs_project.LOCATIONS_FIELD_NAME]
-            wkb_geometry = features[i][defs_project.LOCATIONS_FIELD_GEOMETRY]
-            self.map_views[name] = wkb_geometry
-        return str_error
-
-    def load_from_db_metashape_markers(self,
-                                       value_as_dict,
-                                       file_path):
-        str_error = ''
-        if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG in value_as_dict:
-            str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG, file_path))
-            return str_error
-        root = value_as_dict[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_TAG]
-        if not defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION in root:
-            str_error = ('Not exists attribute: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION, file_path))
-            return str_error
-        version = root[defs_msm.METASHAPE_MARKERS_XML_DOCUMENT_ATTRIBUTE_VERSION]
-        if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG in root:
-            str_error = ('Not exists tag: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG, file_path))
-            return str_error
-        chunk_element = root[defs_msm.METASHAPE_MARKERS_XML_CHUNK_TAG]
-        if not defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL in chunk_element:
-            str_error = ('Not exists attribute: {} in chunk in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
-            return str_error
-        at_block = ATBlockMetashape(file_path, self)
-        str_error = at_block.set_from_xml(chunk_element)
-        if str_error:
-            return str_error
-        if at_block.label in self.at_block_by_label:
-            str_error = ('Exists previous chunk: {} equal label as in metashape markers XML file:\n{}'.
-                         format(at_block.label, defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL, file_path))
-            return str_error
-        self.metashape_markers_xml_file = value_as_dict
-        self.at_block_by_label[at_block.label] = at_block
-        return str_error
-
-    def load_processes(self):
-        str_error = ''
-        str_error, layer_names = GDALTools.get_layers_names(self.file_path)
-        if str_error:
-            str_error = ('Loading gpgk:\n{}\nError:\n{}'.
-                         format(self.file_path, str_error))
-            return str_error
-        if not processes_defs_project.PROCESESS_LAYER_NAME in layer_names:
-            str_error = ('Loading gpgk:\n{}\nError: not exists layer:\n{}'.
-                         format(self.file_path, processes_defs_project.PROCESESS_LAYER_NAME))
-            return str_error
-        layer_name = processes_defs_project.PROCESESS_LAYER_NAME
-        fields = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME]
-        str_error, features = GDALTools.get_features(self.file_path,
-                                                     layer_name,
-                                                     fields)
-        if str_error:
-            str_error = ('Getting processes from gpgk:\n{}\nError:\n{}'.
-                         format(self.file_path, str_error))
-            return str_error
-        for feature in features:
-            process_label = feature[processes_defs_project.PROCESESS_FIELD_LABEL]
-            process_dict = {}
-            for field_name in processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME]:
-                if field_name == processes_defs_project.PROCESESS_FIELD_GEOMETRY:
-                    continue
-                field_value = ''
-                if field_name in feature:
-                    field_value = feature[field_name]
-                process_dict[field_name] = field_value
-            if process_label in self.process_by_label:
-                self.process_by_label.pop(process_label)
-            self.process_by_label[process_label] = process_dict
         return str_error
 
     def process_gcps_accuracy_analysis(self,
@@ -977,11 +812,11 @@ class Project:
         content  = 'GROUND CONTROL POINTS ACCURACY ANALYSIS'
         content += '\n======================================='
         content += '\nProject definition: '
-        content += '\n- Name ..........................: ' + self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_NAME]
-        content += '\n- Author ........................: ' + self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR]
+        content += '\n- Name ..........................: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_NAME]
+        content += '\n- Author ........................: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_AUTHOR]
         content += '\n- CRS id ........................: ' + self.crs_id
-        content += '\n  Projected CRS id ..............: ' + self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-        content += '\n- Vertical CRS id ...............: ' + self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
+        content += '\n  Projected CRS id ..............: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
+        content += '\n- Vertical CRS id ...............: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
         # content += '\n- Metashape markers xml file ....: ' + self.metashape_markers_xml_file
         content += '\n- Number of AT Blocks ...........: ' + str(len(self.at_block_by_label))
         for at_block_label in self.at_block_by_label:
@@ -1282,7 +1117,7 @@ class Project:
         except Exception as e:
             str_error = ('Process {}\nError occurred when opening:\n{}\nto read:\n{}'.format(name, output_file_path, e))
             return str_error, end_date_time, log
-        end_date_time = datetime.datetime.now()
+        end_date_time = datetime.now()
         return str_error, end_date_time, log
 
     def process_get_image_footprints(self,
@@ -1556,172 +1391,30 @@ class Project:
         if str_error:
             str_error = ('Error storing footprints:\n{}'.format(str_error))
             return str_error, end_date_time, log
-        end_date_time = datetime.datetime.now()
+        end_date_time = datetime.now()
         return str_error, end_date_time, log
 
     def project_definition_gui(self,
                                is_process_creation,
                                parent_widget = None):
-        str_error = ""
-        definition_is_saved = False
-        title = defs_project.PROJECT_DEFINITION_DIALOG_TITLE
-        # dialog = ProjectDefinitionDialog(self, title, is_process_creation)
-        dialog = ProjectDefinitionDialog(self, title, is_process_creation,
-                                         display_sucess_save = False, parent = parent_widget)
-        dialog_result = dialog.exec()
-        definition_is_saved = dialog.is_saved
-        if dialog_result != QDialog.Accepted:
-            return str_error, definition_is_saved
-        return str_error, definition_is_saved
-
-    def remove_map_view(self,
-                        map_view_id):
-        str_error = ''
-        if not map_view_id in self.map_views:
-            str_error = ('Not exists location with name: {}'.format(map_view_id))
-            return str_error
-        features_filters = []
-        feature_filters = []
-        filter = {}
-        filter[defs_gdal.FIELD_NAME_TAG] = defs_project.LOCATIONS_FIELD_NAME
-        filter[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.LOCATIONS_LAYER_NAME][defs_project.LOCATIONS_FIELD_NAME]
-        filter[defs_gdal.FIELD_VALUE_TAG] = map_view_id
-        feature_filters.append(filter)
-        features_filters.append(feature_filters)
-        features_filters_by_layer = {}
-        features_filters_by_layer[defs_project.LOCATIONS_LAYER_NAME] = features_filters
-        return GDALTools.remove_features(self.file_path, features_filters_by_layer)
-
-    def remove_process(self,
-                       process_label):
-        str_error = ''
-        features_filters = []
-        feature_filters = []
-        filter = {}
-        filter[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_LABEL
-        filter[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_LABEL]
-        filter[defs_gdal.FIELD_VALUE_TAG] = process_label
-        feature_filters.append(filter)
-        features_filters.append(feature_filters)
-        features_filters_by_layer = {}
-        features_filters_by_layer[defs_project.PROCESESS_LAYER_NAME] = features_filters
-        str_error = GDALTools.remove_features(self.file_path, features_filters_by_layer)
-        if not str_error:
-            self.process_by_label.pop(process_label)
-        return str_error
+        return super().project_definition_gui(is_process_creation, parent_widget)
 
     def save(self, is_process_creation = True):
         str_error = ''
-        str_aux_error = self.save_management(True)
+        update = True
+        if is_process_creation:
+            update = False
+        str_aux_error = super().save_project_definition(update,
+                                                        file_path = self.file_path)
         if str_aux_error:
-            str_error = ('Error updating project definition:\n{}'.
-                         format(str_aux_error))
+            if not is_process_creation:
+                str_error = ('Error updating project definition:\n{}'.
+                             format(str_aux_error))
+            else:
+                str_error = ('Error saving project definition:\n{}'.
+                             format(str_aux_error))
         else:
             self.is_saved = True
-        return str_error
-
-    def save_map_view(self,
-                      map_view_id,
-                      map_view_wkb_geometry,
-                      update = False):
-        str_error = ""
-        features = []
-        feature = []
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.LOCATIONS_FIELD_NAME
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.LOCATIONS_LAYER_NAME][defs_project.LOCATIONS_FIELD_NAME]
-        field[defs_gdal.FIELD_VALUE_TAG] = map_view_id
-        feature.append(field)
-        # field = {}
-        # field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_CONTENT
-        # field[defs_gdal.FIELD_TYPE_TAG] \
-        #     = defs_project.fields_by_layer[defs_project.LOCATIONS_LAYER_NAME][defs_project.MANAGEMENT_FIELD_CONTENT]
-        # field[defs_gdal.FIELD_VALUE_TAG] = value_as_string
-        # feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.LOCATIONS_FIELD_GEOMETRY
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.LOCATIONS_LAYER_NAME][defs_project.LOCATIONS_FIELD_GEOMETRY]
-        field[defs_gdal.FIELD_VALUE_TAG] = map_view_wkb_geometry
-        feature.append(field)
-        features.append(feature)
-        features_by_layer = {}
-        features_by_layer[defs_project.LOCATIONS_LAYER_NAME] = features
-        if not update:
-            str_error = GDALTools.write_features(self.file_path, features_by_layer)
-            # str_error = self.gpkg_tools.write(self.file_name,
-            #                                   features_by_layer)
-        else:
-            features_filters = []
-            feature_filters= []
-            filter = {}
-            filter[defs_gdal.FIELD_NAME_TAG] = defs_project.LOCATIONS_FIELD_NAME
-            filter[defs_gdal.FIELD_TYPE_TAG] \
-                = defs_project.fields_by_layer[defs_project.LOCATIONS_LAYER_NAME][defs_project.LOCATIONS_FIELD_NAME]
-            filter[defs_gdal.FIELD_VALUE_TAG] = map_view_id
-            feature_filters.append(filter)
-            features_filters.append(feature_filters)
-            features_filters_by_layer = {}
-            features_filters_by_layer[defs_project.LOCATIONS_LAYER_NAME] = features_filters
-            str_error = GDALTools.update_features(self.file_path, features_by_layer, features_filters_by_layer)
-            # str_error = self.gpkg_tools.update(self.file_name,
-            #                                    features_by_layer,
-            #                                    features_filters_by_layer)
-        return str_error
-
-    def save_management(self,
-                        update = False):
-        str_error = ""
-        # value_as_string = str(self.project_definition)
-        value_as_json = json.dumps(self.project_definition, indent=4)
-        features = []
-        feature = []
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_NAME
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_NAME]
-        field[defs_gdal.FIELD_VALUE_TAG] = defs_project.PROJECT_DEFINITIONS_MANAGEMENT_FIELD_NAME
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_CONTENT
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_CONTENT]
-        field[defs_gdal.FIELD_VALUE_TAG] = value_as_json
-        feature.append(field)
-        geometry_value = None
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_GEOMETRY
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_GEOMETRY]
-        field[defs_gdal.FIELD_VALUE_TAG] = defs_project.fields_by_layer[
-            defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_GEOMETRY]
-        feature.append(field)
-        features.append(feature)
-        features_by_layer = {}
-        features_by_layer[defs_project.MANAGEMENT_LAYER_NAME] = features
-        if not update:
-            str_error = GDALTools.write_features(self.file_path, features_by_layer)
-            # str_error = self.gpkg_tools.write(self.file_name,
-            #                                   features_by_layer)
-        else:
-            features_filters = []
-            feature_filters= []
-            filter = {}
-            filter[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_NAME
-            filter[defs_gdal.FIELD_TYPE_TAG] \
-                = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_NAME]
-            filter[defs_gdal.FIELD_VALUE_TAG] = defs_project.PROJECT_DEFINITIONS_MANAGEMENT_FIELD_NAME
-            feature_filters.append(filter)
-            features_filters.append(feature_filters)
-            features_filters_by_layer = {}
-            features_filters_by_layer[defs_project.MANAGEMENT_LAYER_NAME] = features_filters
-            str_error = GDALTools.update_features(self.file_path, features_by_layer, features_filters_by_layer)
-            # str_error = self.gpkg_tools.update(self.file_name,
-            #                                    features_by_layer,
-            #                                    features_filters_by_layer)
         return str_error
 
     def save_process(self,
@@ -1733,209 +1426,15 @@ class Project:
                      process_date_time_as_string,
                      process_output,
                      process_remarks):
-        str_error = ''
-        # if map_view_id in self.map_views:
-        #     str_error = ('Exists a previous location with name: {}'.format(map_view_id))
-        #     return str_error
-        features = []
-        feature = []
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_LABEL
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_LABEL]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_label
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_AUTHOR
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_AUTHOR]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_author
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_DESCRIPTION
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_DESCRIPTION]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_description
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_DATE_TIME
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_DATE_TIME]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_date_time_as_string
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_PROCESS_CONTENT
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_PROCESS_CONTENT]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_content
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_LOG
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_LOG]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_log
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_OUTPUT
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_OUTPUT]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_output
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_REMARKS
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_REMARKS]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_remarks
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_GEOMETRY
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_GEOMETRY]
-        field[defs_gdal.FIELD_VALUE_TAG] = processes_defs_project.fields_by_layer[
-            processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_GEOMETRY]
-        feature.append(field)
-        features.append(feature)
-        features_by_layer = {}
-        features_by_layer[processes_defs_project.PROCESESS_LAYER_NAME] = features
-        if not process_label in self.process_by_label:
-            str_error = GDALTools.write_features(self.file_path, features_by_layer)
-            # str_error = self.gpkg_tools.write(self.file_name,
-            #                                   features_by_layer)
-            if not str_error:
-                self.process_by_label[process_label] = {}
-        else:
-            features_filters = []
-            feature_filters= []
-            filter = {}
-            filter[defs_gdal.FIELD_NAME_TAG] = processes_defs_project.PROCESESS_FIELD_LABEL
-            filter[defs_gdal.FIELD_TYPE_TAG] \
-                = processes_defs_project.fields_by_layer[processes_defs_project.PROCESESS_LAYER_NAME][processes_defs_project.PROCESESS_FIELD_LABEL]
-            filter[defs_gdal.FIELD_VALUE_TAG] = process_label
-            feature_filters.append(filter)
-            features_filters.append(feature_filters)
-            features_filters_by_layer = {}
-            features_filters_by_layer[processes_defs_project.PROCESESS_LAYER_NAME] = features_filters
-            str_error = GDALTools.update_features(self.file_path, features_by_layer, features_filters_by_layer)
-        if not str_error:
-            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_LABEL] = process_label
-            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_AUTHOR] = process_author
-            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_DESCRIPTION] = process_description
-            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_DATE_TIME] = process_date_time_as_string
-            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_PROCESS_CONTENT] = process_content
-            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_LOG] = process_log
-            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_OUTPUT] = process_output
-            self.process_by_label[process_label][processes_defs_project.PROCESESS_FIELD_REMARKS] = process_remarks
-        return str_error
-
-    def set_definition_from_json(self, json_content):
-        str_error = ''
-        if not defs_project.PROJECT_DEFINITIONS_TAG_NAME in json_content:
-            str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_NAME,
-                                                           defs_project.PROJECT_DEFINITIONS_TAG))
-            return str_error
-        if not defs_project.PROJECT_DEFINITIONS_TAG_TAG in json_content:
-            str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_TAG,
-                                                           defs_project.PROJECT_DEFINITIONS_TAG))
-            return str_error
-        if not defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR in json_content:
-            str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR,
-                                                           defs_project.PROJECT_DEFINITIONS_TAG))
-            return str_error
-        crs_projected_id = None
-        crs_vertical_id = None
-        crs_id = None
-        if ((not defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS in json_content
-                or not defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS in json_content)
-                and not defs_project.PROJECT_DEFINITIONS_TAG_CRS in json_content):
-            str_error = ("No CRS data in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG))
-            return str_error
-        if not defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH in json_content:
-            str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH,
-                                                           defs_project.PROJECT_DEFINITIONS_TAG))
-            return str_error
-        if not defs_project.PROJECT_DEFINITIONS_TAG_START_DATE in json_content:
-            str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_START_DATE,
-                                                           defs_project.PROJECT_DEFINITIONS_TAG))
-            return str_error
-        if not defs_project.PROJECT_DEFINITIONS_TAG_FINISH_DATE in json_content:
-            str_error = ("No {} in json content {}".format(defs_project.PROJECT_DEFINITIONS_TAG_FINISH_DATE,
-                                                           defs_project.PROJECT_DEFINITIONS_TAG))
-            return str_error
-        name = json_content[defs_project.PROJECT_DEFINITIONS_TAG_NAME]
-        tag = json_content[defs_project.PROJECT_DEFINITIONS_TAG_TAG]
-        author = json_content[defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR]
-        # crs_projected_id = json_content[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-        # crs_vertical_id = json_content[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
-        if( not crs_projected_id is None and not crs_vertical_id is None):
-            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = crs_projected_id
-            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = crs_vertical_id
-            epsg_crs_prefix = defs_crs.EPSG_TAG + ':'
-            crs_2d_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-            crs_2d_epsg_code = int(crs_2d_id.replace(epsg_crs_prefix, ''))
-            self.crs_id = epsg_crs_prefix + str(crs_2d_epsg_code)
-            crs_vertical_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
-            if crs_vertical_id != defs_crs.VERTICAL_ELLIPSOID_TAG:
-                crs_vertical_epsg_code = int(crs_vertical_id.replace(epsg_crs_prefix, ''))
-                self.crs_id += ('+' + str(crs_vertical_epsg_code))
-        else:
-            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_CRS] = crs_id
-            self.crs_id = crs_id
-            if not '+' in crs_id:
-                crs_projected_id = crs_id
-                crs_vertical_id = None
-            else:
-                epsg_crs_prefix = defs_crs.EPSG_TAG + ':'
-                srs_id = crs_id.replace(defs_crs.EPSG_STRING_PREFIX, ' ')
-                srs_id = srs_id.replace('+', ' ')
-                srs_id = srs_id.strip()
-                values = srs_id.split(' ')
-                crs_projected_id = epsg_crs_prefix + values[0]
-                crs_vertical_id = epsg_crs_prefix + values[1]
-            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = crs_projected_id
-            self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = crs_vertical_id
-        output_path = json_content[defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH]
-        description = json_content[defs_project.PROJECT_DEFINITIONS_TAG_DESCRIPTION]
-        start_date = json_content[defs_project.PROJECT_DEFINITIONS_TAG_START_DATE]
-        if start_date:
-            date_start_date = QDate.fromString(start_date, defs_project.QDATE_TO_STRING_FORMAT)
-            if not date_start_date.isValid():
-                str_error = ("Invalid date: {} for format: {}".format(start_date, defs_project.QDATE_TO_STRING_FORMAT))
-                return str_error
-        finish_date = json_content[defs_project.PROJECT_DEFINITIONS_TAG_FINISH_DATE]
-        if finish_date:
-            date_finish_date = QDate.fromString(finish_date, defs_project.QDATE_TO_STRING_FORMAT)
-            if not date_finish_date.isValid():
-                str_error = ("Invalid date: {} for format: {}".format(finish_date, defs_project.QDATE_TO_STRING_FORMAT))
-                return str_error
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_NAME] = name
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_TAG] = tag
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_AUTHOR] = author
-        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS] = crs_projected_id
-        # self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS] = crs_vertical_id
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_OUTPUT_PATH] = output_path
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_DESCRIPTION] = description
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_START_DATE] = start_date
-        self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_FINISH_DATE] = finish_date
-        epsg_crs_prefix = defs_crs.EPSG_TAG + ':'
-        crs_2d_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
-        crs_2d_epsg_code = int(crs_2d_id.replace(epsg_crs_prefix, ''))
-        self.crs_id = epsg_crs_prefix + str(crs_2d_epsg_code)
-        crs_vertical_id = self.project_definition[defs_project.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
-        if crs_vertical_id != defs_crs.VERTICAL_ELLIPSOID_TAG:
-            crs_vertical_epsg_code = int(crs_vertical_id.replace(epsg_crs_prefix, ''))
-            self.crs_id += ('+' + str(crs_vertical_epsg_code))
-
-    def update_map_view(self,
-                        map_view_id,
-                        map_view_wkb_geometry):
-        str_error = ''
-        if not map_view_id in self.map_views:
-            str_error = ('Not exists location with name: {}'.format(map_view_id))
-            return str_error
-        update = True
-        return self.save_map_view(map_view_id,
-                                  map_view_wkb_geometry,
-                                  update)
+        return super().save_process(process_content,
+                                    process_author,
+                                    process_label,
+                                    process_description,
+                                    process_log,
+                                    process_date_time_as_string,
+                                    process_output,
+                                    process_remarks,
+                                    file_path = self.file_path)
 
     def update_enabled_images_from_db(self):
         str_error = ''
@@ -1999,79 +1498,4 @@ class Project:
             #     if int_value == 0:
             #         enabled = False
             #     camera.enabled = enabled
-        return str_error
-
-    def update_process(self,
-                       original_process_label,
-                       process_label): # is modified in self.processes
-        str_error = ''
-        if not process_label in self.process_by_label:
-            str_error = ('Not exists process: {}'.format(process_label))
-            return str_error
-        features = []
-        feature = []
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_LABEL
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_LABEL]
-        field[defs_gdal.FIELD_VALUE_TAG] = process_label
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_AUTHOR
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_AUTHOR]
-        field[defs_gdal.FIELD_VALUE_TAG] = self.process_by_label[process_label][defs_project.PROCESESS_FIELD_AUTHOR]
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_DESCRIPTION
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_DESCRIPTION]
-        field[defs_gdal.FIELD_VALUE_TAG] = self.process_by_label[process_label][defs_project.PROCESESS_FIELD_DESCRIPTION]
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_DATE_TIME
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_DATE_TIME]
-        field[defs_gdal.FIELD_VALUE_TAG] = self.process_by_label[process_label][defs_project.PROCESESS_FIELD_DATE_TIME]
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_PROCESS_CONTENT
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_PROCESS_CONTENT]
-        field[defs_gdal.FIELD_VALUE_TAG] = self.process_by_label[process_label][defs_project.PROCESESS_FIELD_PROCESS_CONTENT]
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_LOG
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_LOG]
-        field[defs_gdal.FIELD_VALUE_TAG] = self.process_by_label[process_label][defs_project.PROCESESS_FIELD_LOG]
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_REMARKS
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_REMARKS]
-        field[defs_gdal.FIELD_VALUE_TAG] = self.process_by_label[process_label][defs_project.PROCESESS_FIELD_REMARKS]
-        feature.append(field)
-        field = {}
-        field[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_GEOMETRY
-        field[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_GEOMETRY]
-        field[defs_gdal.FIELD_VALUE_TAG] = defs_project.fields_by_layer[
-            defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_GEOMETRY]
-        feature.append(field)
-        features.append(feature)
-        features_by_layer = {}
-        features_by_layer[defs_project.PROCESESS_LAYER_NAME] = features
-        features_filters = []
-        feature_filters = []
-        filter = {}
-        filter[defs_gdal.FIELD_NAME_TAG] = defs_project.PROCESESS_FIELD_LABEL
-        filter[defs_gdal.FIELD_TYPE_TAG] \
-            = defs_project.fields_by_layer[defs_project.PROCESESS_LAYER_NAME][defs_project.PROCESESS_FIELD_LABEL]
-        filter[defs_gdal.FIELD_VALUE_TAG] = original_process_label
-        feature_filters.append(filter)
-        features_filters.append(feature_filters)
-        features_filters_by_layer = {}
-        features_filters_by_layer[defs_project.PROCESESS_LAYER_NAME] = features_filters
-        str_error = GDALTools.update_features(self.file_path, features_by_layer, features_filters_by_layer)
         return str_error
