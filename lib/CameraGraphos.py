@@ -43,6 +43,15 @@ class CameraGraphos(Camera):
         self.pc_geo3d = None
         self.enu_rot = None
 
+    def get_pc_geo3d(self):
+        # if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
+        #     master_camera = self.at_block.camera_by_id[self.master_id]
+        #     pc_geo3d = master_camera.get_pc_geo3d()
+        #     return pc_geo3d
+        pc_geo3d = self.pc_geo3d
+        return pc_geo3d
+        return self.pc_geo3d
+
     def initialize(self, id, sensor_id, label, enu_x, enu_y, enu_z, enu_rot):
         str_error = ''
         self.id = id
@@ -85,3 +94,26 @@ class CameraGraphos(Camera):
         self.enu_rot = enu_rot
         self.enabled = True
         return str_error
+
+    def is_usefull(self):
+        is_usefull = True
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        if not sensor:
+            is_usefull = False
+            return is_usefull
+        # if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
+        #     master_camera = self.at_block.camera_by_id[self.master_id]
+        #     pc_geo3d = master_camera.get_pc_geo3d()
+        #     if not pc_geo3d:
+        #         is_usefull = False
+        #         return is_usefull
+        # else:
+        #     pc_geo3d = self.get_pc_geo3d()
+        #     if not isinstance(pc_geo3d, ndarray):
+        #         is_usefull = False
+        #         return is_usefull
+        pc_geo3d = self.get_pc_geo3d()
+        if not isinstance(pc_geo3d, ndarray):
+            is_usefull = False
+            return is_usefull
+        return is_usefull

@@ -54,6 +54,7 @@ from pyLibQtTools import Tools
 from pyLibGDAL import defs_gdal
 from pyLibGDAL.GDALTools import GDALTools
 from pyLibGDAL.RasterDEM import RasterDEM
+from pyLibOpenCV.OpenCVTools import OpenCVTools
 
 class ProjectPhotogrammetry(Project):
     def __init__(self, qgis_iface, settings, crs_tools):
@@ -64,6 +65,7 @@ class ProjectPhotogrammetry(Project):
         self.xml_file_content = None
         self.at_block_by_label = {}
         self.raster_dem_by_file_path = {}
+        self.opencv_tools = None
 
     def add_image_files(self,
                         files,
@@ -789,6 +791,7 @@ class ProjectPhotogrammetry(Project):
             if str_error:
                 return str_error
         self.file_path = file_path
+        self.opencv_tools = OpenCVTools()
         return str_error
 
     def process_gcps_accuracy_analysis(self,
@@ -1391,6 +1394,93 @@ class ProjectPhotogrammetry(Project):
         if str_error:
             str_error = ('Error storing footprints:\n{}'.format(str_error))
             return str_error, end_date_time, log
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
+    def process_undistort_images(self,
+                                 process,
+                                 dialog = None):
+        str_error = ''
+        end_date_time = None
+        log = None
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH in parametes_manager.parameters:
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        parameter_output_path = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH]
+        parameter_output_path = str(parameter_output_path)
+        if not parameter_output_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        cameras_to_process = []
+        calibration_by_camera_file_path = {}
+        for at_block_label in self.at_block_by_label:
+            at_block = self.at_block_by_label[at_block_label]
+            for camera_id in at_block.camera_by_id:
+                camera = at_block.camera_by_id[camera_id]
+                camera_enabled = camera.get_enabled() # multisensor ...
+                if not camera_enabled:
+                    continue
+                if not camera.is_usefull():
+                    continue
+                image_file_path = camera.image_file_path
+                if not image_file_path:
+                    continue
+                if not os.path.exists(image_file_path):
+                    str_aux_error = (
+                            'For image: {} not exists file path:\n{}'.format(camera.label, image_file_path))
+                    str_error = ('Process: {} error:\n{}'.
+                                     format(name, str_aux_error))
+                    return str_error, end_date_time, log
+                sensor_id = camera.sensor_id
+                sensor = at_block.sensor_by_id[sensor_id]
+                if len(sensor.calibration_by_class) > 1:
+                    str_aux_error = (
+                            'For image: {} sensor has several calibrations'.format(camera.label))
+                    str_error = ('Process: {} error:\n{}'.
+                                     format(name, str_aux_error))
+                    return str_error, end_date_time, log
+                calibration_type = next(iter(sensor.calibration_by_class))
+                calibration = sensor.calibration_by_class[calibration_type]
+                calibration_by_camera_file_path[image_file_path] = calibration
+        if dialog:
+            dialog.processInformationGroupBox.setEnabled(True)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            dialog.processLineEdit.setText('Getting image footprints ...')
+            dialog.processLineEdit.adjustSize()
+            dialog.processProgressBar.setMaximum(len(calibration_by_camera_file_path))
+            dialog.processLineEdit.adjustSize()
+            QApplication.processEvents()
+        features = []
+        undistorted_features = []
+        cont = 0
+        for image_file_path in calibration_by_camera_file_path:
+            if dialog:
+                cont = cont + 1
+                dialog.processProgressBar.setValue(cont)
+                QApplication.processEvents()
+            calibration = calibration_by_camera_file_path[image_file_path]
+            str_error = self.opencv_tools.undistort_image(image_file_path,
+                                                          calibration)
+            if str_error:
+                if dialog:
+                    dialog.processProgressBar.setValue(len(calibration_by_camera_file_path))
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                str_error = ('Undistorting image file path: {}\nError:\n{}'
+                             .format(image_file_path, str_error))
+                return str_error, end_date_time, log
+        if dialog:
+            dialog.processProgressBar.setValue(len(calibration_by_camera_file_path))
+            dialog.processInformationGroupBox.setEnabled(False)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            QApplication.processEvents()
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 

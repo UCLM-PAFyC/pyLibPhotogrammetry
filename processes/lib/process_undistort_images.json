@@ -1,0 +1,29 @@
+{
+    "name": "Undistort images",
+    "contributions": {
+        "methodology": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ],
+        "software": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ]
+    },
+    "src": {
+        "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
+        "method": "process_undistort_images"
+    },
+    "description": "Description:\n\nA process to undistort images",
+    "doc": "",
+    "parameters": [
+        {
+            "label": "Output path",
+            "argparser": "",
+            "description": "Output path for undistorted images",
+            "mandatory": true,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/PhToolsOutput/undistorted_images_graphos",
+            "type": "path",
+            "output_format": "{:s}"
+        }
+    ]
+}
