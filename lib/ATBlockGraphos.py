@@ -513,7 +513,7 @@ class ATBlockGraphos(ATBlock):
                     image_point = ImagePoint(camera, gcp)
                     measured_values = [image_point_column, image_point_row]
                     image_point.set_measured_values(measured_values)
-                    # image_point.set_pinned(pinned)
+                    image_point.set_pinned(True)
                     # image_point.set_frame_id(frame_id)
                     if not gcp_id in self.image_points_by_gcp_id:
                         self.image_points_by_gcp_id[gcp_id] = []

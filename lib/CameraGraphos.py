@@ -43,6 +43,24 @@ class CameraGraphos(Camera):
         self.pc_geo3d = None
         self.enu_rot = None
 
+    def get_pc_ecef(self):
+        # if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
+        #     master_camera = self.at_block.camera_by_id[self.master_id]
+        #     pc_ecef = master_camera.get_pc_ecef()
+        #     return pc_ecef
+        pc_ecef = self.pc_ecef
+        return pc_ecef
+        # return self.pc_ecef
+
+    def get_pc_enu(self):
+        # if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
+        #     master_camera = self.at_block.camera_by_id[self.master_id]
+        #     pc_chunk = master_camera.get_pc_chunk()
+        #     return pc_chunk
+        pc_enu = self.pc_enu
+        return pc_enu
+        # return self.pc_enu
+
     def get_pc_geo3d(self):
         # if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
         #     master_camera = self.at_block.camera_by_id[self.master_id]
@@ -50,7 +68,7 @@ class CameraGraphos(Camera):
         #     return pc_geo3d
         pc_geo3d = self.pc_geo3d
         return pc_geo3d
-        return self.pc_geo3d
+        # return self.pc_geo3d
 
     def initialize(self, id, sensor_id, label, enu_x, enu_y, enu_z, enu_rot):
         str_error = ''

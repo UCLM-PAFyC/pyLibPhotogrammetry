@@ -68,4 +68,5 @@ class ObjectPointGraphos(ObjectPoint):
                          format(self.label, str_error))
             return str_error
         self.position_enu = np.array(position_enu[0])
+        self.enabled = True
         return str_error

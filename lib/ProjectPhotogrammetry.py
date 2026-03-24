@@ -845,8 +845,9 @@ class ProjectPhotogrammetry(Project):
                 gcp_crs2d_precision = 9
             content += '\nAT Block label ..................: ' + at_block.label
             content += '\n- CRS id ........................: ' + at_block.crs_id
-            content += '\n- Cameras CRS id ................: ' + at_block.camera_crs_id
-            content += '\n- GCPs CRS id ...................: ' + at_block.gcps_crs_id
+            if self.is_metashape_model:
+                content += '\n- Cameras CRS id ................: ' + at_block.camera_crs_id
+                content += '\n- GCPs CRS id ...................: ' + at_block.gcps_crs_id
             content += '\n- Cameras data in AT Block CRSs (only master cameras for compound cameras):'
             content += "\n      Id  Longitude.DEG   Latitude.DEG         H          X.CRS          Y.CRS          H.CRS         ECEF.X         ECEF.Y         ECEF.Z     Chunk.X     Chunk.Y     Chunk.Z  Label"
             for camera_id in at_block.camera_by_id:
@@ -856,7 +857,11 @@ class ProjectPhotogrammetry(Project):
                     continue
                 pc = camera.get_pc()
                 pc_ecef = camera.get_pc_ecef()
-                pc_chunk = camera.get_pc_chunk()
+                pc_local = None
+                if self.is_metashape_model:
+                    pc_local = camera.get_pc_chunk()
+                else:
+                    pc_local = camera.get_pc_enu()
                 pc_geo3d = camera.get_pc_geo3d()
                 content += '\n{:>8s}'.format(str(camera.id))
                 content += '{:15.9f}'.format(pc_geo3d[0])
@@ -868,9 +873,9 @@ class ProjectPhotogrammetry(Project):
                 content += '{:15.4f}'.format(pc_ecef[0])
                 content += '{:15.4f}'.format(pc_ecef[1])
                 content += '{:15.4f}'.format(pc_ecef[2])
-                content += '{:12.4f}'.format(pc_chunk[0])
-                content += '{:12.4f}'.format(pc_chunk[1])
-                content += '{:12.4f}'.format(pc_chunk[2])
+                content += '{:12.4f}'.format(pc_local[0])
+                content += '{:12.4f}'.format(pc_local[1])
+                content += '{:12.4f}'.format(pc_local[2])
                 content += '  {}'.format(camera.label)
             content += '\n- GCPs data in AT Block CRSs:'
             content += '\n      Id          X.CRS          Y.CRS         H         ECEF.X         ECEF.Y         ECEF.Z     Chunk.X     Chunk.Y     Chunk.Z  Label'
@@ -884,9 +889,14 @@ class ProjectPhotogrammetry(Project):
                 content += '{:15.4f}'.format(gcp.position_ecef[0])
                 content += '{:15.4f}'.format(gcp.position_ecef[1])
                 content += '{:15.4f}'.format(gcp.position_ecef[2])
-                content += '{:12.4f}'.format(gcp.position_chunk[0])
-                content += '{:12.4f}'.format(gcp.position_chunk[1])
-                content += '{:12.4f}'.format(gcp.position_chunk[2])
+                if self.is_metashape_model:
+                    content += '{:12.4f}'.format(gcp.position_chunk[0])
+                    content += '{:12.4f}'.format(gcp.position_chunk[1])
+                    content += '{:12.4f}'.format(gcp.position_chunk[2])
+                else:
+                    content += '{:12.4f}'.format(gcp.position_enu[0])
+                    content += '{:12.4f}'.format(gcp.position_enu[1])
+                    content += '{:12.4f}'.format(gcp.position_enu[2])
                 content += '  {}'.format(gcp.label)
                 if len(gcp.label) > gcp_label_max_length:
                     gcp_label_max_length = len(gcp.label)
@@ -896,7 +906,11 @@ class ProjectPhotogrammetry(Project):
                 if not gcp_id in at_block.gcps_by_id:
                     continue
                 gcp = at_block.gcps_by_id[gcp_id]
-                gcp_chunk = gcp.position_chunk
+                gcp_local = None
+                if self.is_metashape_model:
+                    gcp_local = gcp.position_chunk
+                else:
+                    gcp_local = gcp.position_enu
                 image_points = at_block.image_points_by_gcp_id[gcp_id]
                 for i in range(len(image_points)):
                     image_point = image_points[i]
@@ -908,8 +922,16 @@ class ProjectPhotogrammetry(Project):
                     image_point_measured_coordinates = image_point.values[defs_img.IMAGE_POINT_MEASURED]
                     column_m = image_point_measured_coordinates[0]
                     row_m = image_point_measured_coordinates[1]
-                    str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
-                        = camera.from_chunk_to_sensor(gcp_chunk)
+                    within = None
+                    withinAfterUndistortion = None
+                    position_image = None
+                    position_undistorted_image = None
+                    if self.is_metashape_model:
+                        str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                            = camera.from_chunk_to_sensor(gcp_local)
+                    else:
+                        str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                            = camera.from_enu_to_sensor(gcp_local)
                     if str_error:
                         return str_error, end_date_time, log
                     # set undistoted computed as measured for test backwar-forward model
@@ -933,6 +955,16 @@ class ProjectPhotogrammetry(Project):
                     content += '{:10.2f}'.format(position_undistorted_image[1])
                     content += '{:8.2f}'.format(undistort_change_2d)
                     content += '  {:s}'.format(gcp.label)
+            if not self.is_metashape_model:
+                try:
+                    with open(output_file_path, "w") as f:
+                        f.write(content)
+                except Exception as e:
+                    str_error = (
+                        'Process {}\nError occurred when opening:\n{}\nto read:\n{}'.format(name, output_file_path, e))
+                    return str_error, end_date_time, log
+                end_date_time = datetime.now()
+                return str_error, end_date_time, log
             content += '\n- From image space to object space (photogrammetric forward projection), ignoring no pinned image points:'
             for gcp_id in at_block.image_points_by_gcp_id:
                 if not gcp_id in at_block.gcps_by_id:

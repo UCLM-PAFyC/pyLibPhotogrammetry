@@ -21,7 +21,7 @@
             "description": "Output file path for results report",
             "mandatory": true,
             "output": true,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/PhToolsOutput/gcp_analysis.txt",
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/PhToolsOutput/gcp_analysis_graphos.txt",
             "type": "file",
             "file_mode": "write",
             "domain": [
