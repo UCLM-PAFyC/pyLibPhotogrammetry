@@ -792,6 +792,7 @@ class ProjectPhotogrammetry(Project):
                 return str_error
         self.file_path = file_path
         self.opencv_tools = OpenCVTools()
+        self.opencv_tools.initialize()
         return str_error
 
     def process_gcps_accuracy_analysis(self,
@@ -1410,11 +1411,12 @@ class ProjectPhotogrammetry(Project):
                          format(name, defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH))
             return str_error, end_date_time, log
         parameter_output_path = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH]
-        parameter_output_path = str(parameter_output_path)
-        if not parameter_output_path:
+        output_path = str(parameter_output_path)
+        if not output_path:
             str_error = ('Process {} has a empty parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH))
             return str_error, end_date_time, log
+        output_path = os.path.normpath(output_path)
         cameras_to_process = []
         calibration_by_camera_file_path = {}
         for at_block_label in self.at_block_by_label:
@@ -1450,7 +1452,7 @@ class ProjectPhotogrammetry(Project):
             dialog.processInformationGroupBox.setEnabled(True)
             dialog.processLineEdit.clear()
             dialog.processProgressBar.reset()
-            dialog.processLineEdit.setText('Getting image footprints ...')
+            dialog.processLineEdit.setText('Undistorting images ...')
             dialog.processLineEdit.adjustSize()
             dialog.processProgressBar.setMaximum(len(calibration_by_camera_file_path))
             dialog.processLineEdit.adjustSize()
@@ -1464,8 +1466,11 @@ class ProjectPhotogrammetry(Project):
                 dialog.processProgressBar.setValue(cont)
                 QApplication.processEvents()
             calibration = calibration_by_camera_file_path[image_file_path]
+            undistort_image_file_path = output_path + '/'+ os.path.basename(image_file_path)
+            undistort_image_file_path = os.path.normpath(undistort_image_file_path)
             str_error = self.opencv_tools.undistort_image(image_file_path,
-                                                          calibration)
+                                                          calibration,
+                                                          undistort_image_file_path)
             if str_error:
                 if dialog:
                     dialog.processProgressBar.setValue(len(calibration_by_camera_file_path))

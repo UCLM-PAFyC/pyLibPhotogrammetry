@@ -19,6 +19,6 @@ class Calibration:
         self.sensor = sensor
         self.type = None
         self.kind = None
-        self.height = None # saved but ignored because use from sensor
-        self.width = None # saved but ignored because use from sensor
+        self.height = self.sensor.height
+        self.width = self.sensor.width
         self.parameters = {}
