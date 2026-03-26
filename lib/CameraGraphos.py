@@ -43,6 +43,30 @@ class CameraGraphos(Camera):
         self.pc_geo3d = None
         self.enu_rot = None
 
+    def from_enu_to_sensor(self,
+                           position_enu):
+        str_error = ''
+        within = False
+        withinAfterUndistortion = False
+        position_image = None
+        position_undistorted_image = None
+        if not isinstance(self.sensor_id, int):
+            str_error = ('Not exists sensor in camera: {} in block: {} in graphos file:\n{}'.
+                         format(self.label, self.at_block.label, self.at_block.file_path))
+            return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
+        if not self.sensor_id in self.at_block.sensor_by_id:
+            str_error = ('Not exists sensor id: {} in camera: {} in block: {} in graphos file:\n{}'.
+                         format(str(self.sensor_id), self.label, self.at_block.label, self.at_block.file_path))
+            return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        pc_enu = self.get_pc_enu()
+        x = position_enu[0] - pc_enu[0]
+        y = position_enu[1] - pc_enu[1]
+        z = position_enu[2] - pc_enu[2]
+        str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+            = sensor.from_camera_to_sensor(x, y, z, self.enu_rot)
+        return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
+
     def get_pc_ecef(self):
         # if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
         #     master_camera = self.at_block.camera_by_id[self.master_id]

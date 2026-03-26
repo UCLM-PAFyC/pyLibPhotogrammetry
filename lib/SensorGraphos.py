@@ -63,6 +63,42 @@ class SensorGraphos(Sensor):
         # self.sensitivity = None
         # self.vignetting = {} # self.vignetting[i][j] = value
 
+    def from_camera_to_sensor(self,
+                              x, y, z,
+                              rotation):
+        str_error = ''
+        within = False
+        withinAfterUndistortion = False
+        position_image = None
+        position_undistorted_image = None
+        calibration_type = next(iter(self.calibration_by_class))
+        calibration = self.calibration_by_class[calibration_type]
+        if (calibration.type.casefold() != defs_gr.GRAPHOS_SENSOR_CALIBRATION_TYPE_OPENCV_1.casefold()):
+            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {}'.
+                         format(self.label, calibration.type, defs_gr.GRAPHOS_SENSOR_CALIBRATION_TYPE_OPENCV_1))
+            return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
+        str_error = self.at_block.project.opencv_tools.from_camera_to_sensor(x, y, z, rotation, calibration)
+
+
+        return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
+
+    def get_focal(self):
+        str_error = ''
+        focal = None
+        if not defs_gr.GRAPHOS_XML_SENSOR_CALIBRATION_TAG in self.calibration_by_class:
+            str_error = ('For sensor: {} not found calibration class: {}'.
+                         format(self.label, defs_gr.GRAPHOS_XML_SENSOR_CALIBRATION_TAG))
+            return str_error, focal
+        calibration = self.calibration_by_class[defs_gr.GRAPHOS_XML_SENSOR_CALIBRATION_TAG]
+        if (calibration.type.casefold() != defs_gr.GRAPHOS_SENSOR_CALIBRATION_TYPE_OPENCV_1.casefold()):
+            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {}'.
+                         format(self.label, calibration.type, defs_gr.GRAPHOS_SENSOR_CALIBRATION_TYPE_OPENCV_1))
+            return str_error, focal
+        focal_x = calibration.parameters[defs_gr.GRAPHOS_XML_SENSOR_CALIBRATION_FX_TAG]
+        focal_y = calibration.parameters[defs_gr.GRAPHOS_XML_SENSOR_CALIBRATION_FY_TAG]
+        focal = (focal_x + focal_y) / 2.
+        return str_error, focal
+
     def set_from_xml(self,
                      xml_element):
         str_error = ''

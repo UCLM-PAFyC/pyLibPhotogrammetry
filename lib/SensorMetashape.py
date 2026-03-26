@@ -91,8 +91,6 @@ class SensorMetashape(Sensor):
                 return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
         outer_tolerance_columns = SENSOR_OUTER_POINT_PERCENTAGE_FOCAL_PLANE_TOLERANCE / 100. * columns
         outer_tolerance_rows = SENSOR_OUTER_POINT_PERCENTAGE_FOCAL_PLANE_TOLERANCE / 100. * rows
-        columns = calibration.width
-        rows = calibration.height
         X = position_camera[0]
         Y = position_camera[1]
         Z = position_camera[2]
