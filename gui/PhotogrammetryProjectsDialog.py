@@ -21,8 +21,8 @@ sys.path.append(os.path.join(current_path, '../..'))
 # sys.path.insert(0, '../..')
 
 from pyLibPhotogrammetry.defs import defs_project
-from pyLibPhotogrammetry.defs import defs_projects_dialog as defs_prjs_dlg
-from pyLibPhotogrammetry.Project import Project as PhProject
+from pyLibPhotogrammetry.defs import defs_projects_dialog as defs_prj_dlg
+from pyLibPhotogrammetry.lib.ProjectPhotogrammetry import ProjectPhotogrammetry as PhProject
 
 from pyLibCRSs.CompoundProjectedCRSDialog import CompoundProjectedCRSDialog
 from pyLibCRSs import CRSsDefines as defs_crs
