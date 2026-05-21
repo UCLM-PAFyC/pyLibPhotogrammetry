@@ -45,7 +45,7 @@ class CalibrationMetashape(Calibration):
             self.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P3_TAG] = 0.0
             self.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P4_TAG] = 0.0
             return str_error
-        if self.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE:
+        elif self.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE:
             self.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]=0.0
             self.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CX_TAG]=0.0
             self.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CY_TAG]=0.0
@@ -60,6 +60,8 @@ class CalibrationMetashape(Calibration):
             self.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P3_TAG]=0.0
             self.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P4_TAG]=0.0
             return str_error
+        elif self.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
+            self.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]=0.0
         str_error = ('Invalid type: {}'.format(self.type))
         return str_error
 

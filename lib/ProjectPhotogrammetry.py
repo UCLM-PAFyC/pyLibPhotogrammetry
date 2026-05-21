@@ -1,8 +1,8 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
-from PyQt5.QtWidgets import QApplication, QMessageBox, QDialog, QFileDialog, QPushButton, QComboBox
-from PyQt5.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
+from qgis.PyQt.QtWidgets import QApplication, QMessageBox, QDialog, QFileDialog, QPushButton, QComboBox
+from qgis.PyQt.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
 
 import os, sys
 import json
@@ -21,7 +21,7 @@ gdal.UseExceptions()
 current_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_path, '..'))
 
-from PyQt5.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
+from qgis.PyQt.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
 
 # common_libs_absolute_path = os.path.join(current_path, defs_paths.COMMON_LIBS_RELATIVE_PATH)
 # sys.path.append(common_libs_absolute_path)

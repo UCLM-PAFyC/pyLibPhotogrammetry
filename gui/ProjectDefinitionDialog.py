@@ -6,12 +6,12 @@ import sys
 import math
 import json
 
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.uic import loadUi
-from PyQt5.QtWidgets import (QApplication, QMessageBox, QDialog, QTreeWidgetItem,
+from qgis.PyQt import QtCore, QtWidgets
+from qgis.PyQt.uic import loadUi
+from qgis.PyQt.QtWidgets import (QApplication, QMessageBox, QDialog, QTreeWidgetItem,
                              QFileDialog, QPushButton, QComboBox, QPlainTextEdit, QLineEdit,
                              QDialogButtonBox, QVBoxLayout, QTableWidget, QTableWidgetItem, QInputDialog)
-from PyQt5.QtCore import QDir, QFileInfo, QFile, QSize, Qt, QDate
+from qgis.PyQt.QtCore import QDir, QFileInfo, QFile, QSize, Qt, QDate
 
 current_path = os.path.dirname(os.path.realpath(__file__))
 # current_path = os.path.dirname(os.path.realpath(__file__))

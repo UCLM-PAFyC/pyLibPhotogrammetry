@@ -391,6 +391,20 @@ class SensorMetashape(Sensor):
             return str_error
         label = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_ATTRIBUTE_LABEL]
         self.label = label
+        # type
+        if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_ATTRIBUTE_TYPE in xml_element:
+            str_error = ('Not exists attribute: {} in sensor in metashape markers XML file:\n{}'.
+                         format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_ATTRIBUTE_TYPE, self.at_block.file_path))
+            return str_error
+        type = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_ATTRIBUTE_TYPE]
+        if (type.casefold() != defs_msm.METASHAPE_SENSOR_TYPE_FRAME.casefold()
+                and type.casefold() != defs_msm.METASHAPE_SENSOR_TYPE_FISHEYE.casefold()
+                and type.casefold() != defs_msm.METASHAPE_SENSOR_TYPE_SPHERICAL.casefold()):
+            str_error = ('For attribute: {} in sensor invalid value: {} in metashape markers XML file:\n{}'.
+                         format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_ATTRIBUTE_TYPE, type, self.at_block.file_path))
+            return str_error
+        self.type = type
+
         # master id
         if defs_msm.METASHAPE_MARKERS_XML_SENSOR_ATTRIBUTE_MASTER_ID in xml_element:
             str_master_id = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_ATTRIBUTE_MASTER_ID]
@@ -589,30 +603,70 @@ class SensorMetashape(Sensor):
             self.band_names.append(band_label)
         # data_type
         if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_DATA_TYPE_TAG in xml_element:
-            str_error = ('Not exists element: {} in sensor in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_DATA_TYPE_TAG, self.at_block.file_path))
-            return str_error
-        self.data_type_as_string = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_DATA_TYPE_TAG]
+            # str_error = ('Not exists element: {} in sensor in metashape markers XML file:\n{}'.
+            #              format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_DATA_TYPE_TAG, self.at_block.file_path))
+            # return str_error
+            self.data_type_as_string = defs_msm.METASHAPE_MARKERS_XML_SENSOR_DATA_TYPE_DEFAULT_VALUE # spherical
+        else:
+            self.data_type_as_string = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_DATA_TYPE_TAG]
         # black_level
         if defs_msm.METASHAPE_MARKERS_XML_SENSOR_BLACK_LEVEL_TAG in xml_element:
             str_black_level = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_BLACK_LEVEL_TAG]
-            try:
-                self.black_level = float(str_black_level)
-            except ValueError:
-                str_error = (
-                    'Element: {} in sensor in metashape markers XML file:\n{}\n must be a float'.
-                    format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_BLACK_LEVEL_TAG, self.at_block.file_path))
-                return str_error
+            if len(self.band_names) == 1:
+                try:
+                    self.black_level = float(str_black_level)
+                except ValueError:
+                    str_error = (
+                        'Element: {} in sensor in metashape markers XML file:\n{}\n must be a float'.
+                        format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_BLACK_LEVEL_TAG, self.at_block.file_path))
+                    return str_error
+            else:
+                str_black_levels = str_black_level.split(' ')
+                if len(str_black_levels) != len(self.band_names):
+                    str_error = (
+                        'Element: {} in sensor in metashape markers XML file:\n{}\n must be {} floats'.
+                        format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_BLACK_LEVEL_TAG,
+                               self.at_block.file_path, str(len(self.band_names))))
+                    return str_error
+                self.black_level = []
+                for i in range(len(self.band_names)):
+                    try:
+                        self.black_level.append(float(str_black_levels[i]))
+                    except ValueError:
+                        str_error = (
+                            'Element: {} in sensor in metashape markers XML file:\n{}\n must be {} floats'.
+                            format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_BLACK_LEVEL_TAG,
+                                   self.at_block.file_path, str(len(self.band_names))))
+                        return str_error
         # sensitivity
         if defs_msm.METASHAPE_MARKERS_XML_SENSOR_SENSITIVITY_TAG in xml_element:
-            str_black_level = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_SENSITIVITY_TAG]
-            try:
-                self.sensitivity = float(str_black_level)
-            except ValueError:
-                str_error = (
-                    'Element: {} in sensor in metashape markers XML file:\n{}\n must be a float'.
-                    format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_SENSITIVITY_TAG, self.at_block.file_path))
-                return str_error
+            str_sensitivity = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_SENSITIVITY_TAG]
+            if len(self.band_names) == 1:
+                try:
+                    self.sensitivity = float(str_sensitivity)
+                except ValueError:
+                    str_error = (
+                        'Element: {} in sensor in metashape markers XML file:\n{}\n must be a float'.
+                        format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_SENSITIVITY_TAG, self.at_block.file_path))
+                    return str_error
+            else:
+                str_sensitivities = str_sensitivity.split(' ')
+                if len(str_sensitivities) != len(self.band_names):
+                    str_error = (
+                        'Element: {} in sensor in metashape markers XML file:\n{}\n must be {} floats'.
+                        format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_SENSITIVITY_TAG,
+                               self.at_block.file_path, str(len(self.band_names))))
+                    return str_error
+                self.sensitivity = []
+                for i in range(len(self.band_names)):
+                    try:
+                        self.sensitivity.append(float(str_sensitivities[i]))
+                    except ValueError:
+                        str_error = (
+                            'Element: {} in sensor in metashape markers XML file:\n{}\n must be {} floats'.
+                            format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_SENSITIVITY_TAG,
+                                   self.at_block.file_path, str(len(self.band_names))))
+                        return str_error
         # vignetting
         if defs_msm.METASHAPE_MARKERS_XML_SENSOR_VIGNETTING_TAG in xml_element:
             vignetting_element = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_VIGNETTING_TAG]
@@ -692,66 +746,76 @@ class SensorMetashape(Sensor):
                     self.vignetting[i_pos] = {}
                 self.vignetting[i_pos][j_pos] = value
         # calibrations
-        if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG in xml_element:
-            str_error = ('Not exists element: {} in sensor: {} in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
-            return str_error
-        calibration_element = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG]
-        calibrations_list = []
-        if isinstance(calibration_element, list):
-            calibrations_list = calibration_element
+        if self.type.casefold() != defs_msm.METASHAPE_SENSOR_TYPE_SPHERICAL.casefold():
+            if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG in xml_element:
+                str_error = ('Not exists element: {} in sensor: {} in metashape markers XML file:\n{}'.
+                             format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
+                return str_error
+            calibration_element = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG]
+            calibrations_list = []
+            if isinstance(calibration_element, list):
+                calibrations_list = calibration_element
+            else:
+                calibrations_list.append(calibration_element)
+            for i in range(len(calibrations_list)):
+                calibration_element = calibrations_list[i]
+                calibration = CalibrationMetashape(self)
+                str_error = calibration.set_from_xml(calibration_element)
+                if str_error:
+                    str_error = ('Loading calibration position: {}\n in sensor: {} in metashape markers XML file:\n{}'.
+                                 format(str(i+1), self.label, self.at_block.file_path))
+                    return str_error
+                self.calibration_by_class[calibration.kind] = calibration
+            # calibration covariance
+            if defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_TAG in xml_element:
+                calibration_covariance_element = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_TAG]
+                if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_PARAMS_TAG in calibration_covariance_element:
+                    str_error = ('Not exists element: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_PARAMS_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
+                    return str_error
+                params_element = calibration_covariance_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_PARAMS_TAG]
+                if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG in calibration_covariance_element:
+                    str_error = ('Not exists element: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
+                    return str_error
+                coeffs_element = calibration_covariance_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG]
+                try:
+                    params_values = [str(x) for x in params_element.split()]
+                except:
+                    str_error = ('Not string values in: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_PARAMS_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
+                    return str_error
+                self.calibration_covariance_params = params_values
+                number_of_params = len(params_values)
+                try:
+                    coeffs_values = [float(x) for x in coeffs_element.split()]
+                except:
+                    str_error = ('Not string values in: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
+                    return str_error
+                if len(coeffs_values) != (number_of_params ** 2.):
+                    str_error = ('Not {} values in: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
+                                 format(str(number_of_params ** 2.), defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
+                    return str_error
+                self.calibration_covariance_values = np.zeros((number_of_params, number_of_params))
+                for row in range(0, number_of_params):
+                    for col in range(0, number_of_params):
+                        pos = row + number_of_params * col
+                        self.calibration_covariance_values[row, col] = coeffs_values[pos]
         else:
-            calibrations_list.append(calibration_element)
-        for i in range(len(calibrations_list)):
-            calibration_element = calibrations_list[i]
             calibration = CalibrationMetashape(self)
-            str_error = calibration.set_from_xml(calibration_element)
-            if str_error:
-                str_error = ('Loading calibration position: {}\n in sensor: {} in metashape markers XML file:\n{}'.
-                             format(str(i+1), self.label, self.at_block.file_path))
-                return str_error
+            calibration.type = defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL
+            calibration.kind = defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED
+            calibration.height = self.height
+            calibration.width = self.width
+            focal = float(self.width) / (2. * math.pi)
+            calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG] = focal
             self.calibration_by_class[calibration.kind] = calibration
-        # calibration covariance
-        if defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_TAG in xml_element:
-            calibration_covariance_element = xml_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_TAG]
-            if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_PARAMS_TAG in calibration_covariance_element:
-                str_error = ('Not exists element: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_PARAMS_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
-                return str_error
-            params_element = calibration_covariance_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_PARAMS_TAG]
-            if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG in calibration_covariance_element:
-                str_error = ('Not exists element: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
-                return str_error
-            coeffs_element = calibration_covariance_element[defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG]
-            try:
-                params_values = [str(x) for x in params_element.split()]
-            except:
-                str_error = ('Not string values in: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_PARAMS_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
-                return str_error
-            self.calibration_covariance_params = params_values
-            number_of_params = len(params_values)
-            try:
-                coeffs_values = [float(x) for x in coeffs_element.split()]
-            except:
-                str_error = ('Not string values in: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
-                return str_error
-            if len(coeffs_values) != (number_of_params ** 2.):
-                str_error = ('Not {} values in: {} in element: {} in sensor: {} in metashape markers XML file:\n{}'.
-                             format(str(number_of_params ** 2.), defs_msm.METASHAPE_MARKERS_XML_SENSOR_COVARIANCE_COEFFS_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_TAG, self.label, self.at_block.file_path))
-                return str_error
-            self.calibration_covariance_values = np.zeros((number_of_params, number_of_params))
-            for row in range(0, number_of_params):
-                for col in range(0, number_of_params):
-                    pos = row + number_of_params * col
-                    self.calibration_covariance_values[row, col] = coeffs_values[pos]
         return str_error
 
     def set_geometry(self):

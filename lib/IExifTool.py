@@ -1,7 +1,7 @@
 import os, sys
 import exiftool
 
-from PyQt5.QtWidgets import QApplication
+from qgis.PyQt.QtWidgets import QApplication
 
 # exiftool_file_path = "E:\\dev\\python\\qgis_plugins\\PhotogrammetryTools\\external_tools\\exiftool-13.36_64\\exiftool.exe"
 current_path = os.path.dirname(os.path.realpath(__file__))
