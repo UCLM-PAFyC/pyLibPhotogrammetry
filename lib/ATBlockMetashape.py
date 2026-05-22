@@ -508,93 +508,108 @@ class ATBlockMetashape(ATBlock):
             return str_error
         cameras_element = xml_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG]
         if defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG in cameras_element:
-            cameras_group_element = cameras_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG]
-            # id
-            if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_ID in cameras_group_element:
-                str_error = ('Not exists attribute: {} in element: {} in element: {} in metashape markers XML file:\n{}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_ID,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
+            cameras_group_element = cameras_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG] # ¿a list?
+            cameras_group_element_list = []
+            if not isinstance(cameras_group_element, list):
+                cameras_group_element_list.append(cameras_group_element)
+            else:
+                cameras_group_element_list = cameras_group_element
+            for i in range(len(cameras_group_element_list)):
+                cameras_group_element = cameras_group_element_list[i]
+                # id
+                if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_ID in cameras_group_element:
+                    str_error = ('Not exists attribute: {} in element: {} in element: {} in metashape markers XML file:\n{}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_ID,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
+                    return str_error
+                str_cameras_group_id = cameras_group_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_ID]
+                cameras_group_id = None
+                try:
+                    cameras_group_id = int(str_cameras_group_id)
+                except ValueError:
+                    str_error = ('Attribute: {} in camera in metashape markers XML file:\n{}\n must be an integer: {}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_ID, self.file_path, str_cameras_group_id))
+                    return str_error
+                if cameras_group_id in self.cameras_group_by_id:
+                    str_error = ('Exists previous cameras group id: {} in metashape markers XML file:\n{}'.
+                                 format(str(cameras_group_id), self.file_path, ))
+                    return str_error
+                # label
+                if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_LABEL in cameras_group_element:
+                    str_error = ('Not exists attribute: {} in element: {} in element: {} in metashape markers XML file:\n{}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_LABEL,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
+                    return str_error
+                cameras_group_label = cameras_group_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_LABEL]
+                # type
+                if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_TYPE in cameras_group_element:
+                    str_error = ('Not exists attribute: {} in element: {} in element: {} in metashape markers XML file:\n{}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_TYPE,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
+                    return str_error
+                cameras_group_type = cameras_group_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_TYPE]
+                if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG in cameras_group_element:
+                    str_error = ('Not exists element: {} in element: {} in element: {} in metashape markers XML file:\n{}'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
+                    return str_error
+                cameras_group_camera_list_element = cameras_group_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG]
+                if not isinstance(cameras_group_camera_list_element, list):
+                    str_error = ('Element: {} in element: {} in element: {} in metashape markers XML file:\n{}\nmust be a list'.
+                                 format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
+                                        defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
+                    return str_error
+                cameras_group_camera_by_id = {}
+                for i in range(len(cameras_group_camera_list_element)):
+                    camera_element = cameras_group_camera_list_element[i]
+                    camera = CameraMetashape(self)
+                    str_error = camera.set_from_xml(camera_element)
+                    if str_error:
+                        str_error = ('Loading camera position: {}\nError:\n{}'.format(str(i + 1), str_error))
+                        return str_error
+                    cameras_group_camera_by_id[camera.id] = camera
+                self.cameras_group_by_id[cameras_group_id] = {}  # dictionary: label, type, cameras
+                self.cameras_group_by_id[cameras_group_id][defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_LABEL] = cameras_group_label
+                self.cameras_group_by_id[cameras_group_id][defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_TYPE] = cameras_group_type
+                self.cameras_group_by_id[cameras_group_id][defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG] = cameras_group_camera_by_id
+        # if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG in cameras_element:
+        #     str_error = ('Not exists element: {} in element: {} in chunk in metashape markers XML file:\n{}'.
+        #                  format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG,
+        #                         defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
+        #     return str_error
+        if defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG in cameras_element:
+            camera_list_element = cameras_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG]
+            if not isinstance(camera_list_element, list):
+                str_error = ('Element: {} in element: {} in chunk in metashape markers XML file:\n{}\nmust be a list.'.
+                             format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG,
                                     defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
                 return str_error
-            str_cameras_group_id = cameras_group_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_ID]
-            cameras_group_id = None
-            try:
-                cameras_group_id = int(str_cameras_group_id)
-            except ValueError:
-                str_error = ('Attribute: {} in camera in metashape markers XML file:\n{}\n must be an integer: {}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_ID, self.file_path, str_cameras_group_id))
-                return str_error
-            if cameras_group_id in self.cameras_group_by_id:
-                str_error = ('Exists previous cameras group id: {} in metashape markers XML file:\n{}'.
-                             format(str(cameras_group_id), self.file_path, ))
-                return str_error
-            # label
-            if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_LABEL in cameras_group_element:
-                str_error = ('Not exists attribute: {} in element: {} in element: {} in metashape markers XML file:\n{}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_LABEL,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
-                return str_error
-            cameras_group_label = cameras_group_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_LABEL]
-            # type
-            if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_TYPE in cameras_group_element:
-                str_error = ('Not exists attribute: {} in element: {} in element: {} in metashape markers XML file:\n{}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_TYPE,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
-                return str_error
-            cameras_group_type = cameras_group_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_TYPE]
-            if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG in cameras_group_element:
-                str_error = ('Not exists element: {} in element: {} in element: {} in metashape markers XML file:\n{}'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
-                return str_error
-            cameras_group_camera_list_element = cameras_group_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG]
-            if not isinstance(cameras_group_camera_list_element, list):
-                str_error = ('Element: {} in element: {} in element: {} in metashape markers XML file:\n{}\nmust be a list'.
-                             format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_TAG,
-                                    defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
-                return str_error
-            cameras_group_camera_by_id = {}
-            for i in range(len(cameras_group_camera_list_element)):
-                camera_element = cameras_group_camera_list_element[i]
+            for i in range(len(camera_list_element)):
+                camera_element = camera_list_element[i]
                 camera = CameraMetashape(self)
                 str_error = camera.set_from_xml(camera_element)
                 if str_error:
-                    str_error = ('Loading camera position: {}\nError:\n{}'.format(str(i + 1), str_error))
+                    str_error = ('Loading camera position: {}\nError:\n{}'.format(str(i+1), str_error))
                     return str_error
-                cameras_group_camera_by_id[camera.id] = camera
-            self.cameras_group_by_id[cameras_group_id] = {}  # dictionary: label, type, cameras
-            self.cameras_group_by_id[cameras_group_id][defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_LABEL] = cameras_group_label
-            self.cameras_group_by_id[cameras_group_id][defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_ATTRIBUTE_TYPE] = cameras_group_type
-            self.cameras_group_by_id[cameras_group_id][defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG] = cameras_group_camera_by_id
-        if not defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG in cameras_element:
-            str_error = ('Not exists element: {} in element: {} in chunk in metashape markers XML file:\n{}'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG,
-                                defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
-            return str_error
-        camera_list_element = cameras_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG]
-        if not isinstance(camera_list_element, list):
-            str_error = ('Element: {} in element: {} in chunk in metashape markers XML file:\n{}\nmust be a list.'.
-                         format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_CAMERA_TAG,
-                                defs_msm.METASHAPE_MARKERS_XML_CAMERAS_TAG, self.file_path))
-            return str_error
-        for i in range(len(camera_list_element)):
-            camera_element = camera_list_element[i]
-            camera = CameraMetashape(self)
-            str_error = camera.set_from_xml(camera_element)
-            if str_error:
-                str_error = ('Loading camera position: {}\nError:\n{}'.format(str(i+1), str_error))
-                return str_error
-            self.camera_by_id[camera.id] = camera
-        for camera_id in self.cameras_group_by_id:
-            camera = self.camera_by_id[camera_id]
-            if camera.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
-                if not camera.master_id in self.cameras_id_by_multi_camera_master_id:
-                    self.cameras_id_by_multi_camera_master_id[camera.master_id] = []
-                self.cameras_id_by_multi_camera_master_id[camera.master_id].append(camera_id)
+                self.camera_by_id[camera.id] = camera
+            for camera_id in self.cameras_group_by_id: # works if only exists one cameras group? view next ...
+                camera = self.camera_by_id[camera_id]
+                if camera.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
+                    if not camera.master_id in self.cameras_id_by_multi_camera_master_id:
+                        self.cameras_id_by_multi_camera_master_id[camera.master_id] = []
+                    self.cameras_id_by_multi_camera_master_id[camera.master_id].append(camera_id)
+        # new for spherical example
+        for cameras_group_id in self.cameras_group_by_id:
+            cameras_group_camera_by_id = self.cameras_group_by_id[cameras_group_id][defs_msm.METASHAPE_MARKERS_XML_CAMERAS_GROUP_CAMERA_TAG]
+            for camera_id in cameras_group_camera_by_id:
+                if not camera_id in self.camera_by_id:
+                    self.camera_by_id[camera_id] = cameras_group_camera_by_id[camera_id]
+
         # METASHAPE_MARKERS_XML_MARKERS_TAG
         if not defs_msm.METASHAPE_MARKERS_XML_MARKERS_TAG in xml_element:
             return str_error

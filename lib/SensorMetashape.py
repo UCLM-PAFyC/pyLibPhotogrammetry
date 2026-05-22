@@ -76,19 +76,53 @@ class SensorMetashape(Sensor):
         else:
             calibration = self.calibration_by_class[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL]
         if (calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME
-                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE):
-            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {} or {}'.
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL):
+            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {}, {} or {}'.
                          format(self.label, calibration.type, defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME,
-                                defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE))
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE,
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL))
             return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
         columns = calibration.width
         rows = calibration.height
         if not self.geometry:
-            str_error = self.set_geometry()
-            if str_error:
-                str_error = ('Setting geometry for sensor: {} error:\n{}'.
-                             format(self.label, str_error))
-                return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
+            if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
+                wkt_geometry = "POLYGON(("
+                wkt_geometry += ('{:6f}'.format(0))
+                wkt_geometry += " "
+                wkt_geometry += ('{:6f}'.format(0))
+                wkt_geometry += ","
+                wkt_geometry += ('{:6f}'.format(columns - 1))
+                wkt_geometry += " "
+                wkt_geometry += ('{:6f}'.format(0))
+                wkt_geometry += ","
+                wkt_geometry += ('{:6f}'.format(columns - 1))
+                wkt_geometry += " "
+                wkt_geometry += ('{:6f}'.format(rows - 1))
+                wkt_geometry += ","
+                wkt_geometry += ('{:6f}'.format(0))
+                wkt_geometry += " "
+                wkt_geometry += ('{:6f}'.format(rows - 1))
+                wkt_geometry += ","
+                wkt_geometry += ('{:6f}'.format(0))
+                wkt_geometry += " "
+                wkt_geometry += ('{:6f}'.format(0))
+                wkt_geometry += "))"
+                try:
+                    self.geometry = ogr.CreateGeometryFromWkt(wkt_geometry)
+                except Exception as e:
+                    # str_error = 'GDAL Error: ' + e.args[0]
+                    # str_error = ('Setting geometry in sensor: {}\nGDAL error:\n{}}'.
+                    #              format(self.label, e.args[0]))
+                    str_error = ('Error setting geometry in sensor: {} from WKT'.
+                                 format(self.label))
+                    return str_error
+            else:
+                str_error = self.set_geometry()
+                if str_error:
+                    str_error = ('Setting geometry for sensor: {} error:\n{}'.
+                                 format(self.label, str_error))
+                    return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
         outer_tolerance_columns = SENSOR_OUTER_POINT_PERCENTAGE_FOCAL_PLANE_TOLERANCE / 100. * columns
         outer_tolerance_rows = SENSOR_OUTER_POINT_PERCENTAGE_FOCAL_PLANE_TOLERANCE / 100. * rows
         X = position_camera[0]
@@ -200,6 +234,15 @@ class SensorMetashape(Sensor):
             row = rows * 0.5 + cy + yd * f
             if not withinAfterUndistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
                 withinAfterUndistortion = True
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
+            f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+            column = columns * 0.5 + f * np.arctan(X / Z)
+            row = rows * 0.5 + f * np.arctan(Y / np.sqrt(X *X + Z * Z))
+            if column >= 0 and column < self.width and row >= 0 and row < self.height:
+                within = True
+                withinAfterUndistortion = True
+            columnNd = column
+            rowNd = row
         position_image = [column, row]
         position_undistorted_image = [columnNd, rowNd]
         return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
@@ -224,10 +267,12 @@ class SensorMetashape(Sensor):
         else:
             calibration = self.calibration_by_class[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL]
         if (calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME
-                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE):
-            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {} or {}'.
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL):
+            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {}, {} or {}'.
                          format(self.label, calibration.type, defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME,
-                                defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE))
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE,
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL))
             return str_error, X, Y, Z
         columns = calibration.width
         rows = calibration.height
@@ -354,6 +399,11 @@ class SensorMetashape(Sensor):
             Z = 1.0 #f
             X = x0
             Y = y0
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
+            f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+            Z = 1.0 # f
+            X = Z * np.tan((column - columns * 0.5) / f)
+            Y = np.sqrt(X * X + Z * Z) * np.tan((row - rows * 0.5) / f)
         if isinstance(self.rotation,np.ndarray):
             coor = np.zeros(3)
             coor[0] = X
