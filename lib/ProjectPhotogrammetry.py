@@ -901,7 +901,7 @@ class ProjectPhotogrammetry(Project):
                 if len(gcp.label) > gcp_label_max_length:
                     gcp_label_max_length = len(gcp.label)
             content += '\n- From object space to image space (photogrammetric backward projection), ignoring no pinned image points:'
-            content += '\n  GCP.Id    Column       Row   ColumnM      RowM  ErrorC  ErrorR Error2d  Image                              Und.Column   Und.Row  Change  GCP.Label'
+            content += '\n  GCP.Id    Column       Row   ColumnM      RowM  ErrorC  ErrorR Error2d  Image                              Und.Column   Und.Row  Change  GCP.Id'
             for gcp_id in at_block.image_points_by_gcp_id:
                 if not gcp_id in at_block.gcps_by_id:
                     continue
@@ -942,7 +942,7 @@ class ProjectPhotogrammetry(Project):
                     undistort_change_column = position_undistorted_image[0] - position_image[0]
                     undistort_change_row = position_undistorted_image[1] - position_image[1]
                     undistort_change_2d = np.sqrt(undistort_change_column ** 2. + undistort_change_row ** 2.)
-                    content += '\n{:>8s}'.format(str(gcp.id))
+                    content += '\n{:>8s}'.format(str(gcp_id))
                     content += '{:10.2f}'.format(position_image[0])
                     content += '{:10.2f}'.format(position_image[1])
                     content += '{:10.2f}'.format(column_m)

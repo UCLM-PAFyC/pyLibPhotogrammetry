@@ -236,8 +236,12 @@ class SensorMetashape(Sensor):
                 withinAfterUndistortion = True
         if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
             f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
-            column = columns * 0.5 + f * np.arctan(X / Z)
-            row = rows * 0.5 + f * np.arctan(Y / np.sqrt(X *X + Z * Z))
+            # column = columns * 0.5 + f * np.arctan(X / Z)
+            # row = rows * 0.5 + f * np.arctan(Y / np.sqrt(X *X + Z * Z))
+            column = columns * 0.5 + f * np.arctan2(X, Z)
+            row = rows * 0.5 + f * np.arctan2(Y, np.sqrt(X *X + Z * Z))
+            # column_2 = columns * 0.5 + f * np.arctan2(Z, X)
+            # row_2 = rows * 0.5 + f * np.arctan2(np.sqrt(X *X + Z * Z), Y)
             if column >= 0 and column < self.width and row >= 0 and row < self.height:
                 within = True
                 withinAfterUndistortion = True
@@ -404,6 +408,17 @@ class SensorMetashape(Sensor):
             Z = 1.0 # f
             X = Z * np.tan((column - columns * 0.5) / f)
             Y = np.sqrt(X * X + Z * Z) * np.tan((row - rows * 0.5) / f)
+            str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                = self.from_camera_to_sensor([X, Y, Z])
+            theta_col = np.arctan2((column - columns * 0.5), f)
+            theta_row = np.arctan2((row - rows * 0.5) , f)
+            X = np.sin(theta_col) * np.cos(theta_row)
+            Y = np.sin(theta_row)
+            Z = np.cos(theta_col) * np.cos(theta_row)
+            # theta_1 = np.tan((column - columns * 0.5) / f)
+            # X_= 1. * np.sin(theta_1)
+            # Z = 1. * np.cos(theta_1)
+            # Y = np.sqrt(X * X + Z * Z) * np.tan((row - rows * 0.5) / f)
         if isinstance(self.rotation,np.ndarray):
             coor = np.zeros(3)
             coor[0] = X
