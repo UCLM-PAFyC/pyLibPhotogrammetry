@@ -239,7 +239,7 @@ class SensorMetashape(Sensor):
             # column = columns * 0.5 + f * np.arctan(X / Z)
             # row = rows * 0.5 + f * np.arctan(Y / np.sqrt(X *X + Z * Z))
             column = columns * 0.5 + f * np.arctan2(X, Z)
-            row = rows * 0.5 + f * np.arctan2(Y, np.sqrt(X *X + Z * Z))
+            row = rows * 0.5 + f * np.arctan(Y / np.sqrt(X * X + Z * Z))
             # column_2 = columns * 0.5 + f * np.arctan2(Z, X)
             # row_2 = rows * 0.5 + f * np.arctan2(np.sqrt(X *X + Z * Z), Y)
             if column >= 0 and column < self.width and row >= 0 and row < self.height:
@@ -405,20 +405,19 @@ class SensorMetashape(Sensor):
             Y = y0
         if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
             f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
-            Z = 1.0 # f
+            Z = 1.0
+            if abs(column - columns * 0.5) > (columns / 4.): # greather than mean of mean side
+                Z = -1.0
             X = Z * np.tan((column - columns * 0.5) / f)
             Y = np.sqrt(X * X + Z * Z) * np.tan((row - rows * 0.5) / f)
-            str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
-                = self.from_camera_to_sensor([X, Y, Z])
-            theta_col = np.arctan2((column - columns * 0.5), f)
-            theta_row = np.arctan2((row - rows * 0.5) , f)
-            X = np.sin(theta_col) * np.cos(theta_row)
-            Y = np.sin(theta_row)
-            Z = np.cos(theta_col) * np.cos(theta_row)
-            # theta_1 = np.tan((column - columns * 0.5) / f)
-            # X_= 1. * np.sin(theta_1)
-            # Z = 1. * np.cos(theta_1)
-            # Y = np.sqrt(X * X + Z * Z) * np.tan((row - rows * 0.5) / f)
+            # column_c = columns * 0.5 + f * np.arctan2(X, Z)
+            # row_c = rows * 0.5 + f * np.arctan(Y / np.sqrt(X * X + Z * Z))
+            # diff_column = column - column_c
+            # diff_row = row - row_c
+            # if np.abs(diff_column > 0.1) or np.abs(diff_row > 0.1):
+            #     str_error = ('Error computing camera coordinates direction:\n\t- inputs = [{:.1f},{:.1f}], outputs = [{:.1f},{:.1f}]'.
+            #                  format(column, row, position_image[0], position_image[1]))
+            #     return str_error
         if isinstance(self.rotation,np.ndarray):
             coor = np.zeros(3)
             coor[0] = X
