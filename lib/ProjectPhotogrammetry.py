@@ -1496,6 +1496,24 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES,
                                 str_nop))
             return str_error, end_date_time, log
+        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_IMAGE_SPACE_TOLERANCE
+                in parametes_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_IMAGE_SPACE_TOLERANCE))
+            return str_error, end_date_time, log
+        parameter_istol = parametes_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_IMAGE_SPACE_TOLERANCE]
+        str_img_space_tolerance = str(parameter_istol)
+        image_space_tolerance = None
+        try:
+            image_space_tolerance = float(str_img_space_tolerance)
+        except ValueError:
+            str_error = ('Process: {} does not have a integer parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_IMAGE_SPACE_TOLERANCE,
+                                str_nop))
+            return str_error, end_date_time, log
         if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_ENABLED_IMAGES
                 in parametes_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
@@ -1682,7 +1700,8 @@ class ProjectPhotogrammetry(Project):
                     = at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
                                                       at_block.crs_id,
                                                       compute_backward_camera_coordinates,
-                                                      use_distortion, use_ppa)
+                                                      use_distortion, use_ppa,
+                                                      image_space_tolerance)
                 if str_error:
                     return str_error, end_date_time, log
                 crs2d_precision = crs2d_precision_by_at_block_label[at_block_label]
