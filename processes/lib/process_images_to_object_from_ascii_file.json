@@ -1,0 +1,81 @@
+{
+    "name": "Images To Object From Ascii File",
+    "contributions": {
+        "methodology": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ],
+        "software": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ]
+    },
+    "src": {
+        "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
+        "method": "process_images_to_object_from_ascii_file"
+    },
+    "description": "Description:\n\nA process to get object points from its images measurements in ascii file",
+    "doc": "",
+    "parameters": [
+        {
+            "label": "Input file",
+            "argparser": "",
+            "description": "Input ascii file",
+            "mandatory": true,
+            "output": false,
+            "value": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/data/detections_id_image_code_column_row_dhl.txt",
+            "type": "file",
+            "file_mode": "read",
+            "domain": [
+                ".txt"
+            ],
+            "output_format": "{:s}"
+        },
+        {
+            "label": "Input file format",
+            "argparser": "",
+            "description": "A valid input ascii file format.\nExamples:\nPointId,ImageId,PointCode,Column,Row",
+            "mandatory": true,
+            "output": false,
+            "value": "PointId,ImageId,PointCode,Column,Row",
+            "type": "string",
+            "output_format": "{:>s}"
+        },
+        {
+            "label": "Number of header lines",
+            "argparser": "",
+            "description": "Number of headers lines in input file to ignore",
+            "mandatory": true,
+            "output": false,
+            "value": 1,
+            "type": "integer",
+            "domain": [
+                0,
+                100
+            ],
+            "output_format": "{:10d}"
+        },
+        {
+            "label": "Process only enabled images",
+            "argparser": "",
+            "description": "Process only enabled images",
+            "mandatory": true,
+            "output": false,
+            "value": true,
+            "type": "boolean",
+            "output_format": "{:>10s}"
+        },
+		{
+            "label": "Results report file",
+            "argparser": "",
+            "description": "Output file path for results report",
+            "mandatory": true,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/output/image_to_object_results.txt",
+            "type": "file",
+            "file_mode": "write",
+            "domain": [
+                ".txt"
+            ],
+            "output_format": "{:s}"
+        }
+    ]
+}

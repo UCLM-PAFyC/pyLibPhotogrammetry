@@ -53,6 +53,15 @@ class ATBlock:
                     return camera
         return None
 
+    def get_camera_from_image_label(self,
+                                    image_label):
+        for camera_id in self.camera_by_id:
+            camera = self.camera_by_id[camera_id]
+            if camera.label:
+                if image_label.casefold() == camera.label.casefold():
+                    return camera
+        return None
+
 
 
 

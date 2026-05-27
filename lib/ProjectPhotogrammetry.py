@@ -1,6 +1,6 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
-
+from numpy.core.multiarray import array_function_from_c_func_and_dispatcher
 from qgis.PyQt.QtWidgets import QApplication, QMessageBox, QDialog, QFileDialog, QPushButton, QComboBox
 from qgis.PyQt.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
 
@@ -1151,7 +1151,7 @@ class ProjectPhotogrammetry(Project):
             with open(output_file_path, "w") as f:
                 f.write(content)
         except Exception as e:
-            str_error = ('Process {}\nError occurred when opening:\n{}\nto read:\n{}'.format(name, output_file_path, e))
+            str_error = ('Process {}\nError occurred when opening:\n{}\nto write:\n{}'.format(name, output_file_path, e))
             return str_error, end_date_time, log
         end_date_time = datetime.now()
         return str_error, end_date_time, log
@@ -1426,6 +1426,310 @@ class ProjectPhotogrammetry(Project):
         str_error = GDALTools.write_features(self.file_path, features_by_layer)
         if str_error:
             str_error = ('Error storing footprints:\n{}'.format(str_error))
+            return str_error, end_date_time, log
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
+    def process_images_to_object_from_ascii_file(self,
+                                                 process,
+                                                 dialog = None):
+        str_error = ''
+        end_date_time = None
+        log = None
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL
+                in parametes_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        parameter_input_file_path = parametes_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL]
+        input_file_path = str(parameter_input_file_path)
+        if not parameter_input_file_path:
+            str_error = ('Process: {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        input_file_path = os.path.normpath(input_file_path)
+        if not os.path.exists(input_file_path):
+            str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL
+                in parametes_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP))
+            return str_error, end_date_time, log
+        parameter_input_file_format = parametes_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL]
+        input_file_format = str(parameter_input_file_format)
+        input_file_format = input_file_format.strip()
+        if not input_file_format:
+            str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL))
+            return str_error, end_date_time, log
+        if (input_file_format.casefold()
+                != defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FILE_FORMAT_1.casefold()):
+            str_error = ('Process: {} has a parameter: {}\ninvalid'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL))
+            return str_error, end_date_time, log
+        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES
+                in parametes_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES))
+            return str_error, end_date_time, log
+        parameter_nhl = parametes_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES]
+        str_nop = str(parameter_nhl)
+        number_of_header_lines = 0
+        try:
+            number_of_header_lines = int(str_nop)
+        except ValueError:
+            str_error = ('Process: {} does not have a integer parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES,
+                                str_nop))
+            return str_error, end_date_time, log
+        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_ENABLED_IMAGES
+                in parametes_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_ENABLED_IMAGES))
+            return str_error, end_date_time, log
+        parameter_enabled_images = parametes_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_ENABLED_IMAGES]
+        str_enabled = str(parameter_enabled_images)
+        only_enabled_images = True
+        if str_enabled.casefold() == 'false':
+            only_enabled_images = False
+        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL
+                in parametes_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        parameter_output_file = parametes_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL]
+        output_file_path = str(parameter_output_file)
+        if not output_file_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        output_file_path = os.path.normpath(output_file_path)
+        if os.path.exists(output_file_path):
+            os.remove(output_file_path)
+        if os.path.exists(output_file_path):
+            msg_error = ('Error removing output file:\n{}'.format(output_file_path))
+            str_error = ('Process: {}, parameter: {}:\n{}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL,
+                                msg_error))
+            return str_error, end_date_time, log
+        content  = 'IMAGES TO OBJECT FROM ASCII FILE'
+        content += '\n================================'
+        content += '\nProject definition: '
+        content += '\n- Name ..........................: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_NAME]
+        content += '\n- Author ........................: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_AUTHOR]
+        content += '\n- CRS id ........................: ' + self.crs_id
+        content += '\n  Projected CRS id ..............: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_PROJECTED_CRS]
+        content += '\n- Vertical CRS id ...............: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
+        # content += '\n- Metashape markers xml file ....: ' + self.metashape_markers_xml_file
+        content += '\n- Number of AT Blocks ...........: ' + str(len(self.at_block_by_label))
+        try:
+            input_file = open(input_file_path, 'r')
+        except IOError:
+            msg_error = ('Error opening input file:\n{}'.format(input_file_path))
+            str_error = ('Process: {}, parameter: {}:\n{}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL,
+                                msg_error))
+            return str_error, end_date_time, log
+        measure_by_image_label_by_point_id = {}
+        code_by_point_id = {}
+        if (input_file_format.casefold()
+                == defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FILE_FORMAT_1.casefold()):
+            field_names = defs_processes.process_function_images_to_object_fields_by_format[
+                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FILE_FORMAT_1]
+        count = 0
+        point_code_max_length = 0
+        for line in input_file:
+            count += 1
+            if count <= number_of_header_lines:
+                continue
+            if line.strip() == '':
+                continue
+            line_values = []
+            if (input_file_format.casefold()
+                    == defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FILE_FORMAT_1.casefold()):
+                line_values = line.strip().split(',')
+            if line_values is None:
+                msg_error = ('Error reading line {} in input file:\n{}'.format(str(count), input_file_path))
+                str_error = ('Process: {}, parameter: {}:\n{}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL,
+                                    msg_error))
+                return str_error, end_date_time, log
+            if len(field_names) != len(line_values):
+                msg_error = ('Invalid fields reading line {} in input file:\n{}'.format(str(count), input_file_path))
+                str_error = ('Process: {}, parameter: {}:\n{}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL,
+                                    msg_error))
+                return str_error, end_date_time, log
+            values = {}
+            for i in range(len(field_names)):
+                value = line_values[i].strip()
+                if (field_names[i] == defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_COLUMN
+                    or field_names[i] == defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_ROW):
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        msg_error = (
+                            'Invalid float field value: {} reading line {} in input file:\n{}'
+                            .format(values[i].trimmed(), str(count), input_file_path))
+                        str_error = ('Process: {}, parameter: {}:\n{}'.
+                                     format(name,
+                                            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL,
+                                            msg_error))
+                        return str_error, end_date_time, log
+                values[field_names[i]] = value
+            point_id = values[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_POINT_ID]
+            image_label = values[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_LABEL]
+            point_code = values[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_POINT_CODE]
+            column = values[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_COLUMN]
+            row = values[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_ROW]
+            if not point_id in measure_by_image_label_by_point_id:
+                measure_by_image_label_by_point_id[point_id] = {}
+            measure_by_image_label_by_point_id[point_id][image_label] = {}
+            measure_by_image_label_by_point_id[point_id][image_label][
+                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_COLUMN]= column
+            measure_by_image_label_by_point_id[point_id][image_label][
+                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_ROW] = row
+            if not point_id in code_by_point_id:
+                code_by_point_id[point_id] = point_code
+            else:
+                if point_code.casefold() != code_by_point_id[point_id].casefold():
+                    msg_error = (
+                        'Code value: {} different from previous reading line {} in input file:\n{}'
+                        .format(point_code, str(count), input_file_path))
+                    str_error = ('Process: {}, parameter: {}:\n{}'.
+                                 format(name,
+                                        defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL,
+                                        msg_error))
+                    return str_error, end_date_time, log
+            if len(point_code) > point_code_max_length:
+                point_code_max_length = len(point_code)
+        crs2d_precision_by_at_block_label = {}
+        for at_block_label in self.at_block_by_label:
+            at_block = self.at_block_by_label[at_block_label]
+            str_error, at_block_crs_is_geographic = self.crs_tools.is_geographic(at_block.crs_id)
+            if str_error:
+                str_error = ('For AT Block: {}, getting is geographic CRS: {}\nError:\n{}'
+                             .format(at_block_label, at_block.crs_id, str_error))
+                return str_error, end_date_time, log
+            crs2d_precision = 4
+            if at_block_crs_is_geographic:
+                crs2d_precision = 9
+            crs2d_precision_by_at_block_label[at_block_label] = crs2d_precision
+        for point_id in measure_by_image_label_by_point_id:
+            measure_by_image_label = measure_by_image_label_by_point_id[point_id]
+            at_block_label_by_image_label = {}
+            camera_by_image_label = {}
+            at_block_labels = []
+            number_of_images_measured_by_at_block_label = {}
+            image_measured_coordinates_by_camera_id_by_block_label = {}
+            for image_label in measure_by_image_label:
+                for at_block_id in self.at_block_by_label:
+                    at_block = self.at_block_by_label[at_block_id]
+                    camera = at_block.get_camera_from_image_label(image_label)
+                    if camera == None:
+                        continue
+                    if not at_block_id in at_block_labels:
+                        image_measured_coordinates_by_camera_id_by_block_label[at_block_id]= {}
+                        at_block_labels.append(at_block_id)
+                        number_of_images_measured_by_at_block_label[at_block_id] = 0
+                    number_of_images_measured_by_at_block_label[at_block_id] \
+                        = number_of_images_measured_by_at_block_label[at_block_id] + 1
+                    camera_by_image_label[image_label] = camera
+                    at_block_label_by_image_label[image_label] = at_block_id
+                    column = measure_by_image_label[image_label][
+                        defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_COLUMN]
+                    row = measure_by_image_label[image_label][
+                        defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_ROW]
+                    image_measured_coordinates_by_camera_id_by_block_label[at_block_id][camera.id] = [column, row]
+            content += "\n- Point .......................: "
+            content += point_id
+            for at_block_id in image_measured_coordinates_by_camera_id_by_block_label:
+                content += "\n  - AT Block ..................: "
+                content += at_block_id
+                if number_of_images_measured_by_at_block_label[at_block_id] < 2:
+                    content += "\n    The point has not been measured in the minimum number of images"
+                    continue
+                at_block = self.at_block_by_label[at_block_id]
+                compute_backward_camera_coordinates = True
+                use_distortion = True
+                use_ppa = True
+                image_measured_coordinates_by_camera_id \
+                    = image_measured_coordinates_by_camera_id_by_block_label[at_block_id]
+                str_error, position, std_position, image_position_backward_error_by_camera_id \
+                    = at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
+                                                      at_block.crs_id,
+                                                      compute_backward_camera_coordinates,
+                                                      use_distortion, use_ppa)
+                if str_error:
+                    return str_error, end_date_time, log
+                crs2d_precision = crs2d_precision_by_at_block_label[at_block_label]
+                content += "\n                                          "
+                if crs2d_precision == 4:
+                    content += "      X.GCPsCRS      Y.GCPsCRS      H.GCPsCRS"
+                else:
+                    content += "   Long.GCPsCRS    Lat.GCPsCRS      H.GCPsCRS"
+                content += "\n    - Computed coordinates ........: "
+                content += ('').ljust(point_code_max_length)
+                if crs2d_precision == 9:
+                    content += ("{:15.9f}".format(position[0]))
+                    content += ("{:15.9f}".format(position[1]))
+                else:
+                    content += ("{:15.4f}".format(position[0]))
+                    content += ("{:15.4f}".format(position[1]))
+                content += ("{:15.4f}".format(position[2]))
+                content += "\n    - Std computed coordinates ....: "
+                content += ('').ljust(point_code_max_length)
+                if crs2d_precision == 9:
+                    content += ("{:15.9f}".format(std_position[0]))
+                    content += ("{:15.9f}".format(std_position[1]))
+                else:
+                    content += ("{:15.4f}".format(std_position[0]))
+                    content += ("{:15.4f}".format(std_position[1]))
+                content += ("{:15.4f}".format(std_position[2]))
+                content += "\n     ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
+                for camera_id in image_position_backward_error_by_camera_id:
+                    measured = image_measured_coordinates_by_camera_id[camera_id]
+                    error_computed = image_position_backward_error_by_camera_id[camera_id]
+                    error_c = error_computed[0]
+                    error_r = error_computed[1]
+                    error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
+                    camera = at_block.camera_by_id[camera_id]
+                    content += '\n{:12.2f}'.format(measured[0])
+                    content += '{:10.2f}'.format(measured[1])
+                    content += '{:10.2f}'.format(measured[0] - error_c)
+                    content += '{:10.2f}'.format(measured[1] - error_r)
+                    content += '{:8.2f}'.format(error_c)
+                    content += '{:8.2f}'.format(error_r)
+                    content += '{:8.2f}'.format(error_2d)
+                    content += '  {:s}'.format(camera.label)
+        try:
+            with open(output_file_path, "w") as f:
+                f.write(content)
+        except Exception as e:
+            str_error = ('Process {}\nError occurred when opening:\n{}\nto write:\n{}'.format(name, output_file_path, e))
             return str_error, end_date_time, log
         end_date_time = datetime.now()
         return str_error, end_date_time, log
