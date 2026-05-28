@@ -1658,6 +1658,8 @@ class ProjectPhotogrammetry(Project):
             if at_block_crs_is_geographic:
                 crs2d_precision = 9
             crs2d_precision_by_at_block_label[at_block_label] = crs2d_precision
+        log = {}
+        log[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINTS] = {}
         for point_id in measure_by_image_label_by_point_id:
             measure_by_image_label = measure_by_image_label_by_point_id[point_id]
             at_block_label_by_image_label = {}
@@ -1666,38 +1668,42 @@ class ProjectPhotogrammetry(Project):
             number_of_images_measured_by_at_block_label = {}
             image_measured_coordinates_by_camera_id_by_block_label = {}
             for image_label in measure_by_image_label:
-                for at_block_id in self.at_block_by_label:
-                    at_block = self.at_block_by_label[at_block_id]
+                for at_block_label in self.at_block_by_label:
+                    at_block = self.at_block_by_label[at_block_label]
                     camera = at_block.get_camera_from_image_label(image_label)
                     if camera == None:
                         continue
-                    if not at_block_id in at_block_labels:
-                        image_measured_coordinates_by_camera_id_by_block_label[at_block_id]= {}
-                        at_block_labels.append(at_block_id)
-                        number_of_images_measured_by_at_block_label[at_block_id] = 0
-                    number_of_images_measured_by_at_block_label[at_block_id] \
-                        = number_of_images_measured_by_at_block_label[at_block_id] + 1
+                    if not at_block_label in at_block_labels:
+                        image_measured_coordinates_by_camera_id_by_block_label[at_block_label]= {}
+                        at_block_labels.append(at_block_label)
+                        number_of_images_measured_by_at_block_label[at_block_label] = 0
+                    number_of_images_measured_by_at_block_label[at_block_label] \
+                        = number_of_images_measured_by_at_block_label[at_block_label] + 1
                     camera_by_image_label[image_label] = camera
-                    at_block_label_by_image_label[image_label] = at_block_id
+                    at_block_label_by_image_label[image_label] = at_block_label
                     column = measure_by_image_label[image_label][
                         defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_COLUMN]
                     row = measure_by_image_label[image_label][
                         defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_ROW]
-                    image_measured_coordinates_by_camera_id_by_block_label[at_block_id][camera.id] = [column, row]
+                    image_measured_coordinates_by_camera_id_by_block_label[at_block_label][camera.id] = [column, row]
             content += "\n- Point .........................: "
             content += point_id
-            for at_block_id in image_measured_coordinates_by_camera_id_by_block_label:
+            log_point = {}
+            point_code = code_by_point_id[point_id]
+            log_point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINT_CODE] = point_code
+            log_point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_AT_BLOCKS] = {}
+            for at_block_label in image_measured_coordinates_by_camera_id_by_block_label:
                 content += "\n  - AT Block ....................: "
-                content += at_block_id
-                if number_of_images_measured_by_at_block_label[at_block_id] < 2:
+                content += at_block_label
+                if number_of_images_measured_by_at_block_label[at_block_label] < 2:
                     content += "\n    The point has not been measured in the minimum number of images"
                     continue
-                at_block = self.at_block_by_label[at_block_id]
+                at_block = self.at_block_by_label[at_block_label]
                 compute_backward_camera_coordinates = True
                 use_distortion = True
                 use_ppa = True
                 image_measured_coordinates_by_camera_id \
-                    = image_measured_coordinates_by_camera_id_by_block_label[at_block_id]
+                    = image_measured_coordinates_by_camera_id_by_block_label[at_block_label]
                 str_error, position, std_position, image_position_backward_error_by_camera_id \
                     = at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
                                                       at_block.crs_id,
@@ -1732,6 +1738,12 @@ class ProjectPhotogrammetry(Project):
                     content += ("{:15.4f}".format(std_position[1]))
                 content += ("{:15.4f}".format(std_position[2]))
                 content += "\n     ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
+                log_at_block = {}
+                log_at_block[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_OBJECT_SPACE_COORDINATES] \
+                    = [position[0], position[1], position[2]]
+                log_at_block[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_OBJECT_SPACE_COORDINATES_STD]\
+                    = [std_position[0], std_position[1], std_position[2]]
+                log_at_block[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_IMAGES_LABEL] = {}
                 for camera_id in image_position_backward_error_by_camera_id:
                     measured = image_measured_coordinates_by_camera_id[camera_id]
                     error_computed = image_position_backward_error_by_camera_id[camera_id]
@@ -1747,8 +1759,24 @@ class ProjectPhotogrammetry(Project):
                     content += '{:8.2f}'.format(error_r)
                     content += '{:8.2f}'.format(error_2d)
                     content += '  {:s}'.format(camera.label)
+                    detected_outlier = False
                     if camera_id in outliers_camera_ids:
                         content += ' **** outlier detected'
+                        detected_outlier = True
+                    log_image = {}
+                    log_image[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_IMAGE_MEASURED_COORDINATES] \
+                        = measured
+                    log_image[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_IMAGE_COMPUTED_COORDINATES] \
+                        = [measured[0] - error_c, measured[1] - error_r]
+                    log_image[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_IMAGE_COMPUTED_COORDINATES_ERROR] \
+                        = error_computed
+                    log_image[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_IMAGE_MEASURED_DETECTED_OUTLIER] \
+                        = detected_outlier
+                    log_at_block[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_IMAGES_LABEL][camera.label] \
+                        = log_image
+                log_point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_AT_BLOCKS][at_block_label] \
+                    = log_at_block
+            log[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINTS][point_id] = log_point
         try:
             with open(output_file_path, "w") as f:
                 f.write(content)
