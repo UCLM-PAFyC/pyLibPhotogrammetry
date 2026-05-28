@@ -54,80 +54,89 @@ class ATBlockMetashape(ATBlock):
                                use_ppa,
                                image_space_distance_tolerance_outlier_detection = None):
         str_error = ''
-        outliers_camera_ids = []
-        # outliers detection
-        if image_space_distance_tolerance_outlier_detection is not None:
-            number_of_right_solutions_by_camera_id = {}
-            number_of_wrong_solutions_by_camera_id = {}
-            for camera_id in image_measured_coordinates_by_camera_id:
-                number_of_right_solutions_by_camera_id[camera_id] = 0
-                number_of_wrong_solutions_by_camera_id[camera_id] = 0
-            cameras_ids = list(image_measured_coordinates_by_camera_id.keys())
-            for i in range(len(cameras_ids)):
-                first_camera_id = cameras_ids[i]
-                for j in range(i + 1, len(cameras_ids)):
-                    second_camera_id = cameras_ids[j]
-                    aux_image_measured_coordinates_by_camera_id = {}
-                    aux_image_measured_coordinates_by_camera_id[first_camera_id] \
-                        = image_measured_coordinates_by_camera_id[first_camera_id]
-                    aux_image_measured_coordinates_by_camera_id[second_camera_id] \
-                        = image_measured_coordinates_by_camera_id[second_camera_id]
-                    str_error, aux_position, aux_std_position, aux_image_position_backward_error_by_camera_id \
-                        = self.from_sensors_to_object(aux_image_measured_coordinates_by_camera_id,
-                                                      crs_id,
-                                                      compute_backward_camera_coordinates,
-                                                      use_distortion,
-                                                      use_ppa)
-                    if str_error:
-                        continue
-                    chunk_coor = np.zeros(4)
-                    chunk_coor[0] = position[3]
-                    chunk_coor[1] = position[4]
-                    chunk_coor[2] = position[5]
-                    chunk_coor[3] = 1
-                    for camera_id in image_measured_coordinates_by_camera_id:
-                        if camera_id == first_camera_id or camera_id == second_camera_id:
-                            continue
-                        camera = self.camera_by_id[camera_id]
-                        column_m = image_measured_coordinates_by_camera_id[camera_id][0]
-                        row_m = image_measured_coordinates_by_camera_id[camera_id][1]
-                        str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
-                            = camera.from_chunk_to_sensor(chunk_coor)
-                        if str_error:
-                            return str_error
-                        error_column = column_m - position_image[0]
-                        error_row = row_m - position_image[1]
-                        if not use_distortion:
-                            error_column = column_m - position_undistorted_image[0]
-                            error_row = row_m - position_undistorted_image[1]
-                        image_space_error =
-                        error_camera_coordinates = [error_column, error_row]
-
-                    number_of_right_solutions_by_camera_id[first_camera_id] \
-                        = number_of_right_solutions_by_camera_id[first_camera_id] + 1
-                    number_of_right_solutions_by_camera_id[second_camera_id] \
-                        = number_of_right_solutions_by_camera_id[second_camera_id] + 1
-
-                    for camera_id in aux_image_position_backward_error_by_camera_id:
-                        if camera_id == first_camera_id or camera_id == second_camera_id:
-                            continue
-                        error_column = aux_image_position_backward_error_by_camera_id[camera_id][0]
-                        error_row = aux_image_position_backward_error_by_camera_id[camera_id][1]
-                        if (np.sqrt(error_column ** 2. + error_row ** 2.)
-                                <= image_space_distance_tolerance_outlier_detection):
-                            number_of_right_solutions_by_camera_id[camera_id] \
-                                = number_of_right_solutions_by_camera_id[camera_id] + 1
-                        else:
-                            number_of_wrong_solutions_by_camera_id[camera_id] \
-                                = number_of_wrong_solutions_by_camera_id[camera_id] + 1
-            for camera_id in number_of_wrong_solutions_by_camera_id:
-                if number_of_right_solutions_by_camera_id[camera_id] < (len(cameras_ids) + 1):
-                    if not camera_id in outliers_camera_ids:
-                        outliers_camera_ids.append(camera_id)
         position = []
         std_position = []
         image_position_backward_error_by_camera_id = {}
-        number_of_image_points = len(image_measured_coordinates_by_camera_id)
+        outliers_camera_ids = []
+        # outliers detection
+        if image_space_distance_tolerance_outlier_detection is not None:
+            cameras_ids = list(image_measured_coordinates_by_camera_id.keys())
+            outlier_detected = True
+            aux_compute_backward_camera_coordinates = False
+            while outlier_detected is True:
+                number_of_right_solutions_by_camera_id = {}
+                number_of_wrong_solutions_by_camera_id = {}
+                for camera_id in image_measured_coordinates_by_camera_id:
+                    if camera_id in outliers_camera_ids:
+                        continue
+                    number_of_right_solutions_by_camera_id[camera_id] = 0
+                    number_of_wrong_solutions_by_camera_id[camera_id] = 0
+                for i in range(len(cameras_ids) - 1):
+                    first_camera_id = cameras_ids[i]
+                    if first_camera_id in outliers_camera_ids:
+                        continue
+                    for j in range(i + 1, len(cameras_ids)):
+                        second_camera_id = cameras_ids[j]
+                        if second_camera_id in outliers_camera_ids:
+                            continue
+                        aux_image_measured_coordinates_by_camera_id = {}
+                        aux_image_measured_coordinates_by_camera_id[first_camera_id] \
+                            = image_measured_coordinates_by_camera_id[first_camera_id]
+                        aux_image_measured_coordinates_by_camera_id[second_camera_id] \
+                            = image_measured_coordinates_by_camera_id[second_camera_id]
+                        str_error, aux_position, aux_std_position, aux_image_position_backward_error_by_camera_id \
+                            = self.from_sensors_to_object(aux_image_measured_coordinates_by_camera_id,
+                                                          crs_id,
+                                                          aux_compute_backward_camera_coordinates,
+                                                          use_distortion,
+                                                          use_ppa)
+                        if str_error:
+                            continue
+                        chunk_coor = np.zeros(4)
+                        chunk_coor[0] = aux_position[3]
+                        chunk_coor[1] = aux_position[4]
+                        chunk_coor[2] = aux_position[5]
+                        chunk_coor[3] = 1
+                        for camera_id in image_measured_coordinates_by_camera_id:
+                            if camera_id in outliers_camera_ids:
+                                continue
+                            if camera_id == first_camera_id or camera_id == second_camera_id:
+                                continue
+                            camera = self.camera_by_id[camera_id]
+                            column_m = image_measured_coordinates_by_camera_id[camera_id][0]
+                            row_m = image_measured_coordinates_by_camera_id[camera_id][1]
+                            str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                                = camera.from_chunk_to_sensor(chunk_coor)
+                            if str_error:
+                                self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
+                                return str_error
+                            error_column = column_m - position_image[0]
+                            error_row = row_m - position_image[1]
+                            if not use_distortion:
+                                error_column = column_m - position_undistorted_image[0]
+                                error_row = row_m - position_undistorted_image[1]
+                            image_space_error = np.sqrt(error_column ** 2. + error_row ** 2.)
+                            if image_space_error <= image_space_distance_tolerance_outlier_detection:
+                                number_of_right_solutions_by_camera_id[camera_id] \
+                                = number_of_right_solutions_by_camera_id[camera_id] + 1
+                            else:
+                                number_of_wrong_solutions_by_camera_id[camera_id] \
+                                = number_of_wrong_solutions_by_camera_id[camera_id] + 1
+                camera_id_max_wrong_solutions = None
+                max_wrong_solutions = 0
+                for camera_id in number_of_wrong_solutions_by_camera_id:
+                    if number_of_wrong_solutions_by_camera_id[camera_id] > max_wrong_solutions:
+                        camera_id_max_wrong_solutions = camera_id
+                        max_wrong_solutions = number_of_wrong_solutions_by_camera_id[camera_id]
+                if max_wrong_solutions >= (len(cameras_ids) - len(outliers_camera_ids) - 1):
+                    outliers_camera_ids.append(camera_id_max_wrong_solutions)
+                else:
+                    outlier_detected = False
+                if (len(cameras_ids) - len(outliers_camera_ids)) < 3:
+                    self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
+                    str_error = ('There is no solution for tolerance value')
+                    return str_error, position, std_position, image_position_backward_error_by_camera_id
+        number_of_image_points = len(image_measured_coordinates_by_camera_id) - len(outliers_camera_ids)
         number_of_equations = 2 * number_of_image_points
         A = np.zeros((number_of_equations, 3))
         b = np.zeros((number_of_equations, 1))
@@ -135,6 +144,8 @@ class ATBlockMetashape(ATBlock):
         use_simplified_weights = True
         number_of_stds = 0
         for camera_id in image_measured_coordinates_by_camera_id:
+            if camera_id in outliers_camera_ids:
+                continue
             if use_weights and len(image_measured_coordinates_by_camera_id[camera_id]) >=4:
                 number_of_stds = number_of_stds + 1
         if number_of_stds != number_of_image_points:
@@ -149,6 +160,8 @@ class ATBlockMetashape(ATBlock):
                 P[i, i] = 1.0
         n_img = 0
         for camera_id in image_measured_coordinates_by_camera_id:
+            if camera_id in outliers_camera_ids:
+                continue
             camera = self.camera_by_id[camera_id]
             column_m = image_measured_coordinates_by_camera_id[camera_id][0]
             row_m = image_measured_coordinates_by_camera_id[camera_id][1]
@@ -162,6 +175,7 @@ class ATBlockMetashape(ATBlock):
             str_error, dx, dy, dz = camera.from_sensor_to_chunk_coordinates_direction(column_m, row_m,
                                                                                       use_distortion, use_ppa)
             if str_error:
+                self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
                 str_error = ('For camera: {}, error:\n{}'.format(camera.label, str_error))
                 return str_error, position, std_position, image_position_backward_error_by_camera_id
             ca = (dx - camera_pc_chunk[0]) / (dz - camera_pc_chunk[2])
@@ -185,12 +199,14 @@ class ATBlockMetashape(ATBlock):
                                                                                                    row_m,
                                                                                                    use_distortion, use_ppa)
                 if str_error:
+                    self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
                     str_error = ('For camera: {}, error:\n{}'.format(camera.label, str_error))
                     return str_error, position, std_position, image_position_backward_error_by_camera_id
                 str_error, ir_dx, ir_dy, ir_dz = camera.from_sensor_to_chunk_coordinates_direction(column_m,
                                                                                                    row_m + inc_row,
                                                                                                    use_distortion, use_ppa)
                 if str_error:
+                    self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
                     str_error = ('For camera: {}, error:\n{}'.format(camera.label, str_error))
                     return str_error, position, std_position, image_position_backward_error_by_camera_id
                 J_1[0, 0] = ic_dx - dx
@@ -279,6 +295,7 @@ class ATBlockMetashape(ATBlock):
         pc_crs = [[ecef_coordinates[0], ecef_coordinates[1], ecef_coordinates[2]]]
         str_error = self.project.crs_tools.operation(self.crs_ecef_id, crs_id, pc_crs)
         if str_error:
+            self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
             str_error = ('Error in ECEF to Geo3D operation:\n{}'.format(str_error))
             return str_error, position, std_position, image_position_backward_error_by_camera_id
         position = [pc_crs[0][0], pc_crs[0][1], pc_crs[0][2],
@@ -291,6 +308,7 @@ class ATBlockMetashape(ATBlock):
         stdComputedTc = stdComputedTc * self.transform_scale
         std_position = [stdComputedFc, stdComputedSc, stdComputedTc]
         if not compute_backward_camera_coordinates:
+            self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
             return str_error, position, std_position, image_position_backward_error_by_camera_id
         for camera_id in image_measured_coordinates_by_camera_id:
             camera = self.camera_by_id[camera_id]
@@ -299,6 +317,7 @@ class ATBlockMetashape(ATBlock):
             str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
                 = camera.from_chunk_to_sensor(chunk_coor)
             if str_error:
+                self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
                 return str_error
             error_column = column_m - position_image[0]
             error_row = row_m - position_image[1]
@@ -307,6 +326,11 @@ class ATBlockMetashape(ATBlock):
                 error_row = row_m - position_undistorted_image[1]
             error_camera_coordinates = [error_column, error_row]
             image_position_backward_error_by_camera_id[camera_id] = error_camera_coordinates
+            if image_space_distance_tolerance_outlier_detection is not None:
+                if np.sqrt(error_column ** 2. + error_row ** 2.) < image_space_distance_tolerance_outlier_detection:
+                    if camera_id in outliers_camera_ids:
+                        outliers_camera_ids.remove(camera_id)
+        self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
         return str_error, position, std_position, image_position_backward_error_by_camera_id
 
     def set_from_xml(self,

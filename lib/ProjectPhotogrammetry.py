@@ -1560,6 +1560,8 @@ class ProjectPhotogrammetry(Project):
         content += '\n- Vertical CRS id ...............: ' + self.project_definition[defs_project_definition.PROJECT_DEFINITIONS_TAG_VERTICAL_CRS]
         # content += '\n- Metashape markers xml file ....: ' + self.metashape_markers_xml_file
         content += '\n- Number of AT Blocks ...........: ' + str(len(self.at_block_by_label))
+        content += '\n- Source file ...................: ' + input_file_path
+        content += ('\n- Tolerance outliers image space : {:.1f}, pixels'.format(image_space_tolerance))
         try:
             input_file = open(input_file_path, 'r')
         except IOError:
@@ -1682,10 +1684,10 @@ class ProjectPhotogrammetry(Project):
                     row = measure_by_image_label[image_label][
                         defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FIELD_IMAGE_ROW]
                     image_measured_coordinates_by_camera_id_by_block_label[at_block_id][camera.id] = [column, row]
-            content += "\n- Point .......................: "
+            content += "\n- Point .........................: "
             content += point_id
             for at_block_id in image_measured_coordinates_by_camera_id_by_block_label:
-                content += "\n  - AT Block ..................: "
+                content += "\n  - AT Block ....................: "
                 content += at_block_id
                 if number_of_images_measured_by_at_block_label[at_block_id] < 2:
                     content += "\n    The point has not been measured in the minimum number of images"
@@ -1704,13 +1706,14 @@ class ProjectPhotogrammetry(Project):
                                                       image_space_tolerance)
                 if str_error:
                     return str_error, end_date_time, log
+                outliers_camera_ids = at_block.sensors_to_object_outliers_camera_ids
                 crs2d_precision = crs2d_precision_by_at_block_label[at_block_label]
-                content += "\n                                          "
+                content += "\n                                        "
                 if crs2d_precision == 4:
                     content += "      X.GCPsCRS      Y.GCPsCRS      H.GCPsCRS"
                 else:
                     content += "   Long.GCPsCRS    Lat.GCPsCRS      H.GCPsCRS"
-                content += "\n    - Computed coordinates ........: "
+                content += "\n    - Computed coordinates ......: "
                 content += ('').ljust(point_code_max_length)
                 if crs2d_precision == 9:
                     content += ("{:15.9f}".format(position[0]))
@@ -1719,7 +1722,7 @@ class ProjectPhotogrammetry(Project):
                     content += ("{:15.4f}".format(position[0]))
                     content += ("{:15.4f}".format(position[1]))
                 content += ("{:15.4f}".format(position[2]))
-                content += "\n    - Std computed coordinates ....: "
+                content += "\n    - Std computed coordinates ..: "
                 content += ('').ljust(point_code_max_length)
                 if crs2d_precision == 9:
                     content += ("{:15.9f}".format(std_position[0]))
@@ -1744,6 +1747,8 @@ class ProjectPhotogrammetry(Project):
                     content += '{:8.2f}'.format(error_r)
                     content += '{:8.2f}'.format(error_2d)
                     content += '  {:s}'.format(camera.label)
+                    if camera_id in outliers_camera_ids:
+                        content += ' **** outlier detected'
         try:
             with open(output_file_path, "w") as f:
                 f.write(content)
