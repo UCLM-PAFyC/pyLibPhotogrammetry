@@ -1565,8 +1565,9 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL))
             return str_error, end_date_time, log
         geojson_output_file_path = os.path.normpath(geojson_output_file_path)
-        if os.path.exists(geojson_output_file_path):
-            os.remove(geojson_output_file_path)
+        # update exisiting file
+        # if os.path.exists(geojson_output_file_path):
+        #     os.remove(geojson_output_file_path)
         # if os.path.exists(geojson_output_file_path):
         #     msg_error = ('Error removing geojson output file:\n{}'.format(geojson_output_file_path))
         #     str_error = ('Process: {}, parameter: {}:\n{}'.
@@ -1597,10 +1598,16 @@ class ProjectPhotogrammetry(Project):
             return str_error, end_date_time, log
         measure_by_image_label_by_point_id = {}
         code_by_point_id = {}
+        field_names = None
         if (input_file_format.casefold()
                 == defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FILE_FORMAT_1.casefold()):
             field_names = defs_processes.process_function_images_to_object_fields_by_format[
                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_INPUT_FILE_FORMAT_1]
+        if field_names is None:
+            str_error = ('Process: {} has a parameter: {}\ninvalid'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL))
+            return str_error, end_date_time, log
         count = 0
         point_code_max_length = 0
         for line in input_file:
@@ -1714,6 +1721,7 @@ class ProjectPhotogrammetry(Project):
             content += point_id
             log_point = {}
             point_code = code_by_point_id[point_id]
+            # log_point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINT_ID] = point_id
             log_point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINT_CODE] = point_code
             log_point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_AT_BLOCKS] = {}
             for at_block_label in image_measured_coordinates_by_camera_id_by_block_label:
@@ -1730,7 +1738,8 @@ class ProjectPhotogrammetry(Project):
                     = image_measured_coordinates_by_camera_id_by_block_label[at_block_label]
                 str_error, position, std_position, image_position_backward_error_by_camera_id \
                     = at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
-                                                      at_block.crs_id,
+                                                      # at_block.crs_id,
+                                                      self.crs_id,
                                                       compute_backward_camera_coordinates,
                                                       use_distortion, use_ppa,
                                                       image_space_tolerance)
@@ -1806,7 +1815,129 @@ class ProjectPhotogrammetry(Project):
                 f.write(content)
         except Exception as e:
             str_error = ('Process {}\nError occurred when opening:\n{}\nto write:\n{}'.format(name, output_file_path, e))
+            end_date_time = datetime.now()
             return str_error, end_date_time, log
+        # geojson output layer
+        layer_name = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME
+        # create output layer
+        if not os.path.exists(geojson_output_file_path):
+            ignore_existing_layers = False  # create new gpkg
+            layers_definition = {}
+            layers_definition[layer_name] = {}
+            layers_definition[layer_name] \
+                = defs_processes.process_function_images_to_object_fields_by_layer[
+                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME]
+            layers_crs_id = {}
+            layer_crs_id = self.crs_id
+            layers_crs_id[layer_name] = layer_crs_id
+            create_options = defs_processes.process_function_images_to_object_create_options
+            str_error = GDALTools.create_vector(geojson_output_file_path,
+                                                layers_definition,
+                                                layers_crs_id,
+                                                ignore_existing_layers,
+                                                create_options)
+            if str_error:
+                str_error = (
+                    'Creating layer:\n{}\nin file:\n{}\nError:\n{}'.format(layer_name,
+                                                                           geojson_output_file_path, str_error))
+                end_date_time = datetime.now()
+                return str_error, end_date_time, log
+        features = []
+        for point_id in log[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINTS]:
+            point = log[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINTS][point_id]
+            for at_block_label in point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_AT_BLOCKS]:
+                feature = []
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_POINT_ID
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_POINT_ID]
+                field[defs_gdal.FIELD_VALUE_TAG] = point_id
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_POINT_CODE
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_POINT_CODE]
+                field[defs_gdal.FIELD_VALUE_TAG] = point[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINT_CODE]
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_PHOTOGRAMMETRY_PROJECT_FILE
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_PHOTOGRAMMETRY_PROJECT_FILE]
+                field[defs_gdal.FIELD_VALUE_TAG] = self.file_path
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_AT_BLOCK_LABEL
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_AT_BLOCK_LABEL]
+                field[defs_gdal.FIELD_VALUE_TAG] = at_block_label
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_SPACE_COORDINATES
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_SPACE_COORDINATES]
+                object_space_coordinates = point[at_block_label][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_OBJECT_SPACE_COORDINATES]
+                str_osc = " ".join(object_space_coordinates)
+                field[defs_gdal.FIELD_VALUE_TAG] = str_osc
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_SPACE_COORDINATES_STD
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_SPACE_COORDINATES_STD]
+                str_osc_std = " ".join(point[at_block_label][
+                                           defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_OBJECT_SPACE_COORDINATES_STD])
+                field[defs_gdal.FIELD_VALUE_TAG] = str_osc_std
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_IMAGES_JSON_DATA
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_IMAGES_JSON_DATA]
+                str_images = json.dumps(point[at_block_label][
+                                            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_IMAGES_LABEL])
+                field[defs_gdal.FIELD_VALUE_TAG] = str_images
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_REMARKS
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_REMARKS]
+                field[defs_gdal.FIELD_VALUE_TAG] = ''
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_GEOMETRY
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_processes.process_function_images_to_object_fields_by_layer[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_GEOMETRY]
+                fc = object_space_coordinates[0]
+                sc = object_space_coordinates[1]
+                tc = object_space_coordinates[2]
+                point_geometry = ogr.Geometry(ogr.wkbPoint)
+                point_geometry.AddPoint(fc, sc, tc)
+                pc_wkb = point_geometry.ExportToWkb()
+                field[defs_gdal.FIELD_VALUE_TAG] = pc_wkb
+                feature.append(field)
+                features.append(feature)
+        yo = 1
+        features_by_layer = {}
+        features_by_layer[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME] = features
+        str_error = GDALTools.write_features(geojson_output_file_path, features_by_layer)
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 

@@ -92,7 +92,7 @@
             "output_format": "{:s}"
         },
 		{
-            "label": "GeoJson results",
+            "label": "GeoJson results file",
             "argparser": "",
             "description": "Output GeoJson file path for results",
             "mandatory": true,
@@ -104,6 +104,6 @@
                 ".geojson"
             ],
             "output_format": "{:s}"
-        },
+        }
     ]
 }
