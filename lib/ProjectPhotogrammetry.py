@@ -1550,6 +1550,30 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL,
                                 msg_error))
             return str_error, end_date_time, log
+        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL
+                in parametes_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        parameter_geojson_output_file = parametes_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL]
+        geojson_output_file_path = str(parameter_geojson_output_file)
+        if not geojson_output_file_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL))
+            return str_error, end_date_time, log
+        geojson_output_file_path = os.path.normpath(geojson_output_file_path)
+        if os.path.exists(geojson_output_file_path):
+            os.remove(geojson_output_file_path)
+        # if os.path.exists(geojson_output_file_path):
+        #     msg_error = ('Error removing geojson output file:\n{}'.format(geojson_output_file_path))
+        #     str_error = ('Process: {}, parameter: {}:\n{}'.
+        #                  format(name,
+        #                         defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL,
+        #                         msg_error))
+        #     return str_error, end_date_time, log
         content  = 'IMAGES TO OBJECT FROM ASCII FILE'
         content += '\n================================'
         content += '\nProject definition: '

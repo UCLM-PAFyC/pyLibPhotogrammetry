@@ -90,6 +90,20 @@
                 ".txt"
             ],
             "output_format": "{:s}"
-        }
+        },
+		{
+            "label": "GeoJson results",
+            "argparser": "",
+            "description": "Output GeoJson file path for results",
+            "mandatory": true,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/output/image_to_object_results.geojson",
+            "type": "file",
+            "file_mode": "write",
+            "domain": [
+                ".geojson"
+            ],
+            "output_format": "{:s}"
+        },
     ]
 }
