@@ -1550,21 +1550,32 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL,
                                 msg_error))
             return str_error, end_date_time, log
-        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL
+        if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER
                 in parametes_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
-                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL))
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER))
             return str_error, end_date_time, log
-        parameter_geojson_output_file = parametes_manager.parameters[
-            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL]
-        geojson_output_file_path = str(parameter_geojson_output_file)
-        if not geojson_output_file_path:
+        parameter_vector_layer = parametes_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER]
+        vector_layer_as_dict = json.loads(str(parameter_vector_layer))
+        if not vector_layer_as_dict:
             str_error = ('Process {} has a empty parameter: {}'.
                          format(name,
-                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL))
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER))
             return str_error, end_date_time, log
-        geojson_output_file_path = os.path.normpath(geojson_output_file_path)
+        if not defs_pars.TAG_FILE_PATH in vector_layer_as_dict:
+            str_error = ('Process {} does not has {} in parameter: {}'.
+                         format(name, defs_pars.TAG_FILE_PATH,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER))
+            return str_error, end_date_time, log
+        vector_layer_file_path = os.path.normpath(vector_layer_as_dict[defs_pars.TAG_FILE_PATH])
+        if not defs_pars.TAG_LAYER_NAME in vector_layer_as_dict:
+            str_error = ('Process {} does not has {} in parameter: {}'.
+                         format(name, defs_pars.TAG_LAYER_NAME,
+                                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER))
+            return str_error, end_date_time, log
+        vector_layer_layer_name = os.path.normpath(vector_layer_as_dict[defs_pars.TAG_LAYER_NAME])
         # update exisiting file
         # if os.path.exists(geojson_output_file_path):
         #     os.remove(geojson_output_file_path)
@@ -1817,35 +1828,55 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Process {}\nError occurred when opening:\n{}\nto write:\n{}'.format(name, output_file_path, e))
             end_date_time = datetime.now()
             return str_error, end_date_time, log
-        # geojson output layer
-        layer_name = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME
+        # vector layer
         # create output layer
-        if not os.path.exists(geojson_output_file_path):
+        layers_definition = {}
+        layers_definition[vector_layer_layer_name] = {}
+        layers_definition[vector_layer_layer_name] \
+            = defs_processes.process_function_images_to_object_fields_by_layer[
+            defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME]
+        layers_crs_id = {}
+        layer_crs_id = self.crs_id
+        layers_crs_id[vector_layer_layer_name] = layer_crs_id
+        if not os.path.exists(vector_layer_file_path):
             ignore_existing_layers = False  # create new gpkg
-            layers_definition = {}
-            layers_definition[layer_name] = {}
-            layers_definition[layer_name] \
-                = defs_processes.process_function_images_to_object_fields_by_layer[
-                defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME]
-            layers_crs_id = {}
-            layer_crs_id = self.crs_id
-            layers_crs_id[layer_name] = layer_crs_id
             create_options = defs_processes.process_function_images_to_object_create_options
-            str_error = GDALTools.create_vector(geojson_output_file_path,
+            str_error = GDALTools.create_vector(vector_layer_file_path,
                                                 layers_definition,
                                                 layers_crs_id,
                                                 ignore_existing_layers,
                                                 create_options)
             if str_error:
                 str_error = (
-                    'Creating layer:\n{}\nin file:\n{}\nError:\n{}'.format(layer_name,
-                                                                           geojson_output_file_path, str_error))
+                    'Creating layer:\n{}\nin file:\n{}\nError:\n{}'.format(vector_layer_layer_name,
+                                                                           vector_layer_file_path, str_error))
                 end_date_time = datetime.now()
                 return str_error, end_date_time, log
+        else:
+            str_error, exists_layer = GDALTools.exists_layer(vector_layer_file_path, vector_layer_layer_name)
+            if str_error:
+                str_error = (
+                    'Getting if exists layer:\n{}\nin file:\n{}\nError:\n{}'.format(vector_layer_layer_name,
+                                                                           vector_layer_file_path, str_error))
+                end_date_time = datetime.now()
+                return str_error, end_date_time, log
+            if not exists_layer:
+                ignore_existing_layers = True
+                str_error = GDALTools.create_vector(vector_layer_file_path,
+                                                    layers_definition,
+                                                    layers_crs_id,
+                                                    ignore_existing_layers)
+                if str_error:
+                    str_error = (
+                        'Creating layer:\n{}\nin file:\n{}\nError:\n{}'.format(vector_layer_layer_name,
+                                                                               vector_layer_file_path, str_error))
+                    end_date_time = datetime.now()
+                    return str_error, end_date_time, log
         features = []
         for point_id in log[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINTS]:
             point = log[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_POINTS][point_id]
             for at_block_label in point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_AT_BLOCKS]:
+                point_at_block = point[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_AT_BLOCKS][at_block_label]
                 feature = []
                 field = {}
                 field[defs_gdal.FIELD_NAME_TAG] = defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_POINT_ID
@@ -1886,9 +1917,9 @@ class ProjectPhotogrammetry(Project):
                     = defs_processes.process_function_images_to_object_fields_by_layer[
                     defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
                     defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_SPACE_COORDINATES]
-                object_space_coordinates = point[at_block_label][
+                object_space_coordinates = point_at_block[
                     defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_OBJECT_SPACE_COORDINATES]
-                str_osc = " ".join(object_space_coordinates)
+                str_osc = " ".join([str(s) for s in object_space_coordinates])
                 field[defs_gdal.FIELD_VALUE_TAG] = str_osc
                 feature.append(field)
                 field = {}
@@ -1897,8 +1928,9 @@ class ProjectPhotogrammetry(Project):
                     = defs_processes.process_function_images_to_object_fields_by_layer[
                     defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
                     defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_SPACE_COORDINATES_STD]
-                str_osc_std = " ".join(point[at_block_label][
-                                           defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_OBJECT_SPACE_COORDINATES_STD])
+                object_space_coordinates_std = point_at_block[
+                    defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_OBJECT_SPACE_COORDINATES_STD]
+                str_osc_std = " ".join([str(s) for s in object_space_coordinates_std])
                 field[defs_gdal.FIELD_VALUE_TAG] = str_osc_std
                 feature.append(field)
                 field = {}
@@ -1907,7 +1939,7 @@ class ProjectPhotogrammetry(Project):
                     = defs_processes.process_function_images_to_object_fields_by_layer[
                     defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
                     defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_IMAGES_JSON_DATA]
-                str_images = json.dumps(point[at_block_label][
+                str_images = json.dumps(point_at_block[
                                             defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LOG_TAG_IMAGES_LABEL])
                 field[defs_gdal.FIELD_VALUE_TAG] = str_images
                 feature.append(field)
@@ -1934,10 +1966,9 @@ class ProjectPhotogrammetry(Project):
                 field[defs_gdal.FIELD_VALUE_TAG] = pc_wkb
                 feature.append(field)
                 features.append(feature)
-        yo = 1
         features_by_layer = {}
-        features_by_layer[defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME] = features
-        str_error = GDALTools.write_features(geojson_output_file_path, features_by_layer)
+        features_by_layer[vector_layer_layer_name] = features
+        str_error = GDALTools.write_features(vector_layer_file_path, features_by_layer)
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 

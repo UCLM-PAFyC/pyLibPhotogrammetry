@@ -92,16 +92,29 @@
             "output_format": "{:s}"
         },
 		{
-            "label": "GeoJson results file",
+            "label": "Vector layer",
             "argparser": "",
-            "description": "Output GeoJson file path for results",
+            "description": "Input and output vector layer",
             "mandatory": true,
             "output": true,
-            "value": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/output/image_to_object_results.geojson",
-            "type": "file",
-            "file_mode": "write",
+            "value": {
+                "file_path": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/output/image_to_object_results.gpkg",
+                "layer_name": "test4_features_detected_kk",
+                "layer_geometry_type": [
+                    "point",
+                    "multipoint",
+                    "point_m",
+                    "multipoint_m",
+                    "point_zm",
+                    "multipoint_zm",
+                    "point_25d",
+                    "multipoint_25d"
+                ]
+            },
+            "type": "vector_layer",
+            "file_mode": "append",
             "domain": [
-                ".geojson"
+                ".gpkg"
             ],
             "output_format": "{:s}"
         }

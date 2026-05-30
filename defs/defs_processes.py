@@ -33,7 +33,7 @@ PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_NAME = "Images To Object From Ascii File"
 PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL = "Input file"
 PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL = "Input file format"
 PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL = "Results report file"
-PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_GEOJSON_OUTPUT_FILE_LABEL = "GeoJson results file"
+PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER = "Vector layer"
 PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES = "Number of header lines"
 PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_IMAGE_SPACE_TOLERANCE = "Image space tolerance"
 PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_ENABLED_IMAGES = "Process only enabled images"
@@ -95,9 +95,9 @@ process_function_images_to_object_fields_by_layer[PROCESS_FUNCTION_IMAGES_TO_OBJ
     PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_REMARKS] = defs_gdal.type_by_name['string']
 process_function_images_to_object_fields_by_layer[PROCESS_FUNCTION_IMAGES_TO_OBJECT_LAYER_NAME][
     PROCESS_FUNCTION_IMAGES_TO_OBJECT_FIELD_GEOMETRY] = defs_gdal.geometry_type_by_name['point']
-# process_function_images_to_object_create_options = ['CRS_WKT_EXTENSION=YES',
-#                                                     'METADATA_TABLES=YES']
-process_function_images_to_object_create_options = None
+process_function_images_to_object_create_options = ['CRS_WKT_EXTENSION=YES',
+                                                    'METADATA_TABLES=YES']
+# process_function_images_to_object_create_options = None
 
 
 PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH = "Output path"
