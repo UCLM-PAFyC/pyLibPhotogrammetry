@@ -98,7 +98,7 @@
             "mandatory": true,
             "output": true,
             "value": {
-                "file_path": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/output/image_to_object_results.gpkg",
+                "file_path": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/output/image_to_object_results_kk.gpkg",
                 "layer_name": "test4_features_detected_kk",
                 "layer_geometry_type": [
                     "point",
@@ -112,7 +112,7 @@
                 ]
             },
             "type": "vector_layer",
-            "file_mode": "append",
+            "file_mode": "write",
             "domain": [
                 ".gpkg"
             ],
