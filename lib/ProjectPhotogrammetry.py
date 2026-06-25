@@ -795,6 +795,188 @@ class ProjectPhotogrammetry(Project):
         self.opencv_tools.initialize()
         return str_error
 
+    def process_computing_rectifying_homographies(self,
+                                                  process,
+                                                  dialog):
+        str_error = ''
+        end_date_time = None
+        log = None
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        # parameter dem
+        if not defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM in parameters_manager.parameters:
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        parameter_dem_file_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM]
+        parameter_dem_file_as_dict = json.loads(str(parameter_dem_file_path))
+        dem_file_path = parameter_dem_file_as_dict[defs_pars.TAG_FILE_PATH]
+        dem_file_path = os.path.normpath(dem_file_path)
+        dem_layer_index = parameter_dem_file_as_dict[defs_pars.TAG_LAYER_INDEX]
+        dem_file_scale = parameter_dem_file_as_dict[defs_pars.TAG_SCALE]
+        dem_file_offset = parameter_dem_file_as_dict[defs_pars.TAG_OFFSET]
+        if not dem_file_path:
+            str_error = ('Process: {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        if not os.path.exists(dem_file_path):
+            str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        # parameter dem crs
+        if not (defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM_CRS
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM_CRS))
+            return str_error, end_date_time, log
+        parameter_dem_crs_id = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM_CRS]
+        dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
+        # parameter process only enabled images
+        if not (defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_ENABLED_IMAGES
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_ENABLED_IMAGES))
+            return str_error, end_date_time, log
+        parameter_enabled_images = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_ENABLED_IMAGES]
+        str_enabled = str(parameter_enabled_images)
+        only_enabled_images = True
+        if str_enabled.casefold() == 'false':
+            only_enabled_images = False
+        # parameter computing algorithm
+        if not (defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_ALGORITHM
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_ALGORITHM))
+            return str_error, end_date_time, log
+        parameter_computing_algorithm = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_ALGORITHM]
+        computing_algorithm = str(parameter_computing_algorithm)
+        if (computing_algorithm.casefold() !=
+                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_ALGORITHM_KNOWN_ORIENTATION.casefold()):
+            str_error = ('Process: {} parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_ALGORITHM_KNOWN_ORIENTATION))
+            str_error += ('\noption: {} not implemented'.
+                         format(computing_algorithm))
+            return str_error, end_date_time, log
+        # parameter Ignored sensor percentage
+        if not (defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_IGNORED_SENSOR_PERCENTAGE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_IGNORED_SENSOR_PERCENTAGE))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_IGNORED_SENSOR_PERCENTAGE]
+        str_value = str(parameter_value)
+        ignored_sensor_percentage = None
+        try:
+            ignored_sensor_percentage = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_IGNORED_SENSOR_PERCENTAGE,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Minimum overlap percentage
+        if not (defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE]
+        str_value = str(parameter_value)
+        minimum_overlap_percentage = None
+        try:
+            minimum_overlap_percentage = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Save rectified homographies images
+        if not (defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES))
+            return str_error, end_date_time, log
+        parameter_save_recitified_images = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES]
+        str_save_rectified_images = str(parameter_save_recitified_images)
+        save_rectified_homographies_images = True
+        if str_save_rectified_images.casefold() == 'false':
+            save_rectified_homographies_images = False
+        # parameter Rectified homographies images output path
+        if not (defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        parameter_output_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH]
+        rectified_homographies_images_output_path = str(parameter_output_path)
+        if not rectified_homographies_images_output_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        rectified_homographies_images_output_path = os.path.normpath(rectified_homographies_images_output_path)
+        if not os.path.exists(rectified_homographies_images_output_path):
+            str_error = ('Process {} parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+            str_error += ('\nnot exists path: {}'.
+                         format(rectified_homographies_images_output_path))
+            return str_error, end_date_time, log
+        # parameter Report files output path
+        if not (defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_REPORT_FILES_OUTPUT_PATH
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_REPORT_FILES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        parameter_output_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_REPORT_FILES_OUTPUT_PATH]
+        report_files_output_path = str(parameter_output_path)
+        if not report_files_output_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_REPORT_FILES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        report_files_output_path = os.path.normpath(report_files_output_path)
+        if not os.path.exists(report_files_output_path):
+            str_error = ('Process {} parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_REPORT_FILES_OUTPUT_PATH))
+            str_error += ('\nnot exists path: {}'.
+                         format(report_files_output_path))
+            return str_error, end_date_time, log
+
+        # dem_file_path
+        # dem_crs_id
+        # only_enabled_images
+        # computing_algorithm
+        # ignored_sensor_percentage
+        # minimum_overlap_percentage
+        # save_rectified_homographies_images
+        # rectified_homographies_images_output_path
+        # report_files_output_path
+
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
+
     def process_gcps_accuracy_analysis(self,
                                        process,
                                        dialog = None):
@@ -802,16 +984,20 @@ class ProjectPhotogrammetry(Project):
         end_date_time = None
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
-        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
-        if not defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL in parametes_manager.parameters:
+        parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not (defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL
+                in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
-                         format(name, defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
             return str_error, end_date_time, log
-        parameter_output_file = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL]
+        parameter_output_file = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL]
         output_file_path = str(parameter_output_file)
         if not output_file_path:
             str_error = ('Process {} has a empty parameter: {}'.
-                         format(name, defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_GCP_ACCURACY_ANALYSIS_PARAMETER_OUTPUT_FILE_LABEL))
             return str_error, end_date_time, log
         content  = 'GROUND CONTROL POINTS ACCURACY ANALYSIS'
         content += '\n======================================='
@@ -1163,12 +1349,12 @@ class ProjectPhotogrammetry(Project):
         end_date_time = None
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
-        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
-        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM in parametes_manager.parameters:
+        parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM in parameters_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
             return str_error, end_date_time, log
-        parameter_dem_file_path = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM]
+        parameter_dem_file_path = parameters_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM]
         parameter_dem_file_as_dict = json.loads(str(parameter_dem_file_path))
         dem_file_path = parameter_dem_file_as_dict[defs_pars.TAG_FILE_PATH]
         dem_file_path = os.path.normpath(dem_file_path)
@@ -1183,21 +1369,21 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
                          format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM))
             return str_error, end_date_time, log
-        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS in parametes_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS in parameters_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS))
             return str_error, end_date_time, log
-        parameter_dem_crs_id = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS]
+        parameter_dem_crs_id = parameters_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS]
         dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
         # if not dem_crs_id:
         #     str_error = ('Process: {} has a empty parameter: {}'.
         #                  format(name, defs_project.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_DEM_CRS))
         #     return str_error
-        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP in parametes_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP in parameters_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP))
             return str_error, end_date_time, log
-        parameter_nop = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP]
+        parameter_nop = parameters_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP]
         str_nop = str(parameter_nop)
         number_of_points_by_side = 3
         try:
@@ -1206,11 +1392,11 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Process: {} does not have a integer parameter: {}, is: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP, str_nop))
             return str_error, end_date_time, log
-        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES in parametes_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES in parameters_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES))
             return str_error, end_date_time, log
-        parameter_enabled_images = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES]
+        parameter_enabled_images = parameters_manager.parameters[defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_ENABLED_IMAGES]
         str_enabled = str(parameter_enabled_images)
         only_enabled_images = True
         if str_enabled.casefold() == 'false':
@@ -1437,14 +1623,14 @@ class ProjectPhotogrammetry(Project):
         end_date_time = None
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
-        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
         if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL
-                in parametes_manager.parameters):
+                in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL))
             return str_error, end_date_time, log
-        parameter_input_file_path = parametes_manager.parameters[
+        parameter_input_file_path = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL]
         input_file_path = str(parameter_input_file_path)
         if not parameter_input_file_path:
@@ -1459,11 +1645,11 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_LABEL))
             return str_error, end_date_time, log
         if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL
-                in parametes_manager.parameters):
+                in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_GET_IMAGE_FOOTPRINTS_PARAMETER_NOP))
             return str_error, end_date_time, log
-        parameter_input_file_format = parametes_manager.parameters[
+        parameter_input_file_format = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL]
         input_file_format = str(parameter_input_file_format)
         input_file_format = input_file_format.strip()
@@ -1479,12 +1665,12 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_INPUT_FILE_FORMAT_LABEL))
             return str_error, end_date_time, log
         if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES
-                in parametes_manager.parameters):
+                in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES))
             return str_error, end_date_time, log
-        parameter_nhl = parametes_manager.parameters[
+        parameter_nhl = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_NO_HEADER_LINES]
         str_nop = str(parameter_nhl)
         number_of_header_lines = 0
@@ -1497,12 +1683,12 @@ class ProjectPhotogrammetry(Project):
                                 str_nop))
             return str_error, end_date_time, log
         if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_IMAGE_SPACE_TOLERANCE
-                in parametes_manager.parameters):
+                in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_IMAGE_SPACE_TOLERANCE))
             return str_error, end_date_time, log
-        parameter_istol = parametes_manager.parameters[
+        parameter_istol = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_IMAGE_SPACE_TOLERANCE]
         str_img_space_tolerance = str(parameter_istol)
         image_space_tolerance = None
@@ -1515,24 +1701,24 @@ class ProjectPhotogrammetry(Project):
                                 str_nop))
             return str_error, end_date_time, log
         if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_ENABLED_IMAGES
-                in parametes_manager.parameters):
+                in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_ENABLED_IMAGES))
             return str_error, end_date_time, log
-        parameter_enabled_images = parametes_manager.parameters[
+        parameter_enabled_images = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_ENABLED_IMAGES]
         str_enabled = str(parameter_enabled_images)
         only_enabled_images = True
         if str_enabled.casefold() == 'false':
             only_enabled_images = False
         if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL
-                in parametes_manager.parameters):
+                in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL))
             return str_error, end_date_time, log
-        parameter_output_file = parametes_manager.parameters[
+        parameter_output_file = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_OUTPUT_FILE_LABEL]
         output_file_path = str(parameter_output_file)
         if not output_file_path:
@@ -1551,12 +1737,12 @@ class ProjectPhotogrammetry(Project):
                                 msg_error))
             return str_error, end_date_time, log
         if not (defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER
-                in parametes_manager.parameters):
+                in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER))
             return str_error, end_date_time, log
-        parameter_vector_layer = parametes_manager.parameters[
+        parameter_vector_layer = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMAGES_TO_OBJECT_FAF_PARAMETER_VECTOR_LAYER]
         vector_layer_as_dict = json.loads(str(parameter_vector_layer))
         if not vector_layer_as_dict:
@@ -1979,12 +2165,12 @@ class ProjectPhotogrammetry(Project):
         end_date_time = None
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
-        parametes_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
-        if not defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH in parametes_manager.parameters:
+        parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH in parameters_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH))
             return str_error, end_date_time, log
-        parameter_output_path = parametes_manager.parameters[defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH]
+        parameter_output_path = parameters_manager.parameters[defs_processes.PROCESS_FUNCTION_UNDISTORT_IMAGES_OUTPUT_PATH]
         output_path = str(parameter_output_path)
         if not output_path:
             str_error = ('Process {} has a empty parameter: {}'.
