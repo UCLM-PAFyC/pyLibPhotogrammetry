@@ -2276,6 +2276,16 @@ class ProjectPhotogrammetry(Project):
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
+    def process_set_digitizing_parameters(self,
+                                          process,
+                                          dialog = None):
+        str_error = ''
+        end_date_time = None
+        log = None
+
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
     def process_undistort_images(self,
                                  process,
                                  dialog = None):

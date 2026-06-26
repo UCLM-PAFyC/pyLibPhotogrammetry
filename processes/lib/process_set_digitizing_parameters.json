@@ -1,5 +1,5 @@
 {
-    "name": "Set Digitizing parameters",
+    "name": "Set Digitizing Parameters",
     "contributions": {
         "methodology": [
             "David Hernández López, david.hernandez@uclm.es"
@@ -46,22 +46,6 @@
             "type": "string",
             "output_format": "{:>s}"
         },
-        {
-            "label": "Computing algorithm",
-            "argparser": "",
-            "description": "Computing algorithm: Known orientation, New matches, OpenCvStereoRectifyUncalibrated, COLMAPStereoRectifyUncalibrated",
-            "mandatory": true,
-            "output": false,
-            "value": "Known orientation",
-            "type": "string",
-            "domain": [
-                "Known orientation",
-                "New matches",
-				"OpenCvStereoRectifyUncalibrated",
-				"COLMAPStereoRectifyUncalibrated"
-            ],
-            "output_format": "{:s}"
-        },
 		{
             "label": "Ignored sensor percentage",
             "argparser": "",
@@ -82,23 +66,13 @@
             "description": "Minimum overlap percentage for ABM",
             "mandatory": true,
             "output": false,
-            "value": 15.0,
+            "value": 10.0,
             "type": "real",
             "domain": [
                 5.0,
                 90.0
             ],
             "output_format": "{:10.2f}"
-        },
-        {
-            "label": "Save rectified homographies images",
-            "argparser": "",
-            "description": "Save rectified homographies images",
-            "mandatory": true,
-            "output": false,
-            "value": true,
-            "type": "boolean",
-            "output_format": "{:>10s}"
         },
         {
             "label": "Save rectified homographies images",
@@ -126,7 +100,7 @@
             "description": "Report files output path",
             "mandatory": true,
             "output": true,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/rectified_homographies_images",
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/digitalizing_reports",
             "type": "path",
             "output_format": "{:s}"
         },
@@ -139,6 +113,134 @@
             "value": true,
             "type": "boolean",
             "output_format": "{:>10s}"
+        },
+		{
+            "label": "Maximum height separation within Dsm",
+            "argparser": "",
+            "description": "Maximum height separation of points within DSM, in meters",
+            "mandatory": true,
+            "output": false,
+            "value": 5.0,
+            "type": "real",
+            "domain": [
+                0.5,
+                20.0
+            ],
+            "output_format": "{:10.2f}"
+        },
+		{
+            "label": "Maximum height separation outside Dsm",
+            "argparser": "",
+            "description": "Maximum height separation of points outside DSM, in meters",
+            "mandatory": true,
+            "output": false,
+            "value": 50.0,
+            "type": "real",
+            "domain": [
+                0.5,
+                100.0
+            ],
+            "output_format": "{:10.2f}"
+        },
+		{
+            "label": "Images matches accuracy",
+            "argparser": "",
+            "description": "Images matches accuracy, in pixels",
+            "mandatory": true,
+            "output": false,
+            "value": 2.0,
+            "type": "real",
+            "domain": [
+                0.0,
+                10.0
+            ],
+            "output_format": "{:10.2f}"
+        },
+		{
+            "label": "Images measurements accuracy",
+            "argparser": "",
+            "description": "Images measurements accuracy, in pixels",
+            "mandatory": true,
+            "output": false,
+            "value": 0.5,
+            "type": "real",
+            "domain": [
+                0.0,
+                10.0
+            ],
+            "output_format": "{:10.2f}"
+        },
+		{
+            "label": "Match maximum epipolar row parallax",
+            "argparser": "",
+            "description": "Match maximum epipolar row parallax, in pixels",
+            "mandatory": true,
+            "output": false,
+            "value": 8,
+            "type": "integer",
+            "domain": [
+                8,
+                50
+            ],
+            "output_format": "{:10d}"
+        },
+        {
+            "label": "Match OpenCv method",
+            "argparser": "",
+            "description": "OpenCv's match method, https://docs.opencv.org/3.4/de/da9/tutorial_template_matching.html",
+            "mandatory": true,
+            "output": false,
+            "value": "ALL",
+            "type": "string",
+            "domain": [
+                "ALL",
+                "TM_SQDIFF_NORMED",
+				"TM_CCORR_NORMED",
+				"TM_COEFF_NORMED"
+            ],
+            "output_format": "{:s}"
+        },
+		{
+            "label": "Match OpenCv threshold percentage",
+            "argparser": "",
+            "description": "Match OpenCv threshold correlation for valid matching, in percentage. It depends on used method",
+            "mandatory": true,
+            "output": false,
+            "value": 70.0,
+            "type": "real",
+            "domain": [
+                -100.0,
+                100.0
+            ],
+            "output_format": "{:10.2f}"
+        },
+		{
+            "label": "Ram maximum size",
+            "argparser": "",
+            "description": "Ram maximum size to use, in MBytes",
+            "mandatory": true,
+            "output": false,
+            "value": 1024,
+            "type": "integer",
+            "domain": [
+                512,
+                8192
+            ],
+            "output_format": "{:10d}"
+        },
+		{
+            "label": "Match window size",
+            "argparser": "",
+            "description": "Match window size, odd in pixels in MBytes",
+            "mandatory": true,
+            "output": false,
+            "value": 13,
+            "type": "integer",
+            "domain": [
+                3,
+                55
+            ],
+            "output_format": "{:10d}"
         }
     ]
 }
