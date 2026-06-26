@@ -1,0 +1,144 @@
+{
+    "name": "Set Digitizing parameters",
+    "contributions": {
+        "methodology": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ],
+        "software": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ]
+    },
+    "src": {
+        "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
+        "method": "process_set_digitizing_parameters",
+		"store": false
+    },
+    "description": "A process to set digitizing parameters",
+    "doc": "",
+    "parameters": [
+        {
+            "label": "Raster layer DEM",
+            "argparser": "",
+            "description": "Raster layer digital elevation model, converted to meters using: scale * ND + offset",
+            "mandatory": true,
+            "output": false,
+            "value": {
+                "file_path": "D:/PhotogrammetryToolsProjects/EjemploCandado/metashape/dsm5cm.tif",
+                "layer_index": 1,
+                "scale": 1.0,
+                "offset": 0.0
+            },
+            "type": "raster_layer",
+            "file_mode": "read",
+            "domain": [
+                ".tif",
+                ".tiff"
+            ],
+            "output_format": "{:s}"
+        },
+        {
+            "label": "DEM CRS",
+            "argparser": "",
+            "description": "A valid CRS identifier (EPSG:25830+5782, EPSG:25830, ...) for replace the internal CRS of the DEM. Empty for no use",
+            "mandatory": true,
+            "output": false,
+            "value": "EPSG:25830",
+            "type": "string",
+            "output_format": "{:>s}"
+        },
+        {
+            "label": "Computing algorithm",
+            "argparser": "",
+            "description": "Computing algorithm: Known orientation, New matches, OpenCvStereoRectifyUncalibrated, COLMAPStereoRectifyUncalibrated",
+            "mandatory": true,
+            "output": false,
+            "value": "Known orientation",
+            "type": "string",
+            "domain": [
+                "Known orientation",
+                "New matches",
+				"OpenCvStereoRectifyUncalibrated",
+				"COLMAPStereoRectifyUncalibrated"
+            ],
+            "output_format": "{:s}"
+        },
+		{
+            "label": "Ignored sensor percentage",
+            "argparser": "",
+            "description": "Exterior percentage of sensor format ignored",
+            "mandatory": true,
+            "output": false,
+            "value": 5.0,
+            "type": "real",
+            "domain": [
+                0.0,
+                10.0
+            ],
+            "output_format": "{:10.2f}"
+        },
+		{
+            "label": "Minimum overlap percentage",
+            "argparser": "",
+            "description": "Minimum overlap percentage for ABM",
+            "mandatory": true,
+            "output": false,
+            "value": 15.0,
+            "type": "real",
+            "domain": [
+                5.0,
+                90.0
+            ],
+            "output_format": "{:10.2f}"
+        },
+        {
+            "label": "Save rectified homographies images",
+            "argparser": "",
+            "description": "Save rectified homographies images",
+            "mandatory": true,
+            "output": false,
+            "value": true,
+            "type": "boolean",
+            "output_format": "{:>10s}"
+        },
+        {
+            "label": "Save rectified homographies images",
+            "argparser": "",
+            "description": "Save rectified homographies images",
+            "mandatory": true,
+            "output": false,
+            "value": true,
+            "type": "boolean",
+            "output_format": "{:>10s}"
+        },
+        {
+            "label": "Rectified homographies images output path",
+            "argparser": "",
+            "description": "Rectified homographies images output path",
+            "mandatory": true,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/rectified_homographies_images",
+            "type": "path",
+            "output_format": "{:s}"
+        },
+        {
+            "label": "Report files output path",
+            "argparser": "",
+            "description": "Report files output path",
+            "mandatory": true,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/rectified_homographies_images",
+            "type": "path",
+            "output_format": "{:s}"
+        },
+        {
+            "label": "Process only enabled images",
+            "argparser": "",
+            "description": "Process only enabled images",
+            "mandatory": true,
+            "output": false,
+            "value": true,
+            "type": "boolean",
+            "output_format": "{:>10s}"
+        }
+    ]
+}

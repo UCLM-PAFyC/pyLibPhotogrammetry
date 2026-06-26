@@ -36,6 +36,22 @@ class ATBlock:
         self.gcps_by_id = {}
         self.image_points_by_gcp_id = {}
 
+    def exists_footprints(self):
+        exists_footprints = False
+        for camera_id in self.camera_by_id:
+            if self.camera_by_id[camera_id].footprint_geometry != None:
+                exists_footprints = True
+                break
+        return exists_footprints
+
+    def exists_footprints_undistorted(self):
+        exists_footprints = False
+        for camera_id in self.camera_by_id:
+            if self.camera_by_id[camera_id].undistorted_footprint_geometry != None:
+                exists_footprints = True
+                break
+        return exists_footprints
+
     def get_camera_from_camera_id(self,
                                   camera_id):
         if camera_id in self.camera_by_id:

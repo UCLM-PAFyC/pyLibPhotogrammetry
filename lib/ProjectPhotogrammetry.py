@@ -248,6 +248,22 @@ class ProjectPhotogrammetry(Project):
             return str_error, definition_is_saved
         return str_error, definition_is_saved
 
+    def exists_footprints(self):
+        exists_footprints = True
+        for at_block_label in self.at_block_by_label:
+            if not self.at_block_by_label[at_block_label].exists_footprints():
+                exists_footprints = False
+                break
+        return exists_footprints
+
+    def exists_footprints_undistorted(self):
+        exists_footprints = True
+        for at_block_label in self.at_block_by_label:
+            if not self.at_block_by_label[at_block_label].exists_footprints_undistorted():
+                exists_footprints = False
+                break
+        return exists_footprints
+
     def get_camera_from_image_file_path(self,
                                         image_file_path):
          for at_block_label in self.at_block_by_label:
@@ -962,6 +978,107 @@ class ProjectPhotogrammetry(Project):
             str_error += ('\nnot exists path: {}'.
                          format(report_files_output_path))
             return str_error, end_date_time, log
+        # starting ...
+        if not self.exists_footprints():
+            str_error = ('Images footprints are not loaded')
+            return str_error, end_date_time, log
+        if not self.exists_footprints_undistorted():
+            str_error = ('Images undistorted footprints are not loaded')
+            return str_error, end_date_time, log
+        if only_enabled_images:
+            str_error = self.update_enabled_images_from_db()
+            if str_error:
+                str_error = ('Updating enabled images from file: {}\nError:\n{}'
+                             .format(self.file_path, str_error))
+                return str_error, end_date_time, log
+        cameras_to_process = []
+        exists_footprints = False
+        ptrATBlockByCameraId = {}
+        for at_block_label in self.at_block_by_label:
+            at_block = self.at_block_by_label[at_block_label]
+            for camera_id in at_block.camera_by_id:
+                camera = at_block.camera_by_id[camera_id]
+                camera_enabled = camera.get_enabled() # multisensor ...
+                if camera_enabled:
+                    if camera.is_usefull():
+                        cameras_to_process.append(camera)
+                        ptrATBlockByCameraId[camera_id] = at_block_label
+        # QMap < int, OGRGeometry * > ptrGeometryImagesInStereopairsByImageId;
+        # QMap < int, QMap < int, OGRGeometry * > > ptrStereoPairGeometryByImagesIds;
+        stereoPairGeometryByImagesIds = {}
+        numberOfPairsToProcess = 0
+        if dialog:
+            dialog.processInformationGroupBox.setEnabled(True)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            dialog.processLineEdit.setText('Computing stereo pairs ...')
+            dialog.processLineEdit.adjustSize()
+            dialog.processProgressBar.setMaximum(len(cameras_to_process)-1)
+            dialog.processLineEdit.adjustSize()
+            QApplication.processEvents()
+        for i1 in range(len(cameras_to_process)-1):
+            if dialog:
+                dialog.processProgressBar.setValue(i1)
+                QApplication.processEvents()
+            first_camera = cameras_to_process[i1]
+            first_camera_id = first_camera.id
+            first_camera_footprint_geometry = first_camera.footprint_geometry
+            first_camera_footprint_area = first_camera_footprint_geometry.GetArea()
+            for i2 in range(i1 + 1, len(cameras_to_process)):
+                second_camera = cameras_to_process[i2]
+                second_camera_id = second_camera.id
+                second_camera_footprint_geometry = second_camera.footprint_geometry
+                second_camera_footprint_area = second_camera_footprint_geometry.GetArea()
+                if first_camera_footprint_geometry.Intersects(second_camera_footprint_geometry):
+                    stereopair_geometry = first_camera_footprint_geometry.Intersection(
+                        second_camera_footprint_geometry)
+                    stereopair_geometry_type = stereopair_geometry.GetGeometryType()
+                    is_valid_stereopair_geometry = False
+                    if stereopair_geometry_type == ogr.wkbPolygon:
+                        is_valid_stereopair_geometry = True
+                    if not is_valid_stereopair_geometry:
+                        continue
+                    stereopair_geometry_area = stereopair_geometry.GetArea()
+                    if (stereopair_geometry_area < (minimum_overlap_percentage / 100. * first_camera_footprint_area)
+                            or stereopair_geometry_area < (
+                                    minimum_overlap_percentage / 100. * second_camera_footprint_area)):
+                        continue
+                    if not first_camera_id in stereoPairGeometryByImagesIds:
+                        stereoPairGeometryByImagesIds[first_camera_id] = {}
+                    stereoPairGeometryByImagesIds[first_camera_id][second_camera_id] = stereopair_geometry
+                    numberOfPairsToProcess = numberOfPairsToProcess + 1
+        if dialog:
+            dialog.processProgressBar.setValue(len(cameras_to_process)-1)
+            dialog.processInformationGroupBox.setEnabled(False)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            QApplication.processEvents()
+        if numberOfPairsToProcess == 0:
+            end_date_time = datetime.now()
+            return str_error, end_date_time, log
+        raster_dem = None
+        if not dem_file_path in self.raster_dem_by_file_path:
+            raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
+            if dem_crs_id:
+                str_error = raster_dem.set_crs_id_by_user(dem_crs_id)
+                if str_error:
+                    str_error = ('Setting CRS to raster DEM from file: {}\nError:\n{}'
+                                 .format(dem_file_path, str_error))
+                    return str_error, end_date_time, log
+            str_error = raster_dem.set_from_file(dem_file_path)
+            if str_error:
+                str_error = ('Setting raster DEM from file: {}\nError:\n{}'
+                             .format(dem_file_path, str_error))
+                return str_error, end_date_time, log
+            raster_dem.set_check_domain(False) # get solution for out points
+            self.raster_dem_by_file_path[dem_file_path] = raster_dem
+        else:
+            raster_dem = self.raster_dem_by_file_path[dem_file_path]
+        str_error = raster_dem.load()
+        if str_error:
+            str_error = ('Loading in memory raster DEM from file: {}\nError:\n{}'
+                         .format(dem_file_path, str_error))
+            return str_error, end_date_time, log
 
         # dem_file_path
         # dem_crs_id
@@ -972,6 +1089,7 @@ class ProjectPhotogrammetry(Project):
         # save_rectified_homographies_images
         # rectified_homographies_images_output_path
         # report_files_output_path
+        # raster_dem
 
         end_date_time = datetime.now()
         return str_error, end_date_time, log
