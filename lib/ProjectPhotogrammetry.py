@@ -66,6 +66,7 @@ class ProjectPhotogrammetry(Project):
         self.at_block_by_label = {}
         self.raster_dem_by_file_path = {}
         self.opencv_tools = None
+        self.digitizing_parameters = None
 
     def add_image_files(self,
                         files,
@@ -822,7 +823,7 @@ class ProjectPhotogrammetry(Project):
         # parameter dem
         if not defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM in parameters_manager.parameters:
             str_error = ('Process: {} does not have parameter: {}'.
-                         format(name, defs_processes.PROCESS_FUNCTION_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM))
+                         format(name, defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM))
             return str_error, end_date_time, log
         parameter_dem_file_path = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_COMPUTING_RECTIFYING_HOMOGRAPHIES_PARAMETER_DEM]
@@ -2282,7 +2283,379 @@ class ProjectPhotogrammetry(Project):
         str_error = ''
         end_date_time = None
         log = None
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        # parameter dem
+        if not defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM in parameters_manager.parameters:
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        parameter_dem_file_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
+        parameter_dem_file_as_dict = json.loads(str(parameter_dem_file_path))
+        dem_file_path = parameter_dem_file_as_dict[defs_pars.TAG_FILE_PATH]
+        dem_file_path = os.path.normpath(dem_file_path)
+        dem_layer_index = parameter_dem_file_as_dict[defs_pars.TAG_LAYER_INDEX]
+        dem_file_scale = parameter_dem_file_as_dict[defs_pars.TAG_SCALE]
+        dem_file_offset = parameter_dem_file_as_dict[defs_pars.TAG_OFFSET]
+        if not dem_file_path:
+            str_error = ('Process: {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        if not os.path.exists(dem_file_path):
+            str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
+            return str_error, end_date_time, log
+        # parameter dem crs
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS))
+            return str_error, end_date_time, log
+        parameter_dem_crs_id = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS]
+        dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
+        # parameter Ignored sensor percentage
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE]
+        str_value = str(parameter_value)
+        ignored_sensor_percentage = None
+        try:
+            ignored_sensor_percentage = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Minimum overlap percentage
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE]
+        str_value = str(parameter_value)
+        minimum_overlap_percentage = None
+        try:
+            minimum_overlap_percentage = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Save rectified homographies images
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES))
+            return str_error, end_date_time, log
+        parameter_save_recitified_images = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES]
+        str_save_rectified_images = str(parameter_save_recitified_images)
+        save_rectified_homographies_images = True
+        if str_save_rectified_images.casefold() == 'false':
+            save_rectified_homographies_images = False
+        # parameter Rectified homographies images output path
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        parameter_output_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH]
+        rectified_homographies_images_output_path = str(parameter_output_path)
+        if not rectified_homographies_images_output_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        rectified_homographies_images_output_path = os.path.normpath(rectified_homographies_images_output_path)
+        if not os.path.exists(rectified_homographies_images_output_path):
+            str_error = ('Process {} parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+            str_error += ('\nnot exists path: {}'.
+                         format(rectified_homographies_images_output_path))
+            return str_error, end_date_time, log
+        # parameter Report files output path
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        parameter_output_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH]
+        report_files_output_path = str(parameter_output_path)
+        if not report_files_output_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
+            return str_error, end_date_time, log
+        report_files_output_path = os.path.normpath(report_files_output_path)
+        if not os.path.exists(report_files_output_path):
+            str_error = ('Process {} parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
+            str_error += ('\nnot exists path: {}'.
+                         format(report_files_output_path))
+            return str_error, end_date_time, log
+        # parameter process only enabled images
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES))
+            return str_error, end_date_time, log
+        parameter_enabled_images = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
+        str_enabled = str(parameter_enabled_images)
+        only_enabled_images = True
+        if str_enabled.casefold() == 'false':
+            only_enabled_images = False
+        # parameter Maximum height separation within Dsm
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM]
+        str_value = str(parameter_value)
+        maximum_height_separation_within_dsm = None
+        try:
+            maximum_height_separation_within_dsm = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Maximum height separation outside Dsm
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM]
+        str_value = str(parameter_value)
+        maximum_height_separation_outside_dsm = None
+        try:
+            maximum_height_separation_outside_dsm = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Images matches accuracy
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY]
+        str_value = str(parameter_value)
+        images_matches_accuracy = None
+        try:
+            images_matches_accuracy = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Images measurements accuracy
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY]
+        str_value = str(parameter_value)
+        images_measurements_accuracy = None
+        try:
+            images_measurements_accuracy = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Match maximum epipolar row parallax
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX]
+        str_value = str(parameter_value)
+        match_maximum_epipolar_row_parallax = None
+        try:
+            match_maximum_epipolar_row_parallax = int(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have an integer parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Match OpenCv method
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD))
+            return str_error, end_date_time, log
+        parameter_match_opencv_method = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD]
+        match_opencv_method = str(parameter_match_opencv_method)
+        if (match_opencv_method.casefold() !=
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_ALL.casefold()
+                and match_opencv_method.casefold() !=
+                PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_SQDIFF_NORMED
+                and match_opencv_method.casefold() !=
+                PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_CCORR_NORMED
+                and match_opencv_method.casefold() !=
+                PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_COEFF_NORMED):
+            str_error = ('Process: {} parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD))
+            str_error += ('\noption: {} not implemented'.
+                         format(match_opencv_method))
+            return str_error, end_date_time, log
+        # parameter Match OpenCv threshold percentage
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE]
+        str_value = str(parameter_value)
+        match_pencv_threshold_percentage = None
+        try:
+            match_pencv_threshold_percentage = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Ram maximum size
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE]
+        str_value = str(parameter_value)
+        ram_maximum_size = None
+        try:
+            ram_maximum_size = int(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have an integer parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE,
+                                str_value))
+            return str_error, end_date_time, log
+        # parameter Match window size
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE))
+            return str_error, end_date_time, log
+        parameter_value = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE]
+        str_value = str(parameter_value)
+        match_window_size = None
+        try:
+            match_window_size = int(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have an integer parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE,
+                                str_value))
+            return str_error, end_date_time, log
 
+        # dem_file_path
+        # dem_crs_id
+        # ignored_sensor_percentage
+        # minimum_overlap_percentage
+        # save_rectified_homographies_images
+        # rectified_homographies_images_output_path
+        # report_files_output_path
+        # only_enabled_images
+        # maximum_height_separation_within_dsm
+        # maximum_height_separation_outside_dsm
+        # images_matches_accuracy
+        # images_measurements_accuracy
+        # match_maximum_epipolar_row_parallax
+        # match_opencv_method
+        # match_pencv_threshold_percentage
+        # ram_maximum_size
+        # match_window_size
+
+        self.digitizing_parameters = {}
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM] \
+            = dem_file_path
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS] \
+            = dem_crs_id
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE] \
+            = ignored_sensor_percentage
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE] \
+            = minimum_overlap_percentage
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES] \
+            = save_rectified_homographies_images
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH] \
+            = rectified_homographies_images_output_path
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH] \
+            = report_files_output_path
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES] \
+            = only_enabled_images
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM] \
+            = maximum_height_separation_within_dsm
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM] \
+            = maximum_height_separation_outside_dsm
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY] \
+            = images_matches_accuracy
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY] \
+            = images_measurements_accuracy
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX] \
+            = match_maximum_epipolar_row_parallax
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD] \
+            = match_opencv_method
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE] \
+            = match_pencv_threshold_percentage
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE] \
+            = ram_maximum_size
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE] \
+            = match_window_size
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
