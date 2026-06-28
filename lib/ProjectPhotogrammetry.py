@@ -1079,6 +1079,46 @@ class ProjectPhotogrammetry(Project):
         if str_error:
             return str_error, end_date_time, log
 
+        if dialog:
+            dialog.processInformationGroupBox.setEnabled(True)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            dialog.processLineEdit.setText('Computing rectifying homographies for {} stereopairs'
+                                           .format(numberOfPairsToProcess))
+            dialog.processLineEdit.adjustSize()
+            dialog.processProgressBar.setMaximum(numberOfPairsToProcess)
+            dialog.processLineEdit.adjustSize()
+            QApplication.processEvents()
+        features = []
+        numberOfProcessedPairs = 0
+        for first_camera_id in stereoPairGeometryByImagesIds:
+            first_camera = camera_by_id[first_camera_id]
+            str_error = first_camera.set_pinhole_camera_model()
+            if str_error:
+                str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
+                             .format(first_camera_id, str_error))
+                return str_error, end_date_time, log
+            for second_camera_id in stereoPairGeometryByImagesIds[first_camera_id]:
+                numberOfProcessedPairs = numberOfProcessedPairs + 1
+                if dialog:
+                    dialog.processProgressBar.setValue(numberOfProcessedPairs)
+                    QApplication.processEvents()
+                second_camera = camera_by_id[second_camera_id]
+                str_error = second_camera.set_pinhole_camera_model()
+                if str_error:
+                    str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
+                                 .format(second_camera_id, str_error))
+                    return str_error, end_date_time, log
+                stereopair_geometry = stereoPairGeometryByImagesIds[first_camera_id][second_camera_id]
+
+        yo = 1
+        if dialog:
+            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+            dialog.processInformationGroupBox.setEnabled(False)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            QApplication.processEvents()
+
         raster_dem = None
         if not dem_file_path in self.raster_dem_by_file_path:
             raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
@@ -1102,34 +1142,6 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Loading in memory raster DEM from file: {}\nError:\n{}'
                          .format(dem_file_path, str_error))
             return str_error, end_date_time, log
-        if dialog:
-            dialog.processInformationGroupBox.setEnabled(True)
-            dialog.processLineEdit.clear()
-            dialog.processProgressBar.reset()
-            dialog.processLineEdit.setText('Computing rectifying homographies for {} stereopairs'
-                                           .format(numberOfPairsToProcess))
-            dialog.processLineEdit.adjustSize()
-            dialog.processProgressBar.setMaximum(numberOfPairsToProcess)
-            dialog.processLineEdit.adjustSize()
-            QApplication.processEvents()
-        features = []
-        numberOfProcessedPairs = 0
-        for first_camera_id in stereoPairGeometryByImagesIds:
-            first_camera = camera_by_id[first_camera_id]
-            str_error = first_camera.set_pinhole_camera_model()
-            if str_error:
-                str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
-                             .format(first_camera_id, str_error))
-                return str_error, end_date_time, log
-            for second_camera_id in stereoPairGeometryByImagesIds[first_camera_id]:
-                second_camera = camera_by_id[second_camera_id]
-                str_error = first_camera.set_pinhole_camera_model()
-                if str_error:
-                    str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
-                                 .format(second_camera_id, str_error))
-                    return str_error, end_date_time, log
-                stereopair_geometry = stereoPairGeometryByImagesIds[first_camera_id][second_camera_id]
-
 
         # dem_file_path
         # dem_crs_id

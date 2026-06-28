@@ -6,8 +6,7 @@ import sys
 import math
 import numpy as np
 from numpy.core.records import ndarray
-
-from defs import defs_images
+import copy
 
 current_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_path, '..'))
@@ -537,22 +536,38 @@ class CameraMetashape(Camera):
 
     def set_pinhole_camera_model(self):
         str_error = ''
-        pinhole_camera_model = None
         if self.pinhole_camera_model is not None:
-            return str_error, self.pinhole_camera_model
+            return str_error
         sensor = self.at_block.sensor_by_id[self.sensor_id]
+        if sensor.type != defs_msm.METASHAPE_SENSOR_TYPE_FRAME:
+            str_error = ("Camera: {} has model: {}, invalid for pinhole model".format(self.label, self.type))
+            return str_error
         str_error = sensor.set_pinhole_camera_model()
         if str_error:
-            return str_error, pinhole_camera_model
-
-        R = None
-        t = None
-        C = None
-        K = None
-        P = None
+            return str_error
+        R = np.zeros((3, 3))
+        for i in range(3):
+            for j in range(3):
+                R[i,j] = self.transform_inv[i,j]
+        C = np.zeros(3)
+        C[0] = self.pc_chunk[0]
+        C[1] = self.pc_chunk[1]
+        C[2] = self.pc_chunk[2]
+        t = -1.0 * np.dot(R, C)
+        Rt = np.zeros((3, 4))
+        for i in range(3):
+            for j in range(3):
+                Rt[i,j] = R[i,j]
+            Rt[i,3] = t[i]
+        K = sensor.pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_K]
+        P = np.matmul(K, Rt)
         self.pinhole_camera_model = {}
         self.pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_K] = K
-        return str_error, pinhole_camera_model
+        self.pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_R] = R
+        self.pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_C] = C
+        self.pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_t] = t
+        self.pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_P] = P
+        return str_error
 
 
 

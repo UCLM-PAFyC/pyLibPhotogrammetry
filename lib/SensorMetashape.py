@@ -1022,7 +1022,7 @@ class SensorMetashape(Sensor):
         K[2, 0] = 0.
         K[2, 1] = 0.
         K[2, 2] = 1.
-        self.set_pinhole_camera_model = {}
-        self.set_pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_K] = K
+        self.pinhole_camera_model = {}
+        self.pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_K] = K
         return str_error
 
