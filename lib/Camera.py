@@ -41,6 +41,7 @@ class Camera:
         self.content = None
         self.footprint_geometry = None
         self.undistorted_footprint_geometry = None
+        self.pinhole_camera_model = None # .R, .t, .C., .P, K
 
     def get_enabled(self):
         if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:

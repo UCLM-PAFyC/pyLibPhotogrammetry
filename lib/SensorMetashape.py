@@ -31,6 +31,8 @@ sys.path.append(os.path.join(current_path, '../..'))
 
 from pyLibPhotogrammetry.defs import defs_project
 from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
+from pyLibPhotogrammetry.defs import defs_images
+
 
 from pyLibCRSs import CRSsDefines as defs_crs
 from pyLibCRSs.CRSsTools import CRSsTools
@@ -975,3 +977,52 @@ class SensorMetashape(Sensor):
                          format(self.label))
             return str_error
         return str_error
+
+    def set_pinhole_camera_model(self):
+        str_error = ''
+        if self.pinhole_camera_model is not None:
+            return str_error
+        calibration = None
+        if defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class:
+            calibration = self.calibration_by_class[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED]
+        else:
+            calibration = self.calibration_by_class[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL]
+        if (calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL):
+            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {}, {} or {}'.
+                         format(self.label, calibration.type, defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME,
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE,
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL))
+            return str_error
+        columns = calibration.width
+        rows = calibration.height
+        f = None
+        cx = None
+        cy = None
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME:
+            f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+            cx = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CX_TAG]
+            cy = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CY_TAG]
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE:
+            f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+            cx = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CX_TAG]
+            cy = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CY_TAG]
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
+            f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+            cx = 0.
+            cy = 0.
+        K = np.zeros((3, 3))
+        K[0, 0] = f
+        K[0, 1] = 0.
+        K[0, 2] = float(columns) / 2. + cx
+        K[1, 0] = 0.
+        K[1, 1] = f
+        K[1, 2] = float(rows) / 2. + cy
+        K[2, 0] = 0.
+        K[2, 1] = 0.
+        K[2, 2] = 1.
+        self.set_pinhole_camera_model = {}
+        self.set_pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_K] = K
+        return str_error
+

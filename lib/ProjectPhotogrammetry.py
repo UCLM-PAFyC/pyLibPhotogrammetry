@@ -1007,6 +1007,7 @@ class ProjectPhotogrammetry(Project):
         # QMap < int, OGRGeometry * > ptrGeometryImagesInStereopairsByImageId;
         # QMap < int, QMap < int, OGRGeometry * > > ptrStereoPairGeometryByImagesIds;
         stereoPairGeometryByImagesIds = {}
+        camera_by_id = {}
         numberOfPairsToProcess = 0
         if dialog:
             dialog.processInformationGroupBox.setEnabled(True)
@@ -1047,6 +1048,10 @@ class ProjectPhotogrammetry(Project):
                     if not first_camera_id in stereoPairGeometryByImagesIds:
                         stereoPairGeometryByImagesIds[first_camera_id] = {}
                     stereoPairGeometryByImagesIds[first_camera_id][second_camera_id] = stereopair_geometry
+                    if not first_camera_id in camera_by_id:
+                        camera_by_id[first_camera_id] = first_camera
+                    if not second_camera_id in camera_by_id:
+                        camera_by_id[second_camera_id] = second_camera
                     numberOfPairsToProcess = numberOfPairsToProcess + 1
         if dialog:
             dialog.processProgressBar.setValue(len(cameras_to_process)-1)
@@ -1057,6 +1062,23 @@ class ProjectPhotogrammetry(Project):
         if numberOfPairsToProcess == 0:
             end_date_time = datetime.now()
             return str_error, end_date_time, log
+
+        process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
+        process_set_digitizing_parameters = None
+        process_provider = None
+        for process_provider in self.processes_manager.processes_by_provider:
+            if process_set_digitizing_parameters_name in self.processes_manager.processes_by_provider[process_provider]:
+                process_set_digitizing_parameters = self.processes_manager.processes_by_provider[
+                    process_provider][process_set_digitizing_parameters_name]
+                break
+        if not process_set_digitizing_parameters:
+            str_error = ('Not found process: {}'
+                         .format(process_set_digitizing_parameters_name))
+            return str_error, end_date_time, log
+        str_error, end_date_time, log = self.process_set_digitizing_parameters(process_set_digitizing_parameters)
+        if str_error:
+            return str_error, end_date_time, log
+
         raster_dem = None
         if not dem_file_path in self.raster_dem_by_file_path:
             raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
@@ -1080,6 +1102,34 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Loading in memory raster DEM from file: {}\nError:\n{}'
                          .format(dem_file_path, str_error))
             return str_error, end_date_time, log
+        if dialog:
+            dialog.processInformationGroupBox.setEnabled(True)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            dialog.processLineEdit.setText('Computing rectifying homographies for {} stereopairs'
+                                           .format(numberOfPairsToProcess))
+            dialog.processLineEdit.adjustSize()
+            dialog.processProgressBar.setMaximum(numberOfPairsToProcess)
+            dialog.processLineEdit.adjustSize()
+            QApplication.processEvents()
+        features = []
+        numberOfProcessedPairs = 0
+        for first_camera_id in stereoPairGeometryByImagesIds:
+            first_camera = camera_by_id[first_camera_id]
+            str_error = first_camera.set_pinhole_camera_model()
+            if str_error:
+                str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
+                             .format(first_camera_id, str_error))
+                return str_error, end_date_time, log
+            for second_camera_id in stereoPairGeometryByImagesIds[first_camera_id]:
+                second_camera = camera_by_id[second_camera_id]
+                str_error = first_camera.set_pinhole_camera_model()
+                if str_error:
+                    str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
+                                 .format(second_camera_id, str_error))
+                    return str_error, end_date_time, log
+                stereopair_geometry = stereoPairGeometryByImagesIds[first_camera_id][second_camera_id]
+
 
         # dem_file_path
         # dem_crs_id
@@ -1091,6 +1141,7 @@ class ProjectPhotogrammetry(Project):
         # rectified_homographies_images_output_path
         # report_files_output_path
         # raster_dem
+        # stereoPairGeometryByImagesIds
 
         end_date_time = datetime.now()
         return str_error, end_date_time, log

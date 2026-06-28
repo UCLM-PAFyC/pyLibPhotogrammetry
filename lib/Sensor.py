@@ -37,5 +37,6 @@ class Sensor:
         self.calibration_covariance_params =[]
         self.calibration_covariance_values =None
         self.geometry = None
+        self.pinhole_camera_model = None # K
 
 

@@ -7,6 +7,8 @@ import math
 import numpy as np
 from numpy.core.records import ndarray
 
+from defs import defs_images
+
 current_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_path, '..'))
 sys.path.append(os.path.join(current_path, '../..'))
@@ -15,6 +17,7 @@ sys.path.append(os.path.join(current_path, '../..'))
 
 from pyLibPhotogrammetry.defs import defs_project
 from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
+from pyLibPhotogrammetry.defs import defs_images
 
 from pyLibCRSs import CRSsDefines as defs_crs
 from pyLibCRSs.CRSsTools import CRSsTools
@@ -531,6 +534,27 @@ class CameraMetashape(Camera):
                     return str_error
                 self.pc = np.array(pc_geo3d[0])
         return str_error
+
+    def set_pinhole_camera_model(self):
+        str_error = ''
+        pinhole_camera_model = None
+        if self.pinhole_camera_model is not None:
+            return str_error, self.pinhole_camera_model
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        str_error = sensor.set_pinhole_camera_model()
+        if str_error:
+            return str_error, pinhole_camera_model
+
+        R = None
+        t = None
+        C = None
+        K = None
+        P = None
+        self.pinhole_camera_model = {}
+        self.pinhole_camera_model[defs_images.PINHOLE_CAMERA_MODEL_K] = K
+        return str_error, pinhole_camera_model
+
+
 
 
 
