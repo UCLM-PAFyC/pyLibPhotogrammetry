@@ -14,6 +14,8 @@ import json
 import xmltodict
 import numpy as np
 from datetime import datetime
+import copy
+import quaternion
 
 from osgeo import gdal, osr, ogr
 gdal.UseExceptions()
@@ -47,6 +49,7 @@ from pyLibProject.gui.ProjectDefinitionDialog import ProjectDefinitionDialog
 from pyLibPhotogrammetry.lib.ATBlockMetashape import ATBlockMetashape
 from pyLibPhotogrammetry.lib.ATBlockGraphos import ATBlockGraphos
 from pyLibPhotogrammetry.lib.IExifTool import IExifTool
+from pyLibPhotogrammetry.lib.computations import *
 
 from pyLibCRSs import CRSsDefines as defs_crs
 from pyLibCRSs.CRSsTools import CRSsTools
@@ -1110,6 +1113,33 @@ class ProjectPhotogrammetry(Project):
                                  .format(second_camera_id, str_error))
                     return str_error, end_date_time, log
                 stereopair_geometry = stereoPairGeometryByImagesIds[first_camera_id][second_camera_id]
+                R33_1 = copy.deepcopy(first_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_R])
+                quat1 = quaternion.from_rotation_matrix(R33_1)
+                qvec1 = np.zeros(4)
+                qvec1[0] = quat1.w
+                qvec1[1] = quat1.x
+                qvec1[2] = quat1.y
+                qvec1[3] = quat1.z
+                tvec1 = copy.deepcopy(first_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_t])
+                R33_2 = copy.deepcopy(second_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_R])
+                quat2 = quaternion.from_rotation_matrix(R33_2)
+                qvec2 = np.zeros(4)
+                qvec2[0] = quat2.w
+                qvec2[1] = quat2.x
+                qvec2[2] = quat2.y
+                qvec2[3] = quat2.z
+                tvec2 = copy.deepcopy(second_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_t])
+                str_image1 = ("{:.12f} {:.12f} {:.12f} {:.12f}".format(qvec1[0], qvec1[1], qvec1[2], qvec1[3]))
+                str_image1 += (" {:.6f} {:.6f} {:.6f}".format(tvec1[0], tvec1[1], tvec1[2]))
+                str_image2 = ("{:.12f} {:.12f} {:.12f} {:.12f}".format(qvec2[0], qvec2[1], qvec2[2], qvec2[3]))
+                str_image2 += (" {:.6f} {:.6f} {:.6f}".format(tvec2[0], tvec2[1], tvec2[2]))
+                # compute relative pose
+                inv_qvec1 = invert_quaternion(qvec1)
+                # inv_qvec1 = pyLibPhotogrammetry.lib.computations.inverse_quaternion(qvec1)
+                qvec12 = concatenate_quaternions(inv_qvec1, qvec2)
+                tvec12 = tvec2 - quaternion_rotate_point(qvec12, tvec1)
+
+                yo = 1
 
         yo = 1
         if dialog:
