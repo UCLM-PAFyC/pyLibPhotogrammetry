@@ -997,7 +997,8 @@ class ProjectPhotogrammetry(Project):
                 return str_error, end_date_time, log
         cameras_to_process = []
         exists_footprints = False
-        ptrATBlockByCameraId = {}
+        at_block_labels = []
+        at_blok_label_by_camera_id = {}
         for at_block_label in self.at_block_by_label:
             at_block = self.at_block_by_label[at_block_label]
             for camera_id in at_block.camera_by_id:
@@ -1006,7 +1007,14 @@ class ProjectPhotogrammetry(Project):
                 if camera_enabled:
                     if camera.is_usefull():
                         cameras_to_process.append(camera)
-                        ptrATBlockByCameraId[camera_id] = at_block_label
+                        at_blok_label_by_camera_id[camera_id] = at_block_label
+                        if not at_block_label in at_block_labels:
+                            at_block_labels.append(at_block_label)
+        if len(at_block_labels) != 1:
+            str_error = ('Algorithm computing rectifying homographies is only valid for one AT block')
+            return str_error, end_date_time, log
+        at_block_label = at_block_labels[0]
+        at_block = self.at_block_by_label[at_block_label]
         # QMap < int, OGRGeometry * > ptrGeometryImagesInStereopairsByImageId;
         # QMap < int, QMap < int, OGRGeometry * > > ptrStereoPairGeometryByImagesIds;
         stereoPairGeometryByImagesIds = {}
@@ -1065,7 +1073,7 @@ class ProjectPhotogrammetry(Project):
         if numberOfPairsToProcess == 0:
             end_date_time = datetime.now()
             return str_error, end_date_time, log
-
+        # digitizing parameters
         process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
         process_set_digitizing_parameters = None
         process_provider = None
@@ -1081,7 +1089,32 @@ class ProjectPhotogrammetry(Project):
         str_error, end_date_time, log = self.process_set_digitizing_parameters(process_set_digitizing_parameters)
         if str_error:
             return str_error, end_date_time, log
-
+        # DEM
+        raster_dem = None
+        if not dem_file_path in self.raster_dem_by_file_path:
+            raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
+            if dem_crs_id:
+                str_error = raster_dem.set_crs_id_by_user(dem_crs_id)
+                if str_error:
+                    str_error = ('Setting CRS to raster DEM from file: {}\nError:\n{}'
+                                 .format(dem_file_path, str_error))
+                    return str_error, end_date_time, log
+            str_error = raster_dem.set_from_file(dem_file_path)
+            if str_error:
+                str_error = ('Setting raster DEM from file: {}\nError:\n{}'
+                             .format(dem_file_path, str_error))
+                return str_error, end_date_time, log
+            raster_dem.set_check_domain(False) # get solution for out points
+            self.raster_dem_by_file_path[dem_file_path] = raster_dem
+        else:
+            raster_dem = self.raster_dem_by_file_path[dem_file_path]
+        str_error = raster_dem.load()
+        if str_error:
+            str_error = ('Loading in memory raster DEM from file: {}\nError:\n{}'
+                         .format(dem_file_path, str_error))
+            return str_error, end_date_time, log
+        raster_dem_crs_id = raster_dem.get_crs_id()
+        # process
         if dialog:
             dialog.processInformationGroupBox.setEnabled(True)
             dialog.processLineEdit.clear()
@@ -1101,6 +1134,9 @@ class ProjectPhotogrammetry(Project):
                 str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
                              .format(first_camera_id, str_error))
                 return str_error, end_date_time, log
+            first_sensor = self.at_block_by_label[at_block_label].sensor_by_id[first_camera.sensor_id]
+            first_camera_columns = first_sensor.width
+            first_camera_rows = first_sensor.height
             for second_camera_id in stereoPairGeometryByImagesIds[first_camera_id]:
                 numberOfProcessedPairs = numberOfProcessedPairs + 1
                 if dialog:
@@ -1112,6 +1148,9 @@ class ProjectPhotogrammetry(Project):
                     str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
                                  .format(second_camera_id, str_error))
                     return str_error, end_date_time, log
+                second_sensor = self.at_block_by_label[at_block_label].sensor_by_id[second_camera.sensor_id]
+                second_camera_columns = second_sensor.width
+                second_camera_rows = second_sensor.height
                 stereopair_geometry = stereoPairGeometryByImagesIds[first_camera_id][second_camera_id]
                 R33_1 = copy.deepcopy(first_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_R])
                 quat1 = quaternion.from_rotation_matrix(R33_1)
@@ -1143,7 +1182,272 @@ class ProjectPhotogrammetry(Project):
                 K1 = first_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_K]
                 K2 = second_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_K]
                 H1, H2, Q = rectify_stereo_cameras(K1, K2, qvec12, tvec12)
+                invH1 = np.linalg.inv(H1)
+                invH2 = np.linalg.inv(H2)
+                first_camera_H = np.zeros((3,3))
+                second_camera_H = np.zeros((3,3))
+                first_camera_invH = np.zeros((3,3))
+                second_camera_invH = np.zeros((3,3))
+                for row in range(3):
+                    for column in range(3):
+                        first_camera_H[row, column] = H1[row, column]
+                        second_camera_H[row, column] = H2[row, column]
+                        first_camera_invH[row, column] = invH1[row, column]
+                        second_camera_invH[row, column] = invH2[row, column]
+                # stereo footprint geometries
+                stereopair_nrings = stereopair_geometry.GetGeometryCount()
+                stereopair_exterior_ring = stereopair_geometry.GetGeometryRef(0)
+                stereopair_points = []
+                for i in range(stereopair_exterior_ring.GetPointCount()):
+                    point = stereopair_exterior_ring.GetPoint(i)
+                    fc = stereopair_exterior_ring.GetX(i)
+                    sc = stereopair_exterior_ring.GetY(i)
+                    if raster_dem_crs_id.casefold() != at_block.crs_id.casefold():
+                        pto = [[fc, sc, 0.]]
+                        str_error = self.crs_tools.operation(at_block.crs_id, raster_dem_crs_id,
+                                                         pto)
+                        if str_error:
+                            str_error += ('Computing rectifying homographies')
+                            str_error += ('\nFor image: {} and image: {}'.
+                                          format(first_camera.label, second_camera.label))
+                            str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
+                                         format(at_block.crs_id, raster_dem_crs_id,
+                                                fc, sc, str_error))
+                            return str_error, end_date_time, log
+                        fc = pto[0][0]
+                        sc = pto[0][1]
+                    str_error, elevation, point_out_edge, is_no_data = raster_dem.get_elevation(fc,sc)
+                    stereopair_points.append([fc, sc, elevation])
+                firstImageWktGeometry = "POLYGON(("
+                firstUndistortedImageWktGeometry = "POLYGON(("
+                secondImageWktGeometry = "POLYGON(("
+                secondUndistortedImageWktGeometry = "POLYGON(("
+                firstImageEpipolarWktGeometry = "POLYGON(("
+                secondImageEpipolarWktGeometry = "POLYGON(("
+                fImgEpiMinColumn = 1000000
+                fImgEpiMinRow = 1000000
+                fImgEpiMaxColumn = 0
+                fImgEpiMaxRow = 0
+                sImgEpiMinColumn = 1000000
+                sImgEpiMinRow = 1000000
+                sImgEpiMaxColumn = 0
+                sImgEpiMaxRow = 0
+                fpFImgEpiColumn = None
+                fpFImgEpiRow = None
+                fpSImgEpiColumn = None
+                fpSImgEpiRow = None
+                for i in range(len(stereopair_points)):
+                    stereopair_point = stereopair_points[i]
+                    position = np.array([stereopair_point[0], stereopair_point[1], stereopair_point[2]])
+                    if at_block.crs_id != at_block.crs_ecef_id:
+                        position_ecef = [position.tolist()]
+                        str_error = self.crs_tools.operation(at_block.crs_id, at_block.crs_ecef_id, position_ecef)
+                        if str_error:
+                            str_error += ('Computing rectifying homographies')
+                            str_error += ('\nFor image: {} and image: {}'.
+                                          format(first_camera.label, second_camera.label))
+                            str_error += ('\nFrom CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
+                                         format(at_block.crs_id, at_block.crs_ecef_id,
+                                                position[0][0], position[0][1], str_error))
+                            return str_error, end_date_time, log
+                        position_ecef = np.array(position_ecef[0])
+                    else:
+                        position_ecef = np.array(position.tolist())
+                    if at_block.crs_id != at_block.crs_geo3d_id:
+                        position_geo3d = [position.tolist()]
+                        str_error = self.crs_tools.operation(at_block.crs_id, at_block.crs_geo3d_id,
+                                                             position_geo3d)
+                        if str_error:
+                            str_error += ('Computing rectifying homographies')
+                            str_error += ('\nFor image: {} and image: {}'.
+                                          format(first_camera.label, second_camera.label))
+                            str_error += ('\nFrom CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
+                                         format(at_block.crs_id, at_block.crs_geo3d_id,
+                                                position[0][0], position[0][1], str_error))
+                            return str_error, end_date_time, log
+                        position_geo3d = np.array(position_geo3d[0])
+                    else:
+                        position_geo3d = np.array(position.tolist())
+                    position_ecef = np.append(position_ecef, 1.0)
+                    position_chunk = np.matmul(at_block.transform_inv, position_ecef)
+                    within = None
+                    withinAfterUndistortion = None
+                    position_first_image = None
+                    position_undistorted_first_image = None
+                    str_error, within, withinAfterUndistortion, position_first_image, position_undistorted_first_image \
+                            = first_camera.from_chunk_to_sensor(position_chunk)
+                    if str_error:
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nFrom chunk to first image in point: [{:.3f}, {:.3f}, {:3.f}]\nerror:\n{}'.
+                                      format(at_block.crs_id, at_block.crs_geo3d_id,
+                                             position_chunk[0][0], position_chunk[0][1], position_chunk[0][2], str_error))
+                        return str_error, end_date_time, log
+                    fImgColumn = position_first_image[0]
+                    fImgRow = position_first_image[1]
+                    fImgColumnNoD = position_undistorted_first_image[0]
+                    fImgRowNoD = position_undistorted_first_image[1]
+                    position_second_image = None
+                    position_undistorted_second_image = None
+                    str_error, within, withinAfterUndistortion, position_second_image, position_undistorted_second_image \
+                            = second_camera.from_chunk_to_sensor(position_chunk)
+                    if str_error:
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nFrom chunk to second image in point: [{:.3f}, {:.3f}, {:3.f}]\nerror:\n{}'.
+                                      format(at_block.crs_id, at_block.crs_geo3d_id,
+                                             position_chunk[0][0], position_chunk[0][1], position_chunk[0][2], str_error))
+                        return str_error, end_date_time, log
+                    sImgColumn = position_second_image[0]
+                    sImgRow = position_second_image[1]
+                    sImgColumnNoD = position_undistorted_second_image[0]
+                    sImgRowNoD = position_undistorted_second_image[1]
+                    # Calcular los puntos en las homografias a partir de la posicion libre de distorsion
+                    fImgDen = fImgColumnNoD * first_camera_H[2, 0] + fImgRowNoD * first_camera_H[2, 1] + 1.0 * first_camera_H[2, 2]
+                    fEpiImgColumn = fImgColumnNoD * first_camera_H[0, 0] + fImgRowNoD * first_camera_H[0, 1] + 1.0 * first_camera_H[0, 2]
+                    fEpiImgColumn = fEpiImgColumn / fImgDen
+                    fEpiImgRow = fImgColumnNoD * first_camera_H[1, 0] + fImgRowNoD * first_camera_H[1, 1] + 1.0 * first_camera_H[1, 2]
+                    fEpiImgRow = fEpiImgRow / fImgDen
+                    fEpiColumnInt = math.floor(fEpiImgColumn)
+                    if (fEpiColumnInt < 0):
+                        fEpiColumnInt = 0
+                    if (fEpiColumnInt > (first_camera_columns - 1)):
+                        fEpiColumnInt = first_camera_columns - 1
+                    if (fEpiColumnInt < fImgEpiMinColumn):
+                        fImgEpiMinColumn = fEpiColumnInt
+                    if (fEpiColumnInt > fImgEpiMaxColumn):
+                        fImgEpiMaxColumn = fEpiColumnInt
+                    fEpiRowInt = math.floor(fEpiImgRow)
+                    if (fEpiRowInt < 0):
+                        fEpiRowInt=0
+                    if (fEpiRowInt > (first_camera_rows - 1)):
+                        fEpiRowInt = first_camera_rows - 1
+                    if (fEpiRowInt < fImgEpiMinRow):
+                        fImgEpiMinRow = fEpiRowInt
+                    if (fEpiRowInt > fImgEpiMaxRow):
+                        fImgEpiMaxRow = fEpiRowInt
+                    sImgDen = sImgColumnNoD * second_camera_H[2, 0] + sImgRowNoD * second_camera_H[2, 1] + 1.0 * second_camera_H[2, 2]
+                    sEpiImgColumn = sImgColumnNoD * second_camera_H[0, 0] + sImgRowNoD * second_camera_H[0, 1] + 1.0 * second_camera_H[0, 2]
+                    sEpiImgColumn = sEpiImgColumn / sImgDen
+                    sEpiImgRow = sImgColumnNoD * second_camera_H[1, 0] + sImgRowNoD * second_camera_H[1, 1] + 1.0 * second_camera_H[1, 2]
+                    sEpiImgRow = sEpiImgRow / sImgDen
+                    sEpiColumnInt = math.floor(sEpiImgColumn)
+                    if (sEpiColumnInt < 0):
+                        sEpiColumnInt = 0
+                    if (sEpiColumnInt > (second_camera_columns - 1)):
+                        sEpiColumnInt = second_camera_columns - 1
+                    if (sEpiColumnInt < sImgEpiMinColumn):
+                        sImgEpiMinColumn = sEpiColumnInt
+                    if (sEpiColumnInt > sImgEpiMaxColumn):
+                        sImgEpiMaxColumn = sEpiColumnInt
+                    sEpiRowInt = math.floor(sEpiImgRow)
+                    if (sEpiRowInt < 0):
+                        sEpiRowInt=0
+                    if (sEpiRowInt > (second_camera_rows - 1)):
+                        sEpiRowInt = second_camera_rows -1
+                    if (sEpiRowInt < sImgEpiMinRow):
+                        sImgEpiMinRow = sEpiRowInt
+                    if (sEpiRowInt > sImgEpiMaxRow):
+                        sImgEpiMaxRow = sEpiRowInt
 
+                    fImgColumnInt = math.floor(fImgColumn)
+                    if (fImgColumnInt < 0):
+                        fImgColumnInt = 0
+                    if (fImgColumnInt > (first_camera_columns - 1)):
+                        fImgColumnInt = first_camera_columns - 1
+
+                    fImgRowInt = math.floor(fImgRow)
+                    if (fImgRowInt < 0):
+                        fImgRowInt = 0
+                    if (fImgRowInt > (first_camera_rows - 1)):
+                        fImgRowInt = first_camera_rows - 1
+
+                    fImgColumnNoDInt = math.floor(fImgColumnNoD)
+                    if (fImgColumnNoDInt < 0):
+                        fImgColumnNoDInt = 0
+                    if (fImgColumnNoDInt > (first_camera_columns - 1)):
+                        fImgColumnNoDInt = first_camera_columns - 1
+
+                    fImgRowNoDInt = math.floor(fImgRowNoD)
+                    if (fImgRowNoDInt < 0):
+                        fImgRowNoDInt = 0
+                    if (fImgRowNoDInt > (first_camera_rows - 1)):
+                        fImgRowNoDInt = first_camera_rows - 1
+
+                    sImgColumnInt = math.floor(sImgColumn)
+                    if (sImgColumnInt < 0):
+                        sImgColumnInt = 0
+                    if (sImgColumnInt > (second_camera_columns - 1)):
+                        sImgColumnInt = second_camera_columns - 1
+
+                    sImgRowInt = math.floor(sImgRow)
+                    if (sImgRowInt < 0):
+                        sImgRowInt = 0
+                    if (sImgRowInt > (second_camera_rows - 1)):
+                        sImgRowInt = second_camera_rows - 1
+
+                    sImgColumnNoDInt = math.floor(sImgColumnNoD)
+                    if (sImgColumnNoDInt < 0):
+                        sImgColumnNoDInt = 0
+                    if (sImgColumnNoDInt > (second_camera_columns - 1)):
+                        sImgColumnNoDInt = second_camera_columns - 1
+
+                    sImgRowNoDInt = math.floor(sImgRowNoD)
+                    if (sImgRowNoDInt < 0):
+                        sImgRowNoDInt = 0
+                    if (sImgRowNoDInt > (second_camera_rows - 1)):
+                        sImgRowNoDInt = second_camera_rows - 1
+
+                    # paso la fila a negativo para que la geometria se pueda cargar en qgis
+                    fImgRowInt = -1 * fImgRowInt
+                    fImgRowNoDInt = -1 * fImgRowNoDInt
+                    sImgRowInt = -1 * sImgRowInt
+                    sImgRowNoDInt = -1 * sImgRowNoDInt
+                    firstImageWktGeometry += ("{:.0f}".format(fImgColumnInt))
+                    firstImageWktGeometry += " "
+                    firstImageWktGeometry += ("{:.0f}".format(fImgRowInt))
+                    firstUndistortedImageWktGeometry += ("{:.0f}".format(fImgColumnNoDInt))
+                    firstUndistortedImageWktGeometry += " "
+                    firstUndistortedImageWktGeometry += ("{:.0f}".format(fImgRowNoDInt))
+                    secondImageWktGeometry += ("{:.0f}".format(sImgColumnInt))
+                    secondImageWktGeometry += " "
+                    secondImageWktGeometry += ("{:.0f}".format(sImgRowInt))
+                    secondUndistortedImageWktGeometry += ("{:.0f}".format(sImgColumnNoDInt))
+                    secondUndistortedImageWktGeometry += " "
+                    secondUndistortedImageWktGeometry += ("{:.0f}".format(sImgRowNoDInt))
+                    fEpiRowInt = -1 * fEpiRowInt
+                    sEpiRowInt = -1 * sEpiRowInt
+                    firstImageEpipolarWktGeometry += ("{:.0f}".format(fEpiColumnInt))
+                    firstImageEpipolarWktGeometry += " "
+                    firstImageEpipolarWktGeometry += ("{:.0f}".format(fEpiRowInt))
+                    secondImageEpipolarWktGeometry += ("{:.0f}".format(sEpiColumnInt))
+                    secondImageEpipolarWktGeometry += " "
+                    secondImageEpipolarWktGeometry += ("{:.0f}".format(sEpiRowInt))
+                    if i == 0:
+                        fpFImgColumn = fImgColumnInt
+                        fpFImgRow = fImgRowInt
+                        fpFUndImgColumn = fImgColumnNoDInt
+                        fpFUndImgRow = fImgRowNoDInt
+                        fpSImgColumn = sImgColumnInt
+                        fpSImgRow = sImgRowInt
+                        fpSUndImgColumn = sImgColumnNoDInt
+                        fpSUndImgRow = sImgRowNoDInt
+                        fpFImgEpiColumn = fEpiColumnInt
+                        fpFImgEpiRow = fEpiRowInt
+                        fpSImgEpiColumn = sEpiColumnInt
+                        fpSImgEpiRow = sEpiRowInt
+                    firstImageWktGeometry += ","
+                    firstUndistortedImageWktGeometry += ","
+                    secondImageWktGeometry += ","
+                    secondUndistortedImageWktGeometry += ","
+                    firstImageEpipolarWktGeometry += ","
+                    secondImageEpipolarWktGeometry += ","
+
+                yo = 1
+
+                # stereopair_geometry
                 yo = 1
 
         yo = 1
@@ -1154,29 +1458,6 @@ class ProjectPhotogrammetry(Project):
             dialog.processProgressBar.reset()
             QApplication.processEvents()
 
-        raster_dem = None
-        if not dem_file_path in self.raster_dem_by_file_path:
-            raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
-            if dem_crs_id:
-                str_error = raster_dem.set_crs_id_by_user(dem_crs_id)
-                if str_error:
-                    str_error = ('Setting CRS to raster DEM from file: {}\nError:\n{}'
-                                 .format(dem_file_path, str_error))
-                    return str_error, end_date_time, log
-            str_error = raster_dem.set_from_file(dem_file_path)
-            if str_error:
-                str_error = ('Setting raster DEM from file: {}\nError:\n{}'
-                             .format(dem_file_path, str_error))
-                return str_error, end_date_time, log
-            raster_dem.set_check_domain(False) # get solution for out points
-            self.raster_dem_by_file_path[dem_file_path] = raster_dem
-        else:
-            raster_dem = self.raster_dem_by_file_path[dem_file_path]
-        str_error = raster_dem.load()
-        if str_error:
-            str_error = ('Loading in memory raster DEM from file: {}\nError:\n{}'
-                         .format(dem_file_path, str_error))
-            return str_error, end_date_time, log
 
         # dem_file_path
         # dem_crs_id
