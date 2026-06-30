@@ -1120,6 +1120,7 @@ class ProjectPhotogrammetry(Project):
                 qvec1[1] = quat1.x
                 qvec1[2] = quat1.y
                 qvec1[3] = quat1.z
+                qvec1_negative = -1. * qvec1 # qvec1 is -1 eigen
                 tvec1 = copy.deepcopy(first_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_t])
                 R33_2 = copy.deepcopy(second_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_R])
                 quat2 = quaternion.from_rotation_matrix(R33_2)
@@ -1128,6 +1129,7 @@ class ProjectPhotogrammetry(Project):
                 qvec2[1] = quat2.x
                 qvec2[2] = quat2.y
                 qvec2[3] = quat2.z
+                qvec2_negative = -1. * qvec2 # qvec2 is -1 eigen
                 tvec2 = copy.deepcopy(second_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_t])
                 str_image1 = ("{:.12f} {:.12f} {:.12f} {:.12f}".format(qvec1[0], qvec1[1], qvec1[2], qvec1[3]))
                 str_image1 += (" {:.6f} {:.6f} {:.6f}".format(tvec1[0], tvec1[1], tvec1[2]))
@@ -1138,6 +1140,9 @@ class ProjectPhotogrammetry(Project):
                 # inv_qvec1 = pyLibPhotogrammetry.lib.computations.inverse_quaternion(qvec1)
                 qvec12 = concatenate_quaternions(inv_qvec1, qvec2)
                 tvec12 = tvec2 - quaternion_rotate_point(qvec12, tvec1)
+                K1 = first_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_K]
+                K2 = second_camera.pinhole_camera_model[defs_img.PINHOLE_CAMERA_MODEL_K]
+                H1, H2, Q = rectify_stereo_cameras(K1, K2, qvec12, tvec12)
 
                 yo = 1
 
