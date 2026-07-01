@@ -58,6 +58,7 @@ from pyLibGDAL import defs_gdal
 from pyLibGDAL.GDALTools import GDALTools
 from pyLibGDAL.RasterDEM import RasterDEM
 from pyLibOpenCV.OpenCVTools import OpenCVTools
+from pyLibOpenCV.IOpenCV import warp_perspective
 
 class ProjectPhotogrammetry(Project):
     def __init__(self, qgis_iface, settings, crs_tools):
@@ -1865,6 +1866,9 @@ class ProjectPhotogrammetry(Project):
                     secondHomographyImageFileName += "_"
                     secondHomographyImageFileName += first_camera_basename
                     secondHomographyImageFileName += ".jpg"
+                    str_error = warp_perspective(first_camera.image_file_path,
+                                                 firstHomographyImageFileName,
+                                                 first_camera_invH)
                     yo = 1
                 yo = 1
 
