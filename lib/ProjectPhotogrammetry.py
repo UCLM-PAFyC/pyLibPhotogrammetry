@@ -1128,11 +1128,21 @@ class ProjectPhotogrammetry(Project):
         features = []
         numberOfProcessedPairs = 0
         for first_camera_id in stereoPairGeometryByImagesIds:
+            numberOfProcessedPairs = numberOfProcessedPairs + 1
+            if dialog:
+                dialog.processProgressBar.setValue(numberOfProcessedPairs)
+                QApplication.processEvents()
             first_camera = camera_by_id[first_camera_id]
             str_error = first_camera.set_pinhole_camera_model()
             if str_error:
                 str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
                              .format(first_camera_id, str_error))
+                if dialog:
+                    dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                    dialog.processInformationGroupBox.setEnabled(False)
+                    dialog.processLineEdit.clear()
+                    dialog.processProgressBar.reset()
+                    QApplication.processEvents()
                 return str_error, end_date_time, log
             first_sensor = self.at_block_by_label[at_block_label].sensor_by_id[first_camera.sensor_id]
             first_camera_columns = first_sensor.width
@@ -1147,6 +1157,12 @@ class ProjectPhotogrammetry(Project):
                 if str_error:
                     str_error = ('Getting pinhole camera model for image: {}\nError:\n{}'
                                  .format(second_camera_id, str_error))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
                     return str_error, end_date_time, log
                 second_sensor = self.at_block_by_label[at_block_label].sensor_by_id[second_camera.sensor_id]
                 second_camera_columns = second_sensor.width
@@ -1213,6 +1229,12 @@ class ProjectPhotogrammetry(Project):
                             str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
                                          format(at_block.crs_id, raster_dem_crs_id,
                                                 fc, sc, str_error))
+                            if dialog:
+                                dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                                dialog.processInformationGroupBox.setEnabled(False)
+                                dialog.processLineEdit.clear()
+                                dialog.processProgressBar.reset()
+                                QApplication.processEvents()
                             return str_error, end_date_time, log
                         fc = pto[0][0]
                         sc = pto[0][1]
@@ -1249,6 +1271,12 @@ class ProjectPhotogrammetry(Project):
                             str_error += ('\nFrom CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
                                          format(at_block.crs_id, at_block.crs_ecef_id,
                                                 position[0][0], position[0][1], str_error))
+                            if dialog:
+                                dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                                dialog.processInformationGroupBox.setEnabled(False)
+                                dialog.processLineEdit.clear()
+                                dialog.processProgressBar.reset()
+                                QApplication.processEvents()
                             return str_error, end_date_time, log
                         position_ecef = np.array(position_ecef[0])
                     else:
@@ -1264,6 +1292,12 @@ class ProjectPhotogrammetry(Project):
                             str_error += ('\nFrom CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
                                          format(at_block.crs_id, at_block.crs_geo3d_id,
                                                 position[0][0], position[0][1], str_error))
+                            if dialog:
+                                dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                                dialog.processInformationGroupBox.setEnabled(False)
+                                dialog.processLineEdit.clear()
+                                dialog.processProgressBar.reset()
+                                QApplication.processEvents()
                             return str_error, end_date_time, log
                         position_geo3d = np.array(position_geo3d[0])
                     else:
@@ -1283,6 +1317,12 @@ class ProjectPhotogrammetry(Project):
                         str_error += ('\nFrom chunk to first image in point: [{:.3f}, {:.3f}, {:3.f}]\nerror:\n{}'.
                                       format(at_block.crs_id, at_block.crs_geo3d_id,
                                              position_chunk[0][0], position_chunk[0][1], position_chunk[0][2], str_error))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
                         return str_error, end_date_time, log
                     fImgColumn = position_first_image[0]
                     fImgRow = position_first_image[1]
@@ -1299,6 +1339,12 @@ class ProjectPhotogrammetry(Project):
                         str_error += ('\nFrom chunk to second image in point: [{:.3f}, {:.3f}, {:3.f}]\nerror:\n{}'.
                                       format(at_block.crs_id, at_block.crs_geo3d_id,
                                              position_chunk[0][0], position_chunk[0][1], position_chunk[0][2], str_error))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
                         return str_error, end_date_time, log
                     sImgColumn = position_second_image[0]
                     sImgRow = position_second_image[1]
@@ -1444,13 +1490,384 @@ class ProjectPhotogrammetry(Project):
                     secondUndistortedImageWktGeometry += ","
                     firstImageEpipolarWktGeometry += ","
                     secondImageEpipolarWktGeometry += ","
-
+                firstImageWktGeometry += ("{:.0f}".format(fpFImgColumn))
+                firstImageWktGeometry += " "
+                firstImageWktGeometry += ("{:.0f}".format(fpFImgRow))
+                firstUndistortedImageWktGeometry += ("{:.0f}".format(fpFUndImgColumn))
+                firstUndistortedImageWktGeometry += " "
+                firstUndistortedImageWktGeometry += ("{:.0f}".format(fpFUndImgRow))
+                secondImageWktGeometry += ("{:.0f}".format(fpSImgColumn))
+                secondImageWktGeometry += " "
+                secondImageWktGeometry += ("{:.0f}".format(fpSImgRow))
+                secondUndistortedImageWktGeometry += ("{:.0f}".format(fpSUndImgColumn))
+                secondUndistortedImageWktGeometry += " "
+                secondUndistortedImageWktGeometry += ("{:.0f}".format(fpSUndImgRow))
+                firstImageEpipolarWktGeometry += ("{:.0f}".format(fpFImgEpiColumn))
+                firstImageEpipolarWktGeometry += " "
+                firstImageEpipolarWktGeometry += ("{:.0f}".format(fpFImgEpiRow))
+                secondImageEpipolarWktGeometry += ("{:.0f}".format(fpSImgEpiColumn))
+                secondImageEpipolarWktGeometry += " "
+                secondImageEpipolarWktGeometry += ("{:.0f}".format(fpSImgEpiRow))
+                firstImageWktGeometry += "))"
+                firstUndistortedImageWktGeometry += "))"
+                secondImageWktGeometry += "))"
+                secondUndistortedImageWktGeometry += "))"
+                firstImageEpipolarWktGeometry += "))"
+                secondImageEpipolarWktGeometry += "))"
+                firstEpipolarEnvelope = [] # minColum, minRow, maxColum, maxRow
+                secondEpipolarEnvelope = [] # minColum, minRow, maxColum, maxRow
+                firstEpipolarEnvelope.append(fImgEpiMinColumn)
+                firstEpipolarEnvelope.append(fImgEpiMinRow)
+                firstEpipolarEnvelope.append(fImgEpiMaxColumn)
+                firstEpipolarEnvelope.append(fImgEpiMaxRow)
+                secondEpipolarEnvelope.append(sImgEpiMinColumn)
+                secondEpipolarEnvelope.append(sImgEpiMinRow)
+                secondEpipolarEnvelope.append(sImgEpiMaxColumn)
+                secondEpipolarEnvelope.append(sImgEpiMaxRow)
+                first_image_geometry = None
+                try:
+                    first_image_geometry = ogr.CreateGeometryFromWkt(firstImageWktGeometry)
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(first_camera.label, second_camera.label))
+                    str_error += ('\nComputing geometry for image: {}\nGDAL error:\n{}'
+                                  .format(first_camera.label, e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                if not first_image_geometry.IsValid():
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(first_camera.label, second_camera.label))
+                    str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
+                                  .format(first_camera.label))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                first_image_geometry_wkb = None
+                try:
+                    first_image_geometry_wkb = first_image_geometry.ExportToWkb()
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(first_camera.label, second_camera.label))
+                    str_error += ('\nExporting to WKB computed geometry for image: {}\nGDAL error:\n{}'
+                                  .format(first_camera.label, e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(len(numberOfPairsToProcess))
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                    return str_error, end_date_time, log
+                second_image_geometry = None
+                try:
+                    second_image_geometry = ogr.CreateGeometryFromWkt(secondImageWktGeometry)
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(second_camera.label, second_camera.label))
+                    str_error += ('\nComputing geometry for image: {}\nGDAL error:\n{}'
+                                  .format(second_camera.label, e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                if not second_image_geometry.IsValid():
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(second_camera.label, second_camera.label))
+                    str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
+                                  .format(second_camera.label))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                second_image_geometry_wkb = None
+                try:
+                    second_image_geometry_wkb = second_image_geometry.ExportToWkb()
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(second_camera.label, second_camera.label))
+                    str_error += ('\nExporting to WKB computed geometry for image: {}\nGDAL error:\n{}'
+                                  .format(second_camera.label, e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(len(numberOfPairsToProcess))
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                    return str_error, end_date_time, log
+                first_undistorted_image_geometry = None
+                try:
+                    first_undistorted_image_geometry = ogr.CreateGeometryFromWkt(firstUndistortedImageWktGeometry)
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(first_camera.label, second_camera.label))
+                    str_error += ('\nComputing geometry for undistorted image: {}\nGDAL error:\n{}'
+                                  .format(first_camera.label, e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                if not first_undistorted_image_geometry.IsValid():
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(first_camera.label, second_camera.label))
+                    str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
+                                  .format(first_camera.label))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                first_undistorted_image_geometry_wkb = None
+                try:
+                    first_undistorted_image_geometry_wkb = first_undistorted_image_geometry.ExportToWkb()
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(first_camera.label, second_camera.label))
+                    str_error += ('\nExporting to WKB computed geometry for undistorted image: {}\nGDAL error:\n{}'
+                                  .format(first_camera.label, e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(len(numberOfPairsToProcess))
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                    return str_error, end_date_time, log
+                second_undistorted_image_geometry = None
+                try:
+                    second_undistorted_image_geometry = ogr.CreateGeometryFromWkt(secondUndistortedImageWktGeometry)
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(second_camera.label, second_camera.label))
+                    str_error += ('\nComputing geometry for undistorted image: {}\nGDAL error:\n{}'
+                                  .format(second_camera.label, e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                if not second_undistorted_image_geometry.IsValid():
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(second_camera.label, second_camera.label))
+                    str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
+                                  .format(second_camera.label))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                second_undistorted_image_geometry_wkb = None
+                try:
+                    second_undistorted_image_geometry_wkb = second_undistorted_image_geometry.ExportToWkb()
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(second_camera.label, second_camera.label))
+                    str_error += ('\nExporting to WKB computed geometry for undistorted image: {}\nGDAL error:\n{}'
+                                  .format(second_camera.label, e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(len(numberOfPairsToProcess))
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                    return str_error, end_date_time, log
+                # report file
+                content = "COMPUTING RECTIFYING HOMOGRAPHIES REPORT\n"
+                content += "- First image ..........: " + first_camera.label + "\n"
+                content += "  Images file content ..: " + str_image1 + "\n"
+                content += "- Second image .........: " + second_camera.label + "\n"
+                content += "  Images file content ..: " + str_image2 + "\n"
+                content += "- Homography matrix, H1 = "
+                for row in range(3):
+                    if row > 0:
+                        content += "                         "
+                    for column in range(3):
+                        content += ("{:30.16f}".format(first_camera_H[row, column]))
+                    content += "\n"
+                content += "- Inverse matrix, H1    = "
+                for row in range(3):
+                    if row > 0:
+                        content += "                         "
+                    for column in range(3):
+                        content += ("{:30.16f}".format(first_camera_invH[row, column]))
+                    content += "\n"
+                content += "- Homography matrix, H2 = "
+                for row in range(3):
+                    if row > 0:
+                        content += "                         "
+                    for column in range(3):
+                        content += ("{:30.16f}".format(second_camera_H[row, column]))
+                    content += "\n"
+                content += "- Inverse matrix, H2    = "
+                for row in range(3):
+                    if row > 0:
+                        content += "                         "
+                    for column in range(3):
+                        content += ("{:30.16f}".format(second_camera_invH[row, column]))
+                    content += "\n"
+                content += "- Q =                     "
+                for row in range(4):
+                    if row > 0:
+                        content += "                         "
+                    for column in range(4):
+                        content += ("{:30.16f}".format(Q[row, column]))
+                    content += "\n"
+                firstImageEpipolarEnvelopeWkt = "POLYGON(("
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(firstEpipolarEnvelope[0]))
+                firstImageEpipolarEnvelopeWkt += " "
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * firstEpipolarEnvelope[1]))
+                firstImageEpipolarEnvelopeWkt += ","
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(firstEpipolarEnvelope[2]))
+                firstImageEpipolarEnvelopeWkt += " "
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * firstEpipolarEnvelope[1]))
+                firstImageEpipolarEnvelopeWkt += ","
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(firstEpipolarEnvelope[2]))
+                firstImageEpipolarEnvelopeWkt += " "
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * firstEpipolarEnvelope[3]))
+                firstImageEpipolarEnvelopeWkt += ","
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(firstEpipolarEnvelope[0]))
+                firstImageEpipolarEnvelopeWkt += " "
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * firstEpipolarEnvelope[3]))
+                firstImageEpipolarEnvelopeWkt += ","
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(firstEpipolarEnvelope[0]))
+                firstImageEpipolarEnvelopeWkt += " "
+                firstImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * firstEpipolarEnvelope[1]))
+                firstImageEpipolarEnvelopeWkt += "))"
+                secondImageEpipolarEnvelopeWkt = "POLYGON(("
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(secondEpipolarEnvelope[0]))
+                secondImageEpipolarEnvelopeWkt += " "
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * secondEpipolarEnvelope[1]))
+                secondImageEpipolarEnvelopeWkt += ","
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(secondEpipolarEnvelope[2]))
+                secondImageEpipolarEnvelopeWkt += " "
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * secondEpipolarEnvelope[1]))
+                secondImageEpipolarEnvelopeWkt += ","
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(secondEpipolarEnvelope[2]))
+                secondImageEpipolarEnvelopeWkt += " "
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * secondEpipolarEnvelope[3]))
+                secondImageEpipolarEnvelopeWkt += ","
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(secondEpipolarEnvelope[0]))
+                secondImageEpipolarEnvelopeWkt += " "
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * secondEpipolarEnvelope[3]))
+                secondImageEpipolarEnvelopeWkt += ","
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(secondEpipolarEnvelope[0]))
+                secondImageEpipolarEnvelopeWkt += " "
+                secondImageEpipolarEnvelopeWkt += ("{:.0f}".format(-1 * secondEpipolarEnvelope[1]))
+                secondImageEpipolarEnvelopeWkt += "))"
+                content += "- First image stereo pair WKT geometry ..............: " + firstImageWktGeometry + "\n"
+                content += "- First image undistorted stereo pair WKT geometry ..: " + firstUndistortedImageWktGeometry + "\n"
+                content += "- Second image stereo pair WKT geometry .............: " + secondImageWktGeometry + "\n"
+                content += "- Second image undistorted stereo pair WKT geometry .: " + secondUndistortedImageWktGeometry + "\n"
+                content += "- First image epipolar WKT geometry .................: " + firstImageEpipolarWktGeometry + "\n"
+                content += "- Second image epipolar WKT geometry ................: " + secondImageEpipolarWktGeometry + "\n"
+                content += "- First image epipolar envelope WKT geometry ........: " + firstImageEpipolarEnvelopeWkt + "\n"
+                content += "- Second image epipolar envelope WKT geometry .......: " + secondImageEpipolarEnvelopeWkt + "\n"
+                first_camera_basename = os.path.basename(first_camera.image_file_path).split('.')[0]
+                second_camera_basename = os.path.basename(second_camera.image_file_path).split('.')[0]
+                report_file_path = (report_files_output_path +
+                                    '/' + first_camera_basename + '_' + second_camera_basename + '.txt')
+                report_file_path = os.path.normpath(report_file_path)
+                try:
+                    with open(report_file_path, "w") as f:
+                        f.write(content)
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(second_camera.label, second_camera.label))
+                    str_error += ('\nError occurred when opening:\n{}\nto write:\n{}'.format(report_file_path, e))
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                        QApplication.processEvents()
+                    return str_error, end_date_time, log
+                stereopair_geometry_wkb = None
+                try:
+                    stereopair_geometry_wkb = stereopair_geometry.ExportToWkb()
+                except Exception as e:
+                    str_error += ('Computing rectifying homographies')
+                    str_error += ('\nFor image: {} and image: {}'.
+                                  format(second_camera.label, second_camera.label))
+                    str_error += ('\nExporting to WKB stereopair\nGDAL error:\n{}'
+                                  .format(e.args[0]))
+                    if dialog:
+                        dialog.processProgressBar.setValue(len(numberOfPairsToProcess))
+                        dialog.processInformationGroupBox.setEnabled(False)
+                        dialog.processLineEdit.clear()
+                        dialog.processProgressBar.reset()
+                    return str_error, end_date_time, log
+                firstEpipolarEnvelopeStr = ""
+                for npp in range(4):
+                    firstEpipolarEnvelopeStr += ("{:.0f}".format(firstEpipolarEnvelope[npp]))
+                    if npp < 3:
+                        firstEpipolarEnvelopeStr += defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR
+                secondEpipolarEnvelopeStr = ""
+                for npp in range(4):
+                    secondEpipolarEnvelopeStr += ("{:.0f}".format(secondEpipolarEnvelope[npp]))
+                    if npp < 3:
+                        secondEpipolarEnvelopeStr += defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR
+                fImgHStr = ""
+                sImgHStr = ""
+                fImgInvHStr = ""
+                sImgInvHStr = ""
+                for row in range(3):
+                    for col in range(3):
+                        fImgHStr += ("{:.16e}".format(first_camera_H[row, col]))
+                        sImgHStr += ("{:.16e}".format(second_camera_H[row, col]))
+                        fImgInvHStr += ("{:.16e}".format(first_camera_invH[row, col]))
+                        sImgInvHStr += ("{:.16e}".format(second_camera_invH[row, col]))
+                        if row == 2 and col == 2:
+                            continue
+                        fImgHStr += defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR
+                        sImgHStr += defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR
+                        fImgInvHStr += defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR
+                        sImgInvHStr += defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR
+                if save_rectified_homographies_images:
+                    firstHomographyImageFileName = rectified_homographies_images_output_path
+                    firstHomographyImageFileName += "/"
+                    firstHomographyImageFileName += first_camera_basename
+                    firstHomographyImageFileName += "_"
+                    firstHomographyImageFileName += second_camera_basename
+                    firstHomographyImageFileName += ".jpg"
+                    secondHomographyImageFileName = rectified_homographies_images_output_path
+                    secondHomographyImageFileName += "/"
+                    secondHomographyImageFileName += second_camera_basename
+                    secondHomographyImageFileName += "_"
+                    secondHomographyImageFileName += first_camera_basename
+                    secondHomographyImageFileName += ".jpg"
+                    yo = 1
                 yo = 1
 
-                # stereopair_geometry
-                yo = 1
-
-        yo = 1
         if dialog:
             dialog.processProgressBar.setValue(numberOfPairsToProcess)
             dialog.processInformationGroupBox.setEnabled(False)

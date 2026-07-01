@@ -13,6 +13,8 @@ from pyLibGDAL import defs_gdal
 # from pyLibProject.defs import defs_project as defs_project_lib
 from pyLibProject.defs.defs_project import *
 
+PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR = "#"
+
 # fields_by_layer = defs_project_lib.fields_by_layer
 
 IMAGES_TABLE_NAME = "images"
