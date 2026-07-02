@@ -282,6 +282,15 @@ class ProjectPhotogrammetry(Project):
                 break
         return exists_footprints
 
+    def get_camera_from_camera_id(self,
+                                  camera_id):
+         for at_block_label in self.at_block_by_label:
+             at_block = self.at_block_by_label[at_block_label]
+             camera = at_block.get_camera_from_camera_id(camera_id)
+             if camera:
+                 return camera
+         return None
+
     def get_camera_from_image_file_path(self,
                                         image_file_path):
          for at_block_label in self.at_block_by_label:
@@ -2102,18 +2111,182 @@ class ProjectPhotogrammetry(Project):
         spUnionMaxSc = int(np.ceil(maxY))
         images_tiles_as_string = defs_project.IMAGES_TILES_VALUES
         for tile_as_string in images_tiles_as_string:
-            lod_size = int(tile_as_string)
-            self.imagesMaximumRamMBsBySize[lod_size] = 0.
+            lodSize = int(tile_as_string)
+            self.imagesMaximumRamMBsBySize[lodSize] = 0.
             numberOfTilesInLOD = 0
             minFc = self.spUnionMinFc
             while minFc < spUnionMaxFc:
                 minSc = self.spUnionMinSc
                 while minSc < spUnionMaxSc:
-                    minSc += lod_size
+                    minSc += lodSize
                     numberOfTilesInLOD = numberOfTilesInLOD + 1
-                minFc += lod_size
+                minFc += lodSize
+            if dialog:
+                dialog.processInformationGroupBox.setEnabled(True)
+                dialog.processLineEdit.clear()
+                dialog.processProgressBar.reset()
+                text = ('Computing {:.0f} tiles for LOD size: {}'.format(numberOfTilesInLOD, tile_as_string))
+                dialog.processLineEdit.setText(text)
+                dialog.processLineEdit.adjustSize()
+                dialog.processProgressBar.setMaximum(numberOfTilesInLOD)
+                dialog.processLineEdit.adjustSize()
+                QApplication.processEvents()
+            features = []
+            numberOfProcessedTiles = 0
+            tileX = 0
+            minX = self.spUnionMinFc
+            minXOverSize = minX - defs_project.IMAGES_TILES_OVERSIZE_VALUE
+            while minX < spUnionMaxFc:
+                maxX = minX + lodSize
+                maxXOverSize = maxX + defs_project.IMAGES_TILES_OVERSIZE_VALUE
+                tileY = 0
+                minY = self.spUnionMinSc
+                minYOverSize = minY - defs_project.IMAGES_TILES_OVERSIZE_VALUE
+                while minY < spUnionMaxSc:
+                    numberOfProcessedTiles = numberOfProcessedTiles + 1
+                    if dialog:
+                        dialog.processProgressBar.setValue(numberOfProcessedTiles)
+                        QApplication.processEvents()
+                    maxY = minY + lodSize
+                    maxYOverSize = maxY + defs_project.IMAGES_TILES_OVERSIZE_VALUE
+                    wktGeometry = "POLYGON(("
+                    wktGeometry += ("{:.0f".format(minX))
+                    wktGeometry += " "
+                    wktGeometry += ("{:.0f".format(minY))
+                    wktGeometry += ","
+                    wktGeometry += ("{:.0f".format(minX))
+                    wktGeometry += " "
+                    wktGeometry += ("{:.0f".format(maxY))
+                    wktGeometry += ","
+                    wktGeometry += ("{:.0f".format(maxX))
+                    wktGeometry += " "
+                    wktGeometry += ("{:.0f".format(maxY))
+                    wktGeometry += ","
+                    wktGeometry += ("{:.0f".format(maxX))
+                    wktGeometry += " "
+                    wktGeometry += ("{:.0f".format(minY))
+                    wktGeometry += ","
+                    wktGeometry += ("{:.0f".format(minX))
+                    wktGeometry += " "
+                    wktGeometry += ("{:.0f".format(minY))
+                    wktGeometry += "))"
+                    tile_geometry = None
+                    try:
+                        tile_geometry = ogr.CreateGeometryFromWkt(wktGeometry)
+                    except Exception as e:
+                        str_error += ('Computing tile')
+                        str_error += ('\nFor LOD size: {:0f}'.format(lodSize))
+                        str_error += ('\nComputing geometry GDAL error:\n{}'.format(e.args[0]))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfTilesInLOD)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    if not tile_geometry.IsValid():
+                        str_error += ('Computing tile')
+                        str_error += ('\nFor LOD size: {:0f}'.format(lodSize))
+                        str_error += ('\nComputing geometry get invalid geometry')
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfTilesInLOD)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    tile_geometry_wkb = None
+                    try:
+                        tile_geometry_wkb = tile_geometry.ExportToWkb()
+                    except Exception as e:
+                        str_error += ('Computing tile')
+                        str_error += ('\nFor LOD size: {:0f}'.format(lodSize))
+                        str_error += ('\nExporting geometry to WKB GDAL error:\n{}'.format(e.args[0]))
+                        if dialog:
+                            dialog.processProgressBar.setValue(len(numberOfTilesInLOD))
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                        return str_error, end_date_time, log
+                    wktOverSizeGeometry = "POLYGON(("
+                    wktOverSizeGeometry += ("{:.1f".format(minXOverSize))
+                    wktOverSizeGeometry += " "
+                    wktOverSizeGeometry += ("{:.1f".format(minYOverSize))
+                    wktOverSizeGeometry += ","
+                    wktOverSizeGeometry += ("{:.1f".format(minXOverSize))
+                    wktOverSizeGeometry += " "
+                    wktOverSizeGeometry += ("{:.1f".format(maxYOverSize))
+                    wktOverSizeGeometry += ","
+                    wktOverSizeGeometry += ("{:.1f".format(maxXOverSize))
+                    wktOverSizeGeometry += " "
+                    wktOverSizeGeometry += ("{:.1f".format(maxYOverSize))
+                    wktOverSizeGeometry += ","
+                    wktOverSizeGeometry += ("{:.1f".format(maxXOverSize))
+                    wktOverSizeGeometry += " "
+                    wktOverSizeGeometry += ("{:.1f".format(minYOverSize))
+                    wktOverSizeGeometry += ","
+                    wktOverSizeGeometry += ("{:.1f".format(minXOverSize))
+                    wktOverSizeGeometry += " "
+                    wktOverSizeGeometry += ("{:.1f".format(minYOverSize))
+                    wktOverSizeGeometry += "))"
+                    tile_oversize_geometry = None
+                    try:
+                        tile_oversize_geometry = ogr.CreateGeometryFromWkt(wktOverSizeGeometry)
+                    except Exception as e:
+                        str_error += ('Computing tile')
+                        str_error += ('\nFor LOD size: {:0f}'.format(lodSize))
+                        str_error += ('\nComputing oversize geometry GDAL error:\n{}'.format(e.args[0]))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfTilesInLOD)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    if not tile_oversize_geometry.IsValid():
+                        str_error += ('Computing tile')
+                        str_error += ('\nFor LOD size: {:0f}'.format(lodSize))
+                        str_error += ('\nComputing oversize geometry get invalid geometry')
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfTilesInLOD)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    useTile = False
+                    if stereopair_union_geometry.Overlaps(tile_geometry):
+                        useTile = True
+                    elif stereopair_union_geometry.Contains(tile_geometry):
+                        useTile = True
+                    if not useTile:
+                        minY += lodSize
+                        tileY = tileY + 1
+                        continue
+                    imagesIds = []
+                    ramMbs = 0.
+                    imagesIdsInTile = ""
+                    for camera_id in self.StereoPairImageGeometryByImagesIds:
+                        if camera_id in imagesIds:
+                            continue
+                        image_stereo_geometry = None
+                        for second_camera_id in self.StereoPairImageGeometryByImagesIds[camera_id]:
+                            image_stereo_geometry = self.StereoPairImageGeometryByImagesIds[camera_id][second_camera_id]
+                            break
+                        camera = at_block.get_camera_from_camera_id(camera_id)
+                        sensor = self.at_block_by_label[at_block_label].sensor_by_id[camera.sensor_id]
+                        camera_columns = sensor.width
+                        camera_rows = sensor.height
+                        imageMBytes = imageColumns * imageRows / 1024. / 1024.
+                        ramMbs += imageMBytes
+                        strImageId = str(camera_id)
+                        if len(imagesIds) > 0:
+                            imagesIdsInTile += ";"
+                        imagesIdsInTile += strImageId
+                        imagesIds.append(imageId)
+                    feature = []
 
-
+            tiles_table_name = defs_project.IMAGES_TILES_PREFIX_TABLE_NAME + tile_as_string
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
