@@ -2004,8 +2004,8 @@ class ProjectPhotogrammetry(Project):
                     field = {}
                     field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FP_GEOM
                     field[defs_gdal.FIELD_TYPE_TAG] \
-                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_FILE][
-                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME]
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FP_GEOM]
                     field[defs_gdal.FIELD_VALUE_TAG] = stereopair_geometry_wkb
                     feature.append(field)
                     features.append(feature)
@@ -2021,15 +2021,8 @@ class ProjectPhotogrammetry(Project):
         if str_error:
             str_error = ('Error storing rectifying homographies:\n{}'.format(str_error))
             return str_error, end_date_time, log
-        features_by_layer = {}
-        features_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME] = undistorted_features
-        str_error = GDALTools.write_features(self.file_path, features_by_layer)
-        if str_error:
-            str_error = ('Error storing rectifying homographies:\n{}'.format(str_error))
-            return str_error, end_date_time, log
         end_date_time = datetime.now()
         return str_error, end_date_time, log
-
 
     def process_gcps_accuracy_analysis(self,
                                        process,
