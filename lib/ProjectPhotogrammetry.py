@@ -72,6 +72,19 @@ class ProjectPhotogrammetry(Project):
         self.opencv_tools = None
         self.digitizing_parameters = None
 
+        self.spUnionMinFc = None
+        self.spUnionMinSc = None
+        self.imagesMaximumRamMBsBySize = {}
+        self.imagesTileRamMBsBySize = {}
+        self.imagesTilesImagesIdBySize = {}
+        self.spObjectGeometryByImagesIds = {}
+        self.spImageGeometryByImagesIds = {}
+        self.spUndistortedImageGeometryByImagesIds = {}
+        self.spEpipolarEnvelopeByImagesIds = {}
+        self.homographyMatrixByCamerasId = {}
+        self.inverseHomographyMatrixByCamerasId = {}
+        self.epipolarFileNameByCamerasId = {}
+
     def add_image_files(self,
                         files,
                         dialog):
@@ -822,6 +835,18 @@ class ProjectPhotogrammetry(Project):
         str_error = ''
         end_date_time = None
         log = None
+        self.spUnionMinFc = None
+        self.spUnionMinSc = None
+        self.imagesMaximumRamMBsBySize = {}
+        self.imagesTileRamMBsBySize = {}
+        self.imagesTilesImagesIdBySize = {}
+        self.spObjectGeometryByImagesIds = {}
+        self.spImageGeometryByImagesIds = {}
+        self.spUndistortedImageGeometryByImagesIds = {}
+        self.spEpipolarEnvelopeByImagesIds = {}
+        self.homographyMatrixByCamerasId = {}
+        self.inverseHomographyMatrixByCamerasId = {}
+        self.epipolarFileNameByCamerasId = {}
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
         # parameter dem
@@ -1116,6 +1141,7 @@ class ProjectPhotogrammetry(Project):
             return str_error, end_date_time, log
         raster_dem_crs_id = raster_dem.get_crs_id()
         # process
+        stereopair_multigeometry = ogr.Geometry(ogr.wkbMultiPolygon)
         if dialog:
             dialog.processInformationGroupBox.setEnabled(True)
             dialog.processLineEdit.clear()
@@ -2009,6 +2035,53 @@ class ProjectPhotogrammetry(Project):
                     field[defs_gdal.FIELD_VALUE_TAG] = stereopair_geometry_wkb
                     feature.append(field)
                     features.append(feature)
+                    if not first_camera.id in self.spObjectGeometryByImagesIds:
+                        self.spObjectGeometryByImagesIds[first_camera.id] = {}
+                    self.spObjectGeometryByImagesIds[first_camera.id][second_camera.id] = stereopair_geometry
+                    if not second_camera.id in self.spObjectGeometryByImagesIds:
+                        self.spObjectGeometryByImagesIds[second_camera.id] = {}
+                    self.spObjectGeometryByImagesIds[second_camera.id][first_camera.id] = stereopair_geometry
+                    if not first_camera.id in self.spImageGeometryByImagesIds:
+                        self.spImageGeometryByImagesIds[first_camera.id] = {}
+                    self.spImageGeometryByImagesIds[first_camera.id][second_camera.id] = first_image_geometry
+                    if not second_camera.id in self.spImageGeometryByImagesIds:
+                        self.spImageGeometryByImagesIds[second_camera.id] = {}
+                    self.spImageGeometryByImagesIds[second_camera.id][first_camera.id] = second_image_geometry
+                    if not first_camera.id in self.spUndistortedImageGeometryByImagesIds:
+                        self.spUndistortedImageGeometryByImagesIds[first_camera.id] = {}
+                    self.spUndistortedImageGeometryByImagesIds[first_camera.id][
+                        second_camera.id] = first_undistorted_image_geometry
+                    if not second_camera.id in self.spUndistortedImageGeometryByImagesIds:
+                        self.spUndistortedImageGeometryByImagesIds[second_camera.id] = {}
+                    self.spUndistortedImageGeometryByImagesIds[second_camera.id][
+                        first_camera.id] = second_undistorted_image_geometry
+                    if not first_camera.id in self.spEpipolarEnvelopeByImagesIds:
+                        self.spEpipolarEnvelopeByImagesIds[first_camera.id] = {}
+                    self.spEpipolarEnvelopeByImagesIds[first_camera.id][
+                        second_camera.id] = firstEpipolarEnvelope  # minColum,minRow,maxColum,maxRow
+                    if not second_camera.id in self.spEpipolarEnvelopeByImagesIds:
+                        self.spEpipolarEnvelopeByImagesIds[second_camera.id] = {}
+                    self.spEpipolarEnvelopeByImagesIds[second_camera.id][
+                        first_camera.id] = secondEpipolarEnvelope  # minColum,minRow,maxColum,maxRow
+                    if not first_camera.id in self.homographyMatrixByCamerasId:
+                        self.homographyMatrixByCamerasId[first_camera.id] = {}
+                    self.homographyMatrixByCamerasId[first_camera.id][second_camera.id] = first_camera_H
+                    if not second_camera.id in self.homographyMatrixByCamerasId:
+                        self.homographyMatrixByCamerasId[second_camera.id] = {}
+                    self.homographyMatrixByCamerasId[second_camera.id][first_camera.id] = second_camera_H
+                    if not first_camera.id in self.inverseHomographyMatrixByCamerasId:
+                        self.inverseHomographyMatrixByCamerasId[first_camera.id] = {}
+                    self.inverseHomographyMatrixByCamerasId[first_camera.id][second_camera.id] = first_camera_invH
+                    if not second_camera.id in self.inverseHomographyMatrixByCamerasId:
+                        self.inverseHomographyMatrixByCamerasId[second_camera.id] = {}
+                    self.inverseHomographyMatrixByCamerasId[second_camera.id][first_camera.id] = second_camera_invH
+                    if not first_camera.id in self.epipolarFileNameByCamerasId:
+                        self.epipolarFileNameByCamerasId[first_camera.id] = {}
+                    self.epipolarFileNameByCamerasId[first_camera.id][second_camera.id] = firstHomographyImageFileName
+                    if not second_camera.id in self.epipolarFileNameByCamerasId:
+                        self.epipolarFileNameByCamerasId[second_camera.id] = {}
+                    self.epipolarFileNameByCamerasId[second_camera.id][first_camera.id] = secondHomographyImageFileName
+                    stereopair_multigeometry.AddGeometry(stereopair_geometry)
         if dialog:
             dialog.processProgressBar.setValue(numberOfPairsToProcess)
             dialog.processInformationGroupBox.setEnabled(False)
@@ -2021,6 +2094,26 @@ class ProjectPhotogrammetry(Project):
         if str_error:
             str_error = ('Error storing rectifying homographies:\n{}'.format(str_error))
             return str_error, end_date_time, log
+        stereopair_union_geometry = stereopair_multigeometry.UnionCascaded()
+        minX, maxX, minY, maxY = stereopair_union_geometry.GetEnvelope()
+        self.spUnionMinFc = int(np.floor(minX))
+        self.spUnionMinSc = int(np.floor(minY))
+        spUnionMaxFc = int(np.ceil(maxX))
+        spUnionMaxSc = int(np.ceil(maxY))
+        images_tiles_as_string = defs_project.IMAGES_TILES_VALUES
+        for tile_as_string in images_tiles_as_string:
+            lod_size = int(tile_as_string)
+            self.imagesMaximumRamMBsBySize[lod_size] = 0.
+            numberOfTilesInLOD = 0
+            minFc = self.spUnionMinFc
+            while minFc < spUnionMaxFc:
+                minSc = self.spUnionMinSc
+                while minSc < spUnionMaxSc:
+                    minSc += lod_size
+                    numberOfTilesInLOD = numberOfTilesInLOD + 1
+                minFc += lod_size
+
+
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
