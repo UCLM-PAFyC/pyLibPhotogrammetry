@@ -1129,6 +1129,9 @@ class ProjectPhotogrammetry(Project):
         features = []
         numberOfProcessedPairs = 0
         for first_camera_id in stereoPairGeometryByImagesIds:
+            # debug
+            if len(features) > 2:
+                break
             numberOfProcessedPairs = numberOfProcessedPairs + 1
             if dialog:
                 dialog.processProgressBar.setValue(numberOfProcessedPairs)
@@ -1149,6 +1152,9 @@ class ProjectPhotogrammetry(Project):
             first_camera_columns = first_sensor.width
             first_camera_rows = first_sensor.height
             for second_camera_id in stereoPairGeometryByImagesIds[first_camera_id]:
+                # debug
+                if len(features) > 2:
+                    break
                 numberOfProcessedPairs = numberOfProcessedPairs + 1
                 if dialog:
                     dialog.processProgressBar.setValue(numberOfProcessedPairs)
@@ -1575,7 +1581,7 @@ class ProjectPhotogrammetry(Project):
                 except Exception as e:
                     str_error += ('Computing rectifying homographies')
                     str_error += ('\nFor image: {} and image: {}'.
-                                  format(second_camera.label, second_camera.label))
+                                  format(first_camera.label, second_camera.label))
                     str_error += ('\nComputing geometry for image: {}\nGDAL error:\n{}'
                                   .format(second_camera.label, e.args[0]))
                     if dialog:
@@ -1588,7 +1594,7 @@ class ProjectPhotogrammetry(Project):
                 if not second_image_geometry.IsValid():
                     str_error += ('Computing rectifying homographies')
                     str_error += ('\nFor image: {} and image: {}'.
-                                  format(second_camera.label, second_camera.label))
+                                  format(first_camera.label, second_camera.label))
                     str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
                                   .format(second_camera.label))
                     if dialog:
@@ -1604,7 +1610,7 @@ class ProjectPhotogrammetry(Project):
                 except Exception as e:
                     str_error += ('Computing rectifying homographies')
                     str_error += ('\nFor image: {} and image: {}'.
-                                  format(second_camera.label, second_camera.label))
+                                  format(first_camera.label, second_camera.label))
                     str_error += ('\nExporting to WKB computed geometry for image: {}\nGDAL error:\n{}'
                                   .format(second_camera.label, e.args[0]))
                     if dialog:
@@ -1663,7 +1669,7 @@ class ProjectPhotogrammetry(Project):
                 except Exception as e:
                     str_error += ('Computing rectifying homographies')
                     str_error += ('\nFor image: {} and image: {}'.
-                                  format(second_camera.label, second_camera.label))
+                                  format(first_camera.label, second_camera.label))
                     str_error += ('\nComputing geometry for undistorted image: {}\nGDAL error:\n{}'
                                   .format(second_camera.label, e.args[0]))
                     if dialog:
@@ -1676,7 +1682,7 @@ class ProjectPhotogrammetry(Project):
                 if not second_undistorted_image_geometry.IsValid():
                     str_error += ('Computing rectifying homographies')
                     str_error += ('\nFor image: {} and image: {}'.
-                                  format(second_camera.label, second_camera.label))
+                                  format(first_camera.label, second_camera.label))
                     str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
                                   .format(second_camera.label))
                     if dialog:
@@ -1692,7 +1698,7 @@ class ProjectPhotogrammetry(Project):
                 except Exception as e:
                     str_error += ('Computing rectifying homographies')
                     str_error += ('\nFor image: {} and image: {}'.
-                                  format(second_camera.label, second_camera.label))
+                                  format(first_camera.label, second_camera.label))
                     str_error += ('\nExporting to WKB computed geometry for undistorted image: {}\nGDAL error:\n{}'
                                   .format(second_camera.label, e.args[0]))
                     if dialog:
@@ -1803,7 +1809,7 @@ class ProjectPhotogrammetry(Project):
                 except Exception as e:
                     str_error += ('Computing rectifying homographies')
                     str_error += ('\nFor image: {} and image: {}'.
-                                  format(second_camera.label, second_camera.label))
+                                  format(first_camera.label, second_camera.label))
                     str_error += ('\nError occurred when opening:\n{}\nto write:\n{}'.format(report_file_path, e))
                     if dialog:
                         dialog.processProgressBar.setValue(numberOfPairsToProcess)
@@ -1818,7 +1824,7 @@ class ProjectPhotogrammetry(Project):
                 except Exception as e:
                     str_error += ('Computing rectifying homographies')
                     str_error += ('\nFor image: {} and image: {}'.
-                                  format(second_camera.label, second_camera.label))
+                                  format(first_camera.label, second_camera.label))
                     str_error += ('\nExporting to WKB stereopair\nGDAL error:\n{}'
                                   .format(e.args[0]))
                     if dialog:
@@ -1869,29 +1875,158 @@ class ProjectPhotogrammetry(Project):
                     str_error = warp_perspective(first_camera.image_file_path,
                                                  firstHomographyImageFileName,
                                                  first_camera_invH)
-                    yo = 1
-                yo = 1
-
+                    if str_error:
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nError in warp perspective:\n{}'
+                                      .format(str_error))
+                        if dialog:
+                            dialog.processProgressBar.setValue(len(numberOfPairsToProcess))
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                        return str_error, end_date_time, log
+                    str_error = warp_perspective(second_camera.image_file_path,
+                                                 secondHomographyImageFileName,
+                                                 second_camera_invH)
+                    if str_error:
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(second_camera.label, first_camera.label))
+                        str_error += ('\nError in warp perspective:\n{}'
+                                      .format(str_error))
+                        if dialog:
+                            dialog.processProgressBar.setValue(len(numberOfPairsToProcess))
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                        return str_error, end_date_time, log
+                    feature = []
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_ID
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_ID]
+                    field[defs_gdal.FIELD_VALUE_TAG] = first_camera.id
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_ID
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_ID]
+                    field[defs_gdal.FIELD_VALUE_TAG] = second_camera.id
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_WKT
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_WKT]
+                    field[defs_gdal.FIELD_VALUE_TAG] = firstImageWktGeometry
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_UND_WKT
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_UND_WKT]
+                    field[defs_gdal.FIELD_VALUE_TAG] = firstUndistortedImageWktGeometry
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_EPIPOLAR_ENVELOPE
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_EPIPOLAR_ENVELOPE]
+                    field[defs_gdal.FIELD_VALUE_TAG] = firstEpipolarEnvelopeStr
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_HOMOGRAPHY
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_HOMOGRAPHY]
+                    field[defs_gdal.FIELD_VALUE_TAG] = fImgHStr
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_INVERSE_HOMOGRAPHY
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_INVERSE_HOMOGRAPHY]
+                    field[defs_gdal.FIELD_VALUE_TAG] = fImgInvHStr
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_FILE
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_FILE]
+                    field[defs_gdal.FIELD_VALUE_TAG] = firstHomographyImageFileName
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_WKT
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_WKT]
+                    field[defs_gdal.FIELD_VALUE_TAG] = secondImageWktGeometry
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_UND_WKT
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_UND_WKT]
+                    field[defs_gdal.FIELD_VALUE_TAG] = secondUndistortedImageWktGeometry
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_EPIPOLAR_ENVELOPE
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_EPIPOLAR_ENVELOPE]
+                    field[defs_gdal.FIELD_VALUE_TAG] = secondEpipolarEnvelopeStr
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_HOMOGRAPHY
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_HOMOGRAPHY]
+                    field[defs_gdal.FIELD_VALUE_TAG] = sImgHStr
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_INVERSE_HOMOGRAPHY
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_INVERSE_HOMOGRAPHY]
+                    field[defs_gdal.FIELD_VALUE_TAG] = sImgInvHStr
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_FILE
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_FILE]
+                    field[defs_gdal.FIELD_VALUE_TAG] = secondHomographyImageFileName
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FP_GEOM
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_FILE][
+                        defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME]
+                    field[defs_gdal.FIELD_VALUE_TAG] = stereopair_geometry_wkb
+                    feature.append(field)
+                    features.append(feature)
         if dialog:
             dialog.processProgressBar.setValue(numberOfPairsToProcess)
             dialog.processInformationGroupBox.setEnabled(False)
             dialog.processLineEdit.clear()
             dialog.processProgressBar.reset()
             QApplication.processEvents()
-
-
-        # dem_file_path
-        # dem_crs_id
-        # only_enabled_images
-        # computing_algorithm
-        # ignored_sensor_percentage
-        # minimum_overlap_percentage
-        # save_rectified_homographies_images
-        # rectified_homographies_images_output_path
-        # report_files_output_path
-        # raster_dem
-        # stereoPairGeometryByImagesIds
-
+        features_by_layer = {}
+        features_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME] = features
+        str_error = GDALTools.write_features(self.file_path, features_by_layer)
+        if str_error:
+            str_error = ('Error storing rectifying homographies:\n{}'.format(str_error))
+            return str_error, end_date_time, log
+        features_by_layer = {}
+        features_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME] = undistorted_features
+        str_error = GDALTools.write_features(self.file_path, features_by_layer)
+        if str_error:
+            str_error = ('Error storing rectifying homographies:\n{}'.format(str_error))
+            return str_error, end_date_time, log
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
