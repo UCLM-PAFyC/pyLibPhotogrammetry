@@ -76,6 +76,7 @@ class ProjectPhotogrammetry(Project):
         self.spUnionMinSc = None
         self.spUnionMaxFc = None
         self.spUnionMaxSc = None
+        self.stereopair_union_geometry = None
         self.imagesMaximumRamMBsBySize = {}
         self.imagesTileRamMBsBySize = {}
         self.imagesTilesImagesIdBySize = {}
@@ -769,6 +770,70 @@ class ProjectPhotogrammetry(Project):
 
         return str_error
 
+    def load_images_rh_from_db(self, file_path):
+        str_error = ''
+        layer_name = defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME
+        fields = defs_project.fields_by_layer[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME]
+        fid_field_name = defs_gdal.LAYERS_FIELD_FID_FIELD_NAME
+        fields[fid_field_name] = defs_gdal.LAYERS_FIELD_FID_FIELD_TYPE
+        filter_fields = {}
+        # filter_field_name = defs_project.MANAGEMENT_FIELD_NAME
+        # filter_field_value = defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME
+        # filter_fields[filter_field_name] = filter_field_value
+        str_error, features = GDALTools.get_features(file_path,
+                                                     layer_name,
+                                                     fields,
+                                                     filter_fields)
+        if str_error:
+            str_error += ('Getting layer {} from gpgk:\n{}\nError:\n{}'.
+                          format(defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME,
+                                 file_path, str_error))
+            return str_error
+        if len(features) == 0:  # not import metashape markers xml file yet
+            # str_error += ('There are no features in layer {} from gpgk:\n{}'.
+            #               format(defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME,
+            #                      file_path))
+            return str_error
+        for i in range(len(features)):
+            feature = features[i]
+            first_image_id = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_ID]
+            second_image_id = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_ID]
+            first_image_geometry_wkt = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_WKT]
+            first_image_geometry_und_wkt = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_UND_WKT]
+            first_image_epipolar_envelope = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_EPIPOLAR_ENVELOPE]
+            first_image_H = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_HOMOGRAPHY]
+            first_image_invH = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_INVERSE_HOMOGRAPHY]
+            first_image_file_path = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_FILE]
+            second_image_geometry_wkt = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_WKT]
+            second_image_geometry_und_wkt = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_UND_WKT]
+            second_image_epipolar_envelope = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_EPIPOLAR_ENVELOPE]
+            second_image_H = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_HOMOGRAPHY]
+            second_image_invH = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_INVERSE_HOMOGRAPHY]
+            second_image_file_path = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_FILE]
+            wkb_geometry = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FP_GEOM]
+            ogr_geometry = None
+            try:
+                ogr_geometry = ogr.CreateGeometryFromWkb(wkb_geometry)
+            except Exception as e:
+                str_error = ('Computing geometry for images ids: {} and: {}\nGDAL error:\n{}'
+                             .format(str(first_image_id), str(second_image_id), e.args[0]))
+                return str_error
+
+            # self.spObjectGeometryByImagesIds = {}
+            # self.spImageGeometryByImagesIds = {}
+            # self.spUndistortedImageGeometryByImagesIds = {}
+            # self.spEpipolarEnvelopeByImagesIds = {}
+            # self.homographyMatrixByCamerasId = {}
+            # self.inverseHomographyMatrixByCamerasId = {}
+            # self.epipolarFileNameByCamerasId = {}
+
+        return str_error
+
+    def load_images_tiles_from_db(self, file_path):
+        str_error = ''
+
+        return str_error
+
     def load_project(self, file_path):
         str_error = ''
         # str_error, layer_names = self.gpkg_tools.get_layers_names(file_name)
@@ -817,7 +882,7 @@ class ProjectPhotogrammetry(Project):
         #     #              format(defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME,
         #     #                     file_name, defs_project.MANAGEMENT_FIELD_CONTENT, defs_project.MANAGEMENT_LAYER_NAME))
         #     # return str_error
-        if len(features) == 1: # not import metashape markers xml file yet
+        if len(features) == 1: # exists metashape markers xml
             json_content = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
             xml_file_path = features[0][defs_project.MANAGEMENT_FIELD_REMARKS]
             # json_acceptable_string = value.replace("'", "\"")
@@ -835,6 +900,54 @@ class ProjectPhotogrammetry(Project):
             str_error = self.load_images_data_from_db(file_path)
             if str_error:
                 return str_error
+
+            # Stereoscopic data from management
+            layer_name = defs_project.MANAGEMENT_LAYER_NAME
+            fields = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME]
+            fields = {}
+            field_name = defs_project.MANAGEMENT_FIELD_CONTENT
+            fields[field_name] = defs_project.fields_by_layer[layer_name][field_name]
+            field_name = defs_project.MANAGEMENT_FIELD_REMARKS
+            fields[field_name] = defs_project.fields_by_layer[layer_name][field_name]
+            filter_fields = {}
+            filter_field_name = defs_project.MANAGEMENT_FIELD_NAME
+            filter_field_value = defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_FIELD_NAME
+            filter_fields[filter_field_name] = filter_field_value
+            str_error, features = GDALTools.get_features(file_path,
+                                                         layer_name,
+                                                         fields,
+                                                         filter_fields)
+            if str_error:
+                str_error = ('Getting {} from management from gpgk:\n{}\nError:\n{}'.
+                             format(defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_FIELD_NAME,
+                                    file_path, str_error))
+                return str_error
+            if len(features) == 1: # exists stereoscopic data
+                json_content = features[0][defs_project.MANAGEMENT_FIELD_CONTENT]
+                json_content = json.loads(json_content)
+                self.spUnionMinFc = json_content[defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_MINIMUM_FC]
+                self.spUnionMinSc = json_content[defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_MINIMUM_SC]
+                self.spUnionMaxFc = json_content[defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_MAXIMUM_FC]
+                self.spUnionMaxSc = json_content[defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_MAXIMUM_SC]
+                geometry_wkt = json_content[defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_WKT_GEOMETRY]
+                self.stereopair_union_geometry = None
+                try:
+                    self.stereopair_union_geometry = ogr.CreateGeometryFromWkt(geometry_wkt)
+                except Exception as e:
+                    str_error = ('Creating stereoscopic geometry from WKT GDAL error:\n{}'
+                                 .format(e.args[0]))
+                    return str_error
+                str_error = self.load_images_rh_from_db(file_path)
+                if str_error:
+                    str_error = ('Error loading images rectifiying homographies data from db:\n{}'
+                                 .format(str_error))
+                    return str_error
+                str_error = self.load_images_tiles_from_db(file_path)
+                if str_error:
+                    str_error = ('Error loading images tiles data from db:\n{}'
+                                 .format(str_error))
+                    return str_error
+
         self.file_path = file_path
         self.opencv_tools = OpenCVTools()
         self.opencv_tools.initialize()
@@ -848,6 +961,9 @@ class ProjectPhotogrammetry(Project):
         log = None
         self.spUnionMinFc = None
         self.spUnionMinSc = None
+        self.spUnionMaxFc = None
+        self.spUnionMaxSc = None
+        self.stereopair_union_geometry = None
         self.imagesMaximumRamMBsBySize = {}
         self.imagesTileRamMBsBySize = {}
         self.imagesTilesImagesIdBySize = {}
@@ -858,6 +974,7 @@ class ProjectPhotogrammetry(Project):
         self.homographyMatrixByCamerasId = {}
         self.inverseHomographyMatrixByCamerasId = {}
         self.epipolarFileNameByCamerasId = {}
+        geometryImagesInStereopairsByImageId = {}
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
         # parameter dem
@@ -1100,6 +1217,10 @@ class ProjectPhotogrammetry(Project):
                         camera_by_id[first_camera_id] = first_camera
                     if not second_camera_id in camera_by_id:
                         camera_by_id[second_camera_id] = second_camera
+                    if not first_camera_id in geometryImagesInStereopairsByImageId:
+                        geometryImagesInStereopairsByImageId[first_camera_id] = first_camera_footprint_geometry
+                    if not second_camera_id in geometryImagesInStereopairsByImageId:
+                        geometryImagesInStereopairsByImageId[second_camera_id] = second_camera_footprint_geometry
                     numberOfPairsToProcess = numberOfPairsToProcess + 1
         if dialog:
             dialog.processProgressBar.setValue(len(cameras_to_process)-1)
@@ -2124,6 +2245,7 @@ class ProjectPhotogrammetry(Project):
         self.spUnionMinSc = int(np.floor(minY))
         self.spUnionMaxFc = int(np.ceil(maxX))
         self.spUnionMaxSc = int(np.ceil(maxY))
+        self.stereopair_union_geometry = stereopair_union_geometry
         images_tiles_as_string = defs_project.IMAGES_TILES_VALUES
         for tile_as_string in images_tiles_as_string:
             lodSize = int(tile_as_string)
@@ -2285,18 +2407,15 @@ class ProjectPhotogrammetry(Project):
                     for camera_id in self.spImageGeometryByImagesIds:
                         if camera_id in imagesIds:
                             continue
-                        image_stereo_geometry = None
-                        for second_camera_id in self.spImageGeometryByImagesIds[camera_id]:
-                            image_stereo_geometry = self.spImageGeometryByImagesIds[camera_id][second_camera_id]
-                            break
-                        if image_stereo_geometry is None:
+                        if not camera_id in geometryImagesInStereopairsByImageId:
                             continue
+                        image_geometry = geometryImagesInStereopairsByImageId[camera_id]
                         useImage = False
-                        if image_stereo_geometry.Overlaps(tile_oversize_geometry):
+                        if image_geometry.Overlaps(tile_oversize_geometry):
                             useImage = True
-                        elif image_stereo_geometry.Contains(tile_oversize_geometry):
+                        elif image_geometry.Contains(tile_oversize_geometry):
                             useImage = True
-                        elif image_stereo_geometry.Within(tile_oversize_geometry):
+                        elif image_geometry.Within(tile_oversize_geometry):
                             useImage = True
                         if not useImage:
                             continue
@@ -2304,13 +2423,13 @@ class ProjectPhotogrammetry(Project):
                         sensor = self.at_block_by_label[at_block_label].sensor_by_id[camera.sensor_id]
                         camera_columns = sensor.width
                         camera_rows = sensor.height
-                        imageMBytes = imageColumns * imageRows / 1024. / 1024.
+                        imageMBytes = camera_columns * camera_rows / 1024. / 1024.
                         ramMbs += imageMBytes
                         strImageId = str(camera_id)
                         if len(imagesIds) > 0:
                             imagesIdsInTile += ";"
                         imagesIdsInTile += strImageId
-                        imagesIds.append(imageId)
+                        imagesIds.append(camera_id)
                     if len(imagesIds) == 0:
                         minY += lodSize
                         tileY = tileY + 1
@@ -2429,7 +2548,8 @@ class ProjectPhotogrammetry(Project):
         features_by_layer[defs_project.MANAGEMENT_LAYER_NAME] = features
         str_error = GDALTools.write_features(self.file_path, features_by_layer)
         if str_error:
-            return str_error
+            str_error = ('Error storing stereocopic data in table name:\n{}'.format(defs_project.MANAGEMENT_LAYER_NAME))
+            return str_error, end_date_time, log
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
