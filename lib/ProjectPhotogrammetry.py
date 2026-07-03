@@ -2112,6 +2112,7 @@ class ProjectPhotogrammetry(Project):
         images_tiles_as_string = defs_project.IMAGES_TILES_VALUES
         for tile_as_string in images_tiles_as_string:
             lodSize = int(tile_as_string)
+            tile_table_name = defs_project.IMAGES_TILES_PREFIX_TABLE_NAME + tile_as_string
             self.imagesMaximumRamMBsBySize[lodSize] = 0.
             numberOfTilesInLOD = 0
             minFc = self.spUnionMinFc
@@ -2273,6 +2274,17 @@ class ProjectPhotogrammetry(Project):
                         for second_camera_id in self.StereoPairImageGeometryByImagesIds[camera_id]:
                             image_stereo_geometry = self.StereoPairImageGeometryByImagesIds[camera_id][second_camera_id]
                             break
+                        if image_stereo_geometry is None:
+                            continue
+                        useImage = False
+                        if image_stereo_geometry.Overlaps(tile_oversize_geometry):
+                            useImage = True;
+                        elif image_stereo_geometry.Contains(tile_oversize_geometry):
+                            useImage = True
+                        elif image_stereo_geometry.Within(tile_oversize_geometry):
+                            useImage = True
+                        if not useImage:
+                            continue
                         camera = at_block.get_camera_from_camera_id(camera_id)
                         sensor = self.at_block_by_label[at_block_label].sensor_by_id[camera.sensor_id]
                         camera_columns = sensor.width
@@ -2285,8 +2297,75 @@ class ProjectPhotogrammetry(Project):
                         imagesIdsInTile += strImageId
                         imagesIds.append(imageId)
                     feature = []
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_TILES_FIELD_TILE_X
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[tile_table_name][
+                        defs_project.IMAGES_TILES_FIELD_TILE_X]
+                    field[defs_gdal.FIELD_VALUE_TAG] = tileX
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_TILES_FIELD_TILE_Y
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[tile_table_name][
+                        defs_project.IMAGES_TILES_FIELD_TILE_Y]
+                    field[defs_gdal.FIELD_VALUE_TAG] = tileY
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_TILES_IMAGES_ID
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[tile_table_name][
+                        defs_project.IMAGES_TILES_IMAGES_ID]
+                    field[defs_gdal.FIELD_VALUE_TAG] = imagesIdsInTile
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_TILES_FIELD_RAM_MBS
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[tile_table_name][
+                        defs_project.IMAGES_TILES_FIELD_RAM_MBS]
+                    field[defs_gdal.FIELD_VALUE_TAG] = ramMbs
+                    feature.append(field)
+                    field = {}
+                    field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_TILES_FIELD_FP_GEOM
+                    field[defs_gdal.FIELD_TYPE_TAG] \
+                        = defs_project.fields_by_layer[tile_table_name][
+                        defs_project.IMAGES_TILES_FIELD_FP_GEOM]
+                    field[defs_gdal.FIELD_VALUE_TAG] = tile_geometry_wkb
+                    feature.append(field)
+                    features.append(feature)
+                    if lodSize in self.imagesMaximumRamMBsBySize:
+                        if ramMbs > self.imagesMaximumRamMBsBySize[lodSize]:
+                            self.imagesMaximumRamMBsBySize[lodSize] = ramMbs
+                        else:
+                            self.imagesMaximumRamMBsBySize[lodSize] = ramMbs
+                    if not lodSize in self.imagesTileRamMBsBySize:
+                        self.imagesTileRamMBsBySize[lodSize] = {}
+                    if not tileX in self.imagesTileRamMBsBySize[lodSize]:
+                        self.imagesTileRamMBsBySize[lodSize][tileX] = {}
+                    self.imagesTileRamMBsBySize[lodSize][tileX][tileY] = ramMbs
+                    if not lodSize in self.imagesTilesImagesIdBySize:
+                        self.imagesTilesImagesIdBySize[lodSize] = {}
+                    if not tileX in self.imagesTilesImagesIdBySize[lodSize]:
+                        self.imagesTilesImagesIdBySize[lodSize][tileX] = {}
+                    self.imagesTilesImagesIdBySize[lodSize][tileX][tileY] = imagesIds
+                    minY += lodSize
+                    tileY = tileY + 1
+                minX += lodSize
+                tileX = tileX + 1
+            if dialog:
+                dialog.processProgressBar.setValue(numberOfTilesInLOD)
+                dialog.processInformationGroupBox.setEnabled(False)
+                dialog.processLineEdit.clear()
+                dialog.processProgressBar.reset()
+                QApplication.processEvents()
+            features_by_layer = {}
+            features_by_layer[tile_table_name] = features
+            str_error = GDALTools.write_features(self.file_path, features_by_layer)
+            if str_error:
+                str_error = ('Error storing data in tile table name:\n{}'.format(tile_table_name))
+                return str_error, end_date_time, log
+        yo = 1
 
-            tiles_table_name = defs_project.IMAGES_TILES_PREFIX_TABLE_NAME + tile_as_string
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
