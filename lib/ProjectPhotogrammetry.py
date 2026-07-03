@@ -74,6 +74,8 @@ class ProjectPhotogrammetry(Project):
 
         self.spUnionMinFc = None
         self.spUnionMinSc = None
+        self.spUnionMaxFc = None
+        self.spUnionMaxSc = None
         self.imagesMaximumRamMBsBySize = {}
         self.imagesTileRamMBsBySize = {}
         self.imagesTilesImagesIdBySize = {}
@@ -2103,12 +2105,25 @@ class ProjectPhotogrammetry(Project):
         if str_error:
             str_error = ('Error storing rectifying homographies:\n{}'.format(str_error))
             return str_error, end_date_time, log
-        stereopair_union_geometry = stereopair_multigeometry.UnionCascaded()
+        stereopair_union_geometry = None
+        try:
+            stereopair_union_geometry = stereopair_multigeometry.UnionCascaded()
+        except Exception as e:
+            str_error += ('Computing tile')
+            str_error += ('\nCreating stereoscopic union geometry GDAL error:\n{}'.format(e.args[0]))
+            return str_error, end_date_time, log
+        stereopair_union_geometry_wkt = None
+        try:
+            stereopair_union_geometry_wkt = stereopair_union_geometry.ExportToWkt()
+        except Exception as e:
+            str_error += ('Computing tile')
+            str_error += ('\nExporting stereoscopic union geometry to WKT GDAL error:\n{}'.format(e.args[0]))
+            return str_error, end_date_time, log
         minX, maxX, minY, maxY = stereopair_union_geometry.GetEnvelope()
         self.spUnionMinFc = int(np.floor(minX))
         self.spUnionMinSc = int(np.floor(minY))
-        spUnionMaxFc = int(np.ceil(maxX))
-        spUnionMaxSc = int(np.ceil(maxY))
+        self.spUnionMaxFc = int(np.ceil(maxX))
+        self.spUnionMaxSc = int(np.ceil(maxY))
         images_tiles_as_string = defs_project.IMAGES_TILES_VALUES
         for tile_as_string in images_tiles_as_string:
             lodSize = int(tile_as_string)
@@ -2116,9 +2131,9 @@ class ProjectPhotogrammetry(Project):
             self.imagesMaximumRamMBsBySize[lodSize] = 0.
             numberOfTilesInLOD = 0
             minFc = self.spUnionMinFc
-            while minFc < spUnionMaxFc:
+            while minFc < self.spUnionMaxFc:
                 minSc = self.spUnionMinSc
-                while minSc < spUnionMaxSc:
+                while minSc < self.spUnionMaxSc:
                     minSc += lodSize
                     numberOfTilesInLOD = numberOfTilesInLOD + 1
                 minFc += lodSize
@@ -2137,13 +2152,13 @@ class ProjectPhotogrammetry(Project):
             tileX = 0
             minX = self.spUnionMinFc
             minXOverSize = minX - defs_project.IMAGES_TILES_OVERSIZE_VALUE
-            while minX < spUnionMaxFc:
+            while minX < self.spUnionMaxFc:
                 maxX = minX + lodSize
                 maxXOverSize = maxX + defs_project.IMAGES_TILES_OVERSIZE_VALUE
                 tileY = 0
                 minY = self.spUnionMinSc
                 minYOverSize = minY - defs_project.IMAGES_TILES_OVERSIZE_VALUE
-                while minY < spUnionMaxSc:
+                while minY < self.spUnionMaxSc:
                     numberOfProcessedTiles = numberOfProcessedTiles + 1
                     if dialog:
                         dialog.processProgressBar.setValue(numberOfProcessedTiles)
@@ -2151,25 +2166,25 @@ class ProjectPhotogrammetry(Project):
                     maxY = minY + lodSize
                     maxYOverSize = maxY + defs_project.IMAGES_TILES_OVERSIZE_VALUE
                     wktGeometry = "POLYGON(("
-                    wktGeometry += ("{:.0f".format(minX))
+                    wktGeometry += ("{:.0f}".format(minX))
                     wktGeometry += " "
-                    wktGeometry += ("{:.0f".format(minY))
+                    wktGeometry += ("{:.0f}".format(minY))
                     wktGeometry += ","
-                    wktGeometry += ("{:.0f".format(minX))
+                    wktGeometry += ("{:.0f}".format(minX))
                     wktGeometry += " "
-                    wktGeometry += ("{:.0f".format(maxY))
+                    wktGeometry += ("{:.0f}".format(maxY))
                     wktGeometry += ","
-                    wktGeometry += ("{:.0f".format(maxX))
+                    wktGeometry += ("{:.0f}".format(maxX))
                     wktGeometry += " "
-                    wktGeometry += ("{:.0f".format(maxY))
+                    wktGeometry += ("{:.0f}".format(maxY))
                     wktGeometry += ","
-                    wktGeometry += ("{:.0f".format(maxX))
+                    wktGeometry += ("{:.0f}".format(maxX))
                     wktGeometry += " "
-                    wktGeometry += ("{:.0f".format(minY))
+                    wktGeometry += ("{:.0f}".format(minY))
                     wktGeometry += ","
-                    wktGeometry += ("{:.0f".format(minX))
+                    wktGeometry += ("{:.0f}".format(minX))
                     wktGeometry += " "
-                    wktGeometry += ("{:.0f".format(minY))
+                    wktGeometry += ("{:.0f}".format(minY))
                     wktGeometry += "))"
                     tile_geometry = None
                     try:
@@ -2210,25 +2225,25 @@ class ProjectPhotogrammetry(Project):
                             dialog.processProgressBar.reset()
                         return str_error, end_date_time, log
                     wktOverSizeGeometry = "POLYGON(("
-                    wktOverSizeGeometry += ("{:.1f".format(minXOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(minXOverSize))
                     wktOverSizeGeometry += " "
-                    wktOverSizeGeometry += ("{:.1f".format(minYOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(minYOverSize))
                     wktOverSizeGeometry += ","
-                    wktOverSizeGeometry += ("{:.1f".format(minXOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(minXOverSize))
                     wktOverSizeGeometry += " "
-                    wktOverSizeGeometry += ("{:.1f".format(maxYOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(maxYOverSize))
                     wktOverSizeGeometry += ","
-                    wktOverSizeGeometry += ("{:.1f".format(maxXOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(maxXOverSize))
                     wktOverSizeGeometry += " "
-                    wktOverSizeGeometry += ("{:.1f".format(maxYOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(maxYOverSize))
                     wktOverSizeGeometry += ","
-                    wktOverSizeGeometry += ("{:.1f".format(maxXOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(maxXOverSize))
                     wktOverSizeGeometry += " "
-                    wktOverSizeGeometry += ("{:.1f".format(minYOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(minYOverSize))
                     wktOverSizeGeometry += ","
-                    wktOverSizeGeometry += ("{:.1f".format(minXOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(minXOverSize))
                     wktOverSizeGeometry += " "
-                    wktOverSizeGeometry += ("{:.1f".format(minYOverSize))
+                    wktOverSizeGeometry += ("{:.1f}".format(minYOverSize))
                     wktOverSizeGeometry += "))"
                     tile_oversize_geometry = None
                     try:
@@ -2267,18 +2282,18 @@ class ProjectPhotogrammetry(Project):
                     imagesIds = []
                     ramMbs = 0.
                     imagesIdsInTile = ""
-                    for camera_id in self.StereoPairImageGeometryByImagesIds:
+                    for camera_id in self.spImageGeometryByImagesIds:
                         if camera_id in imagesIds:
                             continue
                         image_stereo_geometry = None
-                        for second_camera_id in self.StereoPairImageGeometryByImagesIds[camera_id]:
-                            image_stereo_geometry = self.StereoPairImageGeometryByImagesIds[camera_id][second_camera_id]
+                        for second_camera_id in self.spImageGeometryByImagesIds[camera_id]:
+                            image_stereo_geometry = self.spImageGeometryByImagesIds[camera_id][second_camera_id]
                             break
                         if image_stereo_geometry is None:
                             continue
                         useImage = False
                         if image_stereo_geometry.Overlaps(tile_oversize_geometry):
-                            useImage = True;
+                            useImage = True
                         elif image_stereo_geometry.Contains(tile_oversize_geometry):
                             useImage = True
                         elif image_stereo_geometry.Within(tile_oversize_geometry):
@@ -2296,6 +2311,10 @@ class ProjectPhotogrammetry(Project):
                             imagesIdsInTile += ";"
                         imagesIdsInTile += strImageId
                         imagesIds.append(imageId)
+                    if len(imagesIds) == 0:
+                        minY += lodSize
+                        tileY = tileY + 1
+                        continue
                     feature = []
                     field = {}
                     field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_TILES_FIELD_TILE_X
@@ -2364,8 +2383,53 @@ class ProjectPhotogrammetry(Project):
             if str_error:
                 str_error = ('Error storing data in tile table name:\n{}'.format(tile_table_name))
                 return str_error, end_date_time, log
-        yo = 1
-
+        # store stereoscopic data into management table
+        stereoscopic_object_footprint_geometry_as_dict = {}
+        stereoscopic_object_footprint_geometry_as_dict[
+            defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_MINIMUM_FC] = self.spUnionMinFc
+        stereoscopic_object_footprint_geometry_as_dict[
+            defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_MINIMUM_SC] = self.spUnionMinSc
+        stereoscopic_object_footprint_geometry_as_dict[
+            defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_MAXIMUM_FC] = self.spUnionMaxFc
+        stereoscopic_object_footprint_geometry_as_dict[
+            defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_MAXIMUM_SC] = self.spUnionMaxSc
+        stereoscopic_object_footprint_geometry_as_dict[
+            defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_TAG_WKT_GEOMETRY] = stereopair_union_geometry_wkt
+        stereoscopic_object_footprint_geometry_as_json = json.dumps(stereoscopic_object_footprint_geometry_as_dict, indent=4)
+        features = []
+        feature = []
+        field = {}
+        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_NAME
+        field[defs_gdal.FIELD_TYPE_TAG] \
+            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_NAME]
+        field[defs_gdal.FIELD_VALUE_TAG] = defs_project.STEREOSCOPIC_OBJECT_GEOMETRY_MANAGEMENT_FIELD_NAME
+        feature.append(field)
+        field = {}
+        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_CONTENT
+        field[defs_gdal.FIELD_TYPE_TAG] \
+            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_CONTENT]
+        field[defs_gdal.FIELD_VALUE_TAG] = stereoscopic_object_footprint_geometry_as_json
+        feature.append(field)
+        field = {}
+        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_REMARKS
+        field[defs_gdal.FIELD_TYPE_TAG] \
+            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_REMARKS]
+        field[defs_gdal.FIELD_VALUE_TAG] = ""
+        feature.append(field)
+        geometry_value = None
+        field = {}
+        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_GEOMETRY
+        field[defs_gdal.FIELD_TYPE_TAG] \
+            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_GEOMETRY]
+        field[defs_gdal.FIELD_VALUE_TAG] = defs_project.fields_by_layer[
+            defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_GEOMETRY]
+        feature.append(field)
+        features.append(feature)
+        features_by_layer = {}
+        features_by_layer[defs_project.MANAGEMENT_LAYER_NAME] = features
+        str_error = GDALTools.write_features(self.file_path, features_by_layer)
+        if str_error:
+            return str_error
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
