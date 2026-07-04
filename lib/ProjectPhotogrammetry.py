@@ -80,6 +80,7 @@ class ProjectPhotogrammetry(Project):
         self.imagesMaximumRamMBsBySize = {}
         self.imagesTileRamMBsBySize = {}
         self.imagesTilesImagesIdBySize = {}
+        self.geometryTileBySize = {}
         self.spObjectGeometryByImagesIds = {}
         self.spImageGeometryByImagesIds = {}
         self.spUndistortedImageGeometryByImagesIds = {}
@@ -794,44 +795,197 @@ class ProjectPhotogrammetry(Project):
             #               format(defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME,
             #                      file_path))
             return str_error
-        for i in range(len(features)):
-            feature = features[i]
-            first_image_id = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_ID]
-            second_image_id = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_ID]
+        for nf in range(len(features)):
+            feature = features[nf]
+            first_camera_id = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_ID]
+            second_camera_id = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_ID]
             first_image_geometry_wkt = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_WKT]
             first_image_geometry_und_wkt = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_UND_WKT]
             first_image_epipolar_envelope = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_EPIPOLAR_ENVELOPE]
+            firstEpipolarEnvelopeStr = first_image_epipolar_envelope.split(defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR)
+            firstEpipolarEnvelope = []
+            for i in range(len(firstEpipolarEnvelopeStr)):
+                firstEpipolarEnvelope.append(int(firstEpipolarEnvelopeStr[i]))
             first_image_H = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_HOMOGRAPHY]
             first_image_invH = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_INVERSE_HOMOGRAPHY]
-            first_image_file_path = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_FILE]
+            firstHomographyImageFileName = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FIRST_IMAGE_FILE]
             second_image_geometry_wkt = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_WKT]
             second_image_geometry_und_wkt = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_UND_WKT]
             second_image_epipolar_envelope = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_EPIPOLAR_ENVELOPE]
+            secondEpipolarEnvelopeStr = second_image_epipolar_envelope.split(defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR)
+            secondEpipolarEnvelope = []
+            for i in range(len(secondEpipolarEnvelopeStr)):
+                secondEpipolarEnvelope.append(int(secondEpipolarEnvelopeStr[i]))
             second_image_H = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_HOMOGRAPHY]
             second_image_invH = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_INVERSE_HOMOGRAPHY]
-            second_image_file_path = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_FILE]
+            secondHomographyImageFileName = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_SECOND_IMAGE_FILE]
             wkb_geometry = feature[defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_FIELD_FP_GEOM]
-            ogr_geometry = None
+            first_image_geometry = None
             try:
-                ogr_geometry = ogr.CreateGeometryFromWkb(wkb_geometry)
+                first_image_geometry = ogr.CreateGeometryFromWkt(first_image_geometry_wkt)
             except Exception as e:
-                str_error = ('Computing geometry for images ids: {} and: {}\nGDAL error:\n{}'
-                             .format(str(first_image_id), str(second_image_id), e.args[0]))
+                str_error = ('Recovering stereopair image geometry for image id: {}\nGDAL error:\n{}'
+                             .format(str(first_camera_id), e.args[0]))
                 return str_error
-
-            # self.spObjectGeometryByImagesIds = {}
-            # self.spImageGeometryByImagesIds = {}
-            # self.spUndistortedImageGeometryByImagesIds = {}
-            # self.spEpipolarEnvelopeByImagesIds = {}
-            # self.homographyMatrixByCamerasId = {}
-            # self.inverseHomographyMatrixByCamerasId = {}
-            # self.epipolarFileNameByCamerasId = {}
-
+            first_undistorted_image_geometry = None
+            try:
+                first_undistorted_image_geometry = ogr.CreateGeometryFromWkt(first_image_geometry_und_wkt)
+            except Exception as e:
+                str_error = ('Recovering stereopair image undistorted geometry for image id: {}\nGDAL error:\n{}'
+                             .format(str(first_camera_id), e.args[0]))
+                return str_error
+            second_image_geometry = None
+            try:
+                second_image_geometry = ogr.CreateGeometryFromWkt(second_image_geometry_wkt)
+            except Exception as e:
+                str_error = ('Recovering stereopair image geometry for image id: {}\nGDAL error:\n{}'
+                             .format(str(second_camera_id), e.args[0]))
+                return str_error
+            second_undistorted_image_geometry = None
+            try:
+                second_undistorted_image_geometry = ogr.CreateGeometryFromWkt(second_image_geometry_und_wkt)
+            except Exception as e:
+                str_error = ('Recovering stereopair image undistorted geometry for image id: {}\nGDAL error:\n{}'
+                             .format(str(second_camera_id), e.args[0]))
+                return str_error
+            stereopair_geometry = None
+            try:
+                stereopair_geometry = ogr.CreateGeometryFromWkb(wkb_geometry)
+            except Exception as e:
+                str_error = ('Recovering stereopair object geometry for images ids: {} and: {}\nGDAL error:\n{}'
+                             .format(str(first_camera_id), str(second_camera_id), e.args[0]))
+                return str_error
+            first_camera_H = np.zeros((3, 3))
+            second_camera_H = np.zeros((3, 3))
+            first_camera_invH = np.zeros((3, 3))
+            second_camera_invH = np.zeros((3, 3))
+            first_image_H_str_values = first_image_H.split(defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR)
+            first_image_invH_str_values = first_image_invH.split(defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR)
+            second_image_H_str_values = second_image_H.split(defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR)
+            second_image_invH_str_values = second_image_invH.split(defs_project.PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR)
+            pos = -1
+            for row in range(3):
+                for column in range(3):
+                    pos = pos + 1
+                    first_camera_H[row, column] = float(first_image_H_str_values[pos])
+                    second_camera_H[row, column] = float(second_image_H_str_values[pos])
+                    first_camera_invH[row, column] = float(first_image_invH_str_values[pos])
+                    second_camera_invH[row, column] = float(second_image_invH_str_values[pos])
+            if not first_camera_id in self.spObjectGeometryByImagesIds:
+                self.spObjectGeometryByImagesIds[first_camera_id] = {}
+            self.spObjectGeometryByImagesIds[first_camera_id][second_camera_id] = stereopair_geometry
+            if not second_camera_id in self.spObjectGeometryByImagesIds:
+                self.spObjectGeometryByImagesIds[second_camera_id] = {}
+            self.spObjectGeometryByImagesIds[second_camera_id][first_camera_id] = stereopair_geometry
+            if not first_camera_id in self.spImageGeometryByImagesIds:
+                self.spImageGeometryByImagesIds[first_camera_id] = {}
+            self.spImageGeometryByImagesIds[first_camera_id][second_camera_id] = first_image_geometry
+            if not second_camera_id in self.spImageGeometryByImagesIds:
+                self.spImageGeometryByImagesIds[second_camera_id] = {}
+            self.spImageGeometryByImagesIds[second_camera_id][first_camera_id] = second_image_geometry
+            if not first_camera_id in self.spUndistortedImageGeometryByImagesIds:
+                self.spUndistortedImageGeometryByImagesIds[first_camera_id] = {}
+            self.spUndistortedImageGeometryByImagesIds[first_camera_id][
+                second_camera_id] = first_undistorted_image_geometry
+            if not second_camera_id in self.spUndistortedImageGeometryByImagesIds:
+                self.spUndistortedImageGeometryByImagesIds[second_camera_id] = {}
+            self.spUndistortedImageGeometryByImagesIds[second_camera_id][
+                first_camera_id] = second_undistorted_image_geometry
+            if not first_camera_id in self.spEpipolarEnvelopeByImagesIds:
+                self.spEpipolarEnvelopeByImagesIds[first_camera_id] = {}
+            self.spEpipolarEnvelopeByImagesIds[first_camera_id][
+                second_camera_id] = firstEpipolarEnvelope  # minColum,minRow,maxColum,maxRow
+            if not second_camera_id in self.spEpipolarEnvelopeByImagesIds:
+                self.spEpipolarEnvelopeByImagesIds[second_camera_id] = {}
+            self.spEpipolarEnvelopeByImagesIds[second_camera_id][
+                first_camera_id] = secondEpipolarEnvelope  # minColum,minRow,maxColum,maxRow
+            if not first_camera_id in self.homographyMatrixByCamerasId:
+                self.homographyMatrixByCamerasId[first_camera_id] = {}
+            self.homographyMatrixByCamerasId[first_camera_id][second_camera_id] = first_camera_H
+            if not second_camera_id in self.homographyMatrixByCamerasId:
+                self.homographyMatrixByCamerasId[second_camera_id] = {}
+            self.homographyMatrixByCamerasId[second_camera_id][first_camera_id] = second_camera_H
+            if not first_camera_id in self.inverseHomographyMatrixByCamerasId:
+                self.inverseHomographyMatrixByCamerasId[first_camera_id] = {}
+            self.inverseHomographyMatrixByCamerasId[first_camera_id][second_camera_id] = first_camera_invH
+            if not second_camera_id in self.inverseHomographyMatrixByCamerasId:
+                self.inverseHomographyMatrixByCamerasId[second_camera_id] = {}
+            self.inverseHomographyMatrixByCamerasId[second_camera_id][first_camera_id] = second_camera_invH
+            if not first_camera_id in self.epipolarFileNameByCamerasId:
+                self.epipolarFileNameByCamerasId[first_camera_id] = {}
+            self.epipolarFileNameByCamerasId[first_camera_id][second_camera_id] = firstHomographyImageFileName
+            if not second_camera_id in self.epipolarFileNameByCamerasId:
+                self.epipolarFileNameByCamerasId[second_camera_id] = {}
+            self.epipolarFileNameByCamerasId[second_camera_id][first_camera_id] = secondHomographyImageFileName
         return str_error
 
     def load_images_tiles_from_db(self, file_path):
         str_error = ''
-
+        str_tiles_values = defs_project.IMAGES_TILES_VALUES
+        for i in range(len(str_tiles_values)):
+            tile_str = str_tiles_values[i]
+            lodSize = int(tile_str)
+            self.imagesMaximumRamMBsBySize[lodSize] = 0.
+            layer_name = defs_project.IMAGES_TILES_PREFIX_TABLE_NAME + tile_str
+            fields = defs_project.fields_by_layer[layer_name]
+            fid_field_name = defs_gdal.LAYERS_FIELD_FID_FIELD_NAME
+            fields[fid_field_name] = defs_gdal.LAYERS_FIELD_FID_FIELD_TYPE
+            filter_fields = {}
+            # filter_field_name = defs_project.MANAGEMENT_FIELD_NAME
+            # filter_field_value = defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME
+            # filter_fields[filter_field_name] = filter_field_value
+            str_error, features = GDALTools.get_features(file_path,
+                                                         layer_name,
+                                                         fields,
+                                                         filter_fields)
+            if str_error:
+                str_error += ('Getting layer {} from gpgk:\n{}\nError:\n{}'.
+                              format(defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME,
+                                     file_path, str_error))
+                return str_error
+            if len(features) == 0:  # not import metashape markers xml file yet
+                # str_error += ('There are no features in layer {} from gpgk:\n{}'.
+                #               format(defs_project.IMAGES_RECTIFIYING_HOMOGRAPHIES_TABLE_NAME,
+                #                      file_path))
+                continue
+            for nf in range(len(features)):
+                feature = features[nf]
+                tileX = feature[defs_project.IMAGES_TILES_FIELD_TILE_X]
+                tileY = feature[defs_project.IMAGES_TILES_FIELD_TILE_Y]
+                images_ids = feature[defs_project.IMAGES_TILES_IMAGES_ID]
+                imagesIdsStr = images_ids.split(";")
+                imagesIds = []
+                for j in range(len(imagesIdsStr)):
+                    imagesIds.append(int(imagesIdsStr[j]))
+                ramMbs = feature[defs_project.IMAGES_TILES_FIELD_RAM_MBS]
+                wkb_geometry = feature[defs_project.IMAGES_TILES_FIELD_FP_GEOM]
+                tile_geometry = None
+                try:
+                    tile_geometry = ogr.CreateGeometryFromWkb(wkb_geometry)
+                except Exception as e:
+                    str_error = ('Recovering geometry for tile x: {} and tile y: {}\nGDAL error:\n{}'
+                                 .format(str(tileX), str(tileY), e.args[0]))
+                    return str_error
+                if lodSize in self.imagesMaximumRamMBsBySize:
+                    if ramMbs > self.imagesMaximumRamMBsBySize[lodSize]:
+                        self.imagesMaximumRamMBsBySize[lodSize] = ramMbs
+                    else:
+                        self.imagesMaximumRamMBsBySize[lodSize] = ramMbs
+                if not lodSize in self.imagesTileRamMBsBySize:
+                    self.imagesTileRamMBsBySize[lodSize] = {}
+                if not tileX in self.imagesTileRamMBsBySize[lodSize]:
+                    self.imagesTileRamMBsBySize[lodSize][tileX] = {}
+                self.imagesTileRamMBsBySize[lodSize][tileX][tileY] = ramMbs
+                if not lodSize in self.imagesTilesImagesIdBySize:
+                    self.imagesTilesImagesIdBySize[lodSize] = {}
+                if not tileX in self.imagesTilesImagesIdBySize[lodSize]:
+                    self.imagesTilesImagesIdBySize[lodSize][tileX] = {}
+                self.imagesTilesImagesIdBySize[lodSize][tileX][tileY] = imagesIds
+                if not lodSize in self.geometryTileBySize:
+                    self.geometryTileBySize[lodSize] = {}
+                if not tileX in self.geometryTileBySize[lodSize]:
+                    self.geometryTileBySize[lodSize][tileX] = {}
+                self.geometryTileBySize[lodSize][tileX][tileY] = tile_geometry
         return str_error
 
     def load_project(self, file_path):
@@ -947,7 +1101,6 @@ class ProjectPhotogrammetry(Project):
                     str_error = ('Error loading images tiles data from db:\n{}'
                                  .format(str_error))
                     return str_error
-
         self.file_path = file_path
         self.opencv_tools = OpenCVTools()
         self.opencv_tools.initialize()
@@ -967,6 +1120,7 @@ class ProjectPhotogrammetry(Project):
         self.imagesMaximumRamMBsBySize = {}
         self.imagesTileRamMBsBySize = {}
         self.imagesTilesImagesIdBySize = {}
+        self.geometryTileBySize = {}
         self.spObjectGeometryByImagesIds = {}
         self.spImageGeometryByImagesIds = {}
         self.spUndistortedImageGeometryByImagesIds = {}
@@ -2486,6 +2640,11 @@ class ProjectPhotogrammetry(Project):
                     if not tileX in self.imagesTilesImagesIdBySize[lodSize]:
                         self.imagesTilesImagesIdBySize[lodSize][tileX] = {}
                     self.imagesTilesImagesIdBySize[lodSize][tileX][tileY] = imagesIds
+                    if not lodSize in self.geometryTileBySize:
+                        self.geometryTileBySize[lodSize] = {}
+                    if not tileX in self.geometryTileBySize[lodSize]:
+                        self.geometryTileBySize[lodSize][tileX] = {}
+                    self.geometryTileBySize[lodSize][tileX][tileY] = tile_geometry
                     minY += lodSize
                     tileY = tileY + 1
                 minX += lodSize
