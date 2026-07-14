@@ -91,7 +91,8 @@ class ProjectPhotogrammetry(Project):
         self.epipolarFileNameByCamerasId = {}
         self.process_set_digitizing_parameters = None
         self.edition_start_msec = None
-        self.object_point_by_id_by_chunk_label = {}
+        # self.object_point_by_id_by_chunk_label = {}
+        self.object_point_by_id = {}
         self.object_by_fully_qualified_name = {}
 
     def add_image_files(self,
@@ -202,12 +203,12 @@ class ProjectPhotogrammetry(Project):
         if len(self.at_block_by_label) > 1:
             str_error = ('Algorithm add object point is only valid for one AT block')
             return str_error, end_date_time, log
-        at_block_label = at_block_labels[0]
+        at_block_label = list(self.at_block_by_label.keys())[0]
         at_block = self.at_block_by_label[at_block_label]
         exists_height = False
         if len(point_coordinates) == 3:
             exists_height = True
-        if not exists_height and not use_dsm:
+        if not exists_height and not use_dem:
             str_error = ('Adding object point, invalid option: no height and no use DSM')
             return str_error, point_id
         # digitizing parameters
@@ -234,7 +235,7 @@ class ProjectPhotogrammetry(Project):
         fc = point_coordinates[0]
         sc = point_coordinates[1]
         tc = None
-        if use_dsm:
+        if use_dem:
             dem_file_path = self.digitizing_parameters[
                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
             if not dem_file_path in self.raster_dem_by_file_path:
@@ -262,8 +263,6 @@ class ProjectPhotogrammetry(Project):
                              .format(dem_file_path, str_error))
                 return str_error, point_id
             raster_dem_crs_id = raster_dem.get_crs_id()
-            fc = stereopair_exterior_ring.GetX(i)
-            sc = stereopair_exterior_ring.GetY(i)
             if raster_dem_crs_id.casefold() != at_block.crs_id.casefold():
                 pto = [[fc, sc, 0.]]
                 str_error = self.crs_tools.operation(at_block.crs_id, raster_dem_crs_id,
@@ -285,14 +284,12 @@ class ProjectPhotogrammetry(Project):
         else:
             tc = point_coordinates[2]
         point_id = int(QDateTime.currentDateTime().toMSecsSinceEpoch() - self.edition_start_msec)
-        if point_id in self.object_point_by_id_by_chunk_label:
+        if point_id in self.object_point_by_id:
             str_error = ('Adding object point, exists previous object point: {}'
                          .format(str(point_id)))
             return str_error, None
-        self.object_point_by_id_by_chunk_label[point_id] = {}
-        for at_block_label in self.at_block_by_label:
-            at_block = self.at_block_by_label[at_block_label]
-            object_point = ObjectPointMetashape(at_block)
+        object_point = ObjectPointMetashape(at_block)
+        self.object_point_by_id[point_id] = object_point
 
 
 
@@ -2896,45 +2893,81 @@ class ProjectPhotogrammetry(Project):
         for i in range(len(steps)):
             step = steps[i]
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS in step:
-                msg = ("Not exists {} attribute in step position: {} in file:\n{}".
+                str_error = ("Not exists {} attribute in step position: {} in file:\n{}".
                        format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS, str(i+1), input_file_path))
-                msg += ("\nfor proccess: {}".format(name))
-                Tools.info_msg(msg)
-                return
+                str_error += ("\nfor proccess: {}".format(name))
+                return str_error, end_date_time, log
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD in step:
-                msg = ("Not exists {} attribute in step position: {} in file:\n{}".
+                str_error = ("Not exists {} attribute in step position: {} in file:\n{}".
                        format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD, str(i+1), input_file_path))
-                msg += ("\nfor proccess: {}".format(name))
-                Tools.info_msg(msg)
-                return
+                str_error += ("\nfor proccess: {}".format(name))
+                return str_error, end_date_time, log
             object_fully_qualified_name = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS]
             object_method_name = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD]
             object_fully_qualified_name = object_fully_qualified_name.lower()
             # object_method_name = object_method_name.lower()
             if not object_fully_qualified_name in self.object_by_fully_qualified_name:
-                msg = ("Not exists registered object: {}".format(object_fully_qualified_name))
-                msg += ("\nfor proccess: {}".format(name))
-                Tools.info_msg(msg)
-                return
+                str_error = ("Not exists registered object: {}".format(object_fully_qualified_name))
+                str_error += ("\nfor proccess: {}".format(name))
+                return str_error, end_date_time, log
             object = self.object_by_fully_qualified_name[object_fully_qualified_name]
             if object is None:
-                msg = ("None object: {}".format(object_fully_qualified_name))
-                msg += ("\nfor proccess: {}".format(process_name))
-                Tools.info_msg(msg)
-                return
+                str_error = ("None object: {}".format(object_fully_qualified_name))
+                str_error += ("\nfor proccess: {}".format(process_name))
+                return str_error, end_date_time, log
             method = None
             try:
                 method = getattr(object, object_method_name)
             except AttributeError as e:
-                msg = ("For proccess: {}".format(process_name))
-                msg += ("\nError: {}".format(str(e)))
-                Tools.info_msg(msg)
-                return
-            # if method is None:
-            #     msg = ("No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
-            #     msg += ("\nfor proccess: {}".format(process_name))
-            #     Tools.info_msg(msg)
-            #     return
+                str_error = ("For proccess: {}".format(process_name))
+                str_error += ("\nError: {}".format(str(e)))
+                return str_error, end_date_time, log
+            if method is None:
+                str_error = ("No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
+                str_error += ("\nfor proccess: {}".format(process_name))
+                return str_error, end_date_time, log
+            method_definition_arguments_names = method.__code__.co_varnames[:method.__code__.co_argcount]
+            if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS in step:
+                str_error = ("Not exists {} attribute in step position: {} in file:\n{}".
+                       format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS, str(i+1), input_file_path))
+                str_error += ("\nfor proccess: {}".format(process_name))
+                return str_error, end_date_time, log
+            arguments = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS]
+            arguments_as_dict = {}
+            for j in range(len(arguments)):
+                if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME in arguments[j]:
+                    str_error = ("In method: {} not exists {} in attribute position: {} in step position: {} in file:\n{}".
+                           format(object_method_name, processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME,
+                                  str(j + 1), str(i+1), input_file_path))
+                    str_error += ("\nfor proccess: {}".format(process_name))
+                    return str_error, end_date_time, log
+                argument_name = arguments[j][processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME]
+                if not argument_name in method_definition_arguments_names:
+                    str_error = ("In definition of method: {} not exists attribute: {} in step position: {} in file:\n{}".
+                           format(object_method_name, argument_name,
+                                  str(i + 1), input_file_path))
+                    str_error += ("\nfor proccess: {}".format(process_name))
+                    return str_error, end_date_time, log
+                if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE in arguments[j]:
+                    str_error = ("In method: {} not exists {} in attribute position: {} in step position: {} in file:\n{}".
+                           format(object_method_name, processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE,
+                                  str(j + 1), str(i+1), input_file_path))
+                    str_error += ("\nfor proccess: {}".format(process_name))
+                    return str_error, end_date_time, log
+                argument_value = arguments[j][processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE]
+                arguments_as_dict[argument_name] = argument_value
+            return_values = method(**arguments_as_dict)
+            str_error_in_method = ''
+            if isinstance(return_values, list):
+                str_error_in_method = return_values[0]
+            elif isinstance(return_values, str):
+                str_error_in_method = return_values
+            if str_error:
+                str_error = ("Executing method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
+                str_error += ("\nfor proccess: {}".format(process_name))
+                str_error += ("\nerror: {}".format(str_error_in_method))
+                return str_error, end_date_time, log
+            yo = 1
             # # str_error = object.run_library_process(process, self)
             # str_error, end_date_time, log = method(process, self)
             # if str_error:
