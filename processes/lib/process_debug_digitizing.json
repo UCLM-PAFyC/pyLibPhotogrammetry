@@ -1,0 +1,49 @@
+{
+    "name": "Debug digitizing",
+    "contributions": {
+        "methodology": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ],
+        "software": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ]
+    },
+    "src": {
+        "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
+        "method": "process_debug_digitizing",
+		"store": false,
+		"debug": true
+    },
+    "description": "A process to debug digitizing",
+    "doc": "",
+    "parameters": [
+		{
+            "label": "Input file",
+            "argparser": "",
+            "description": "Input json file",
+            "mandatory": true,
+            "output": false,
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/debug_digitalizing/example_20260714.json",
+            "type": "file",
+            "file_mode": "read",
+            "domain": [
+                ".json"
+            ],
+            "output_format": "{:s}"
+		},
+		{
+            "label": "Output file",
+            "argparser": "",
+            "description": "Output json file",
+            "mandatory": true,
+            "output": false,
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/debug_digitalizing/example_20260714_output.json",
+            "type": "file",
+            "file_mode": "write",
+            "domain": [
+                ".json"
+            ],
+            "output_format": "{:s}"
+		}
+    ]
+}

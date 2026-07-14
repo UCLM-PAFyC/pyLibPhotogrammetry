@@ -10,7 +10,7 @@
     },
     "src": {
         "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
-        "method": "process_set_digitizing_parameters",
+        "method": "set_digitizing_parameters",
 		"store": false
     },
     "description": "A process to set digitizing parameters",

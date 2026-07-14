@@ -50,6 +50,7 @@ from pyLibPhotogrammetry.lib.ATBlockMetashape import ATBlockMetashape
 from pyLibPhotogrammetry.lib.ATBlockGraphos import ATBlockGraphos
 from pyLibPhotogrammetry.lib.IExifTool import IExifTool
 from pyLibPhotogrammetry.lib.computations import *
+from pyLibPhotogrammetry.lib.ObjectPointMetashape import ObjectPointMetashape
 
 from pyLibCRSs import CRSsDefines as defs_crs
 from pyLibCRSs.CRSsTools import CRSsTools
@@ -88,6 +89,10 @@ class ProjectPhotogrammetry(Project):
         self.homographyMatrixByCamerasId = {}
         self.inverseHomographyMatrixByCamerasId = {}
         self.epipolarFileNameByCamerasId = {}
+        self.process_set_digitizing_parameters = None
+        self.edition_start_msec = None
+        self.object_point_by_id_by_chunk_label = {}
+        self.object_by_fully_qualified_name = {}
 
     def add_image_files(self,
                         files,
@@ -178,6 +183,121 @@ class ProjectPhotogrammetry(Project):
                 camera.image_file_path = image_file_path
                 camera.exif = exif_as_dict
         return str_error
+
+    def add_object_point_from_object_space(self,
+                                           point_coordinates,
+                                           crs_id,
+                                           use_dem):
+        str_error = ''
+        point_id = None
+        if not self.is_metashape_model:
+            str_error = ('Algorithm add object point is only valid for projects of type metashape')
+            return str_error, point_id
+        if not isinstance(point_coordinates, list):
+            str_error = ('Point object space coordinates must be a list with two or three values')
+            return str_error, point_id
+        if len(point_coordinates) < 2:
+            str_error = ('Point object space coordinates must be a list with two or three values')
+            return str_error, point_id
+        if len(self.at_block_by_label) > 1:
+            str_error = ('Algorithm add object point is only valid for one AT block')
+            return str_error, end_date_time, log
+        at_block_label = at_block_labels[0]
+        at_block = self.at_block_by_label[at_block_label]
+        exists_height = False
+        if len(point_coordinates) == 3:
+            exists_height = True
+        if not exists_height and not use_dsm:
+            str_error = ('Adding object point, invalid option: no height and no use DSM')
+            return str_error, point_id
+        # digitizing parameters
+        if self.process_set_digitizing_parameters is None:
+            process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
+            process_set_digitizing_parameters = None
+            process_provider = None
+            for process_provider in self.processes_manager.processes_by_provider:
+                if process_set_digitizing_parameters_name in self.processes_manager.processes_by_provider[process_provider]:
+                    self.process_set_digitizing_parameters = self.processes_manager.processes_by_provider[
+                        process_provider][process_set_digitizing_parameters_name]
+                    break
+            if self.process_set_digitizing_parameters is None:
+                str_error = ('Adding object point, not found process: {}'
+                             .format(process_set_digitizing_parameters_name))
+                return str_error, point_id
+        str_error, end_date_time, log = self.set_digitizing_parameters(self.process_set_digitizing_parameters)
+        if str_error:
+            return str_error, point_id
+        if self.edition_start_msec is None:
+            self.edition_start_msec = QDateTime.currentDateTime().toMSecsSinceEpoch()
+        raster_dem = None
+        raster_dem_crs_id = None
+        fc = point_coordinates[0]
+        sc = point_coordinates[1]
+        tc = None
+        if use_dsm:
+            dem_file_path = self.digitizing_parameters[
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
+            if not dem_file_path in self.raster_dem_by_file_path:
+                raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
+                dem_crs_id = self.digitizing_parameters[
+                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS]
+                if dem_crs_id: # can be empty for use internal of the DEM
+                    str_error = raster_dem.set_crs_id_by_user(dem_crs_id)
+                    if str_error:
+                        str_error = ('Adding object point, setting CRS to raster DEM from file: {}\nError:\n{}'
+                                     .format(dem_file_path, str_error))
+                        return str_error, point_id
+                str_error = raster_dem.set_from_file(dem_file_path)
+                if str_error:
+                    str_error = ('Adding object point, setting raster DEM from file: {}\nError:\n{}'
+                                 .format(dem_file_path, str_error))
+                    return str_error, point_id
+                raster_dem.set_check_domain(False) # get solution for out points
+                self.raster_dem_by_file_path[dem_file_path] = raster_dem
+            else:
+                raster_dem = self.raster_dem_by_file_path[dem_file_path]
+            str_error = raster_dem.load()
+            if str_error:
+                str_error = ('Adding object point, loading in memory raster DEM from file: {}\nError:\n{}'
+                             .format(dem_file_path, str_error))
+                return str_error, point_id
+            raster_dem_crs_id = raster_dem.get_crs_id()
+            fc = stereopair_exterior_ring.GetX(i)
+            sc = stereopair_exterior_ring.GetY(i)
+            if raster_dem_crs_id.casefold() != at_block.crs_id.casefold():
+                pto = [[fc, sc, 0.]]
+                str_error = self.crs_tools.operation(at_block.crs_id, raster_dem_crs_id,
+                                                     pto)
+                if str_error:
+                    str_error += ('Adding object point from object space')
+                    str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
+                                  format(at_block.crs_id, raster_dem_crs_id,
+                                         fc, sc, str_error))
+                    return str_error, point_id
+                fc = pto[0][0]
+                sc = pto[0][1]
+            str_error, elevation, point_out_edge, is_no_data = raster_dem.get_elevation(fc, sc)
+            if str_error:
+                str_error += ('Adding object point from object space')
+                str_error += ('\nGetting height from dem:\n{}\nfor point: ({:3.f}, {:.3f})\nerror:\n:{}'.
+                              format(dem_file_path, fc, sc, str_error))
+                return str_error, point_id
+        else:
+            tc = point_coordinates[2]
+        point_id = int(QDateTime.currentDateTime().toMSecsSinceEpoch() - self.edition_start_msec)
+        if point_id in self.object_point_by_id_by_chunk_label:
+            str_error = ('Adding object point, exists previous object point: {}'
+                         .format(str(point_id)))
+            return str_error, None
+        self.object_point_by_id_by_chunk_label[point_id] = {}
+        for at_block_label in self.at_block_by_label:
+            at_block = self.at_block_by_label[at_block_label]
+            object_point = ObjectPointMetashape(at_block)
+
+
+
+
+        return str_error, point_id
 
     def add_undistort_image_files(self,
                                   files,
@@ -1112,6 +1232,9 @@ class ProjectPhotogrammetry(Project):
         str_error = ''
         end_date_time = None
         log = None
+        if not self.is_metashape_model:
+            str_error = ('Algorithm computing rectifying homographies is only valid for projects of type metashape')
+            return str_error, end_date_time, log
         self.spUnionMinFc = None
         self.spUnionMinSc = None
         self.spUnionMaxFc = None
@@ -1386,19 +1509,20 @@ class ProjectPhotogrammetry(Project):
             end_date_time = datetime.now()
             return str_error, end_date_time, log
         # digitizing parameters
-        process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
-        process_set_digitizing_parameters = None
-        process_provider = None
-        for process_provider in self.processes_manager.processes_by_provider:
-            if process_set_digitizing_parameters_name in self.processes_manager.processes_by_provider[process_provider]:
-                process_set_digitizing_parameters = self.processes_manager.processes_by_provider[
-                    process_provider][process_set_digitizing_parameters_name]
-                break
-        if not process_set_digitizing_parameters:
-            str_error = ('Not found process: {}'
-                         .format(process_set_digitizing_parameters_name))
-            return str_error, end_date_time, log
-        str_error, end_date_time, log = self.process_set_digitizing_parameters(process_set_digitizing_parameters)
+        if self.process_set_digitizing_parameters is None:
+            process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
+            process_set_digitizing_parameters = None
+            process_provider = None
+            for process_provider in self.processes_manager.processes_by_provider:
+                if process_set_digitizing_parameters_name in self.processes_manager.processes_by_provider[process_provider]:
+                    self.process_set_digitizing_parameters = self.processes_manager.processes_by_provider[
+                        process_provider][process_set_digitizing_parameters_name]
+                    break
+            if self.process_set_digitizing_parameters is None:
+                str_error = ('Not found process: {}'
+                             .format(process_set_digitizing_parameters_name))
+                return str_error, end_date_time, log
+        str_error, end_date_time, log = self.set_digitizing_parameters(self.process_set_digitizing_parameters)
         if str_error:
             return str_error, end_date_time, log
         # DEM
@@ -2712,6 +2836,114 @@ class ProjectPhotogrammetry(Project):
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
+    def process_debug_digitizing(self,
+                                 process,
+                                 dialog = None):
+        str_error = ''
+        end_date_time = None
+        log = None
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        # input json file
+        parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not (defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_INPUT_FILE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_INPUT_FILE))
+            return str_error, end_date_time, log
+        parameter_input_file = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_INPUT_FILE]
+        input_file_path = str(parameter_input_file)
+        if not input_file_path:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_INPUT_FILE))
+            return str_error, end_date_time, log
+        if not os.path.exists(input_file_path):
+            str_error = ('Process {} has a not existing file parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_INPUT_FILE))
+            return str_error, end_date_time, log
+        # output json file
+        if not (defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE))
+            return str_error, end_date_time, log
+        parameter_output_file = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE]
+        parameter_output_file = str(parameter_input_file)
+        if not parameter_output_file:
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE))
+            return str_error, end_date_time, log
+        # if not os.path.exists(parameter_output_file):
+        #     str_error = ('Process {} has a not existing file parameter: {}'.
+        #                  format(name,
+        #                         defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE))
+        #     return str_error, end_date_time, log
+        self.update_objects_fully_qualified_names()
+        with open(input_file_path, "r") as file:
+            input_data = json.load(file)
+        if not defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_STEPS_TAG in input_data:
+            str_error = ('Not exists {} in file:\n'.
+                         format(defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_STEPS_TAG,
+                                input_file_path))
+            return str_error, end_date_time, log
+        steps = input_data[defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_STEPS_TAG]
+        for i in range(len(steps)):
+            step = steps[i]
+            if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS in step:
+                msg = ("Not exists {} attribute in step position: {} in file:\n{}".
+                       format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS, str(i+1), input_file_path))
+                msg += ("\nfor proccess: {}".format(name))
+                Tools.info_msg(msg)
+                return
+            if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD in step:
+                msg = ("Not exists {} attribute in step position: {} in file:\n{}".
+                       format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD, str(i+1), input_file_path))
+                msg += ("\nfor proccess: {}".format(name))
+                Tools.info_msg(msg)
+                return
+            object_fully_qualified_name = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS]
+            object_method_name = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD]
+            object_fully_qualified_name = object_fully_qualified_name.lower()
+            # object_method_name = object_method_name.lower()
+            if not object_fully_qualified_name in self.object_by_fully_qualified_name:
+                msg = ("Not exists registered object: {}".format(object_fully_qualified_name))
+                msg += ("\nfor proccess: {}".format(name))
+                Tools.info_msg(msg)
+                return
+            object = self.object_by_fully_qualified_name[object_fully_qualified_name]
+            if object is None:
+                msg = ("None object: {}".format(object_fully_qualified_name))
+                msg += ("\nfor proccess: {}".format(process_name))
+                Tools.info_msg(msg)
+                return
+            method = None
+            try:
+                method = getattr(object, object_method_name)
+            except AttributeError as e:
+                msg = ("For proccess: {}".format(process_name))
+                msg += ("\nError: {}".format(str(e)))
+                Tools.info_msg(msg)
+                return
+            # if method is None:
+            #     msg = ("No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
+            #     msg += ("\nfor proccess: {}".format(process_name))
+            #     Tools.info_msg(msg)
+            #     return
+            # # str_error = object.run_library_process(process, self)
+            # str_error, end_date_time, log = method(process, self)
+            # if str_error:
+            #     Tools.error_msg(str_error)
+            #     return
+
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
     def process_gcps_accuracy_analysis(self,
                                        process,
                                        dialog = None):
@@ -3893,9 +4125,9 @@ class ProjectPhotogrammetry(Project):
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
-    def process_set_digitizing_parameters(self,
-                                          process,
-                                          dialog = None):
+    def set_digitizing_parameters(self,
+                                  process,
+                                  dialog = None):
         str_error = ''
         end_date_time = None
         log = None
@@ -4471,3 +4703,11 @@ class ProjectPhotogrammetry(Project):
             #         enabled = False
             #     camera.enabled = enabled
         return str_error
+
+    def update_objects_fully_qualified_names(self):
+        project_fully_qualified_name = type(self).__module__
+        project_fully_qualified_name = project_fully_qualified_name.lower()
+        if not project_fully_qualified_name in self.object_by_fully_qualified_name:
+            self.object_by_fully_qualified_name[project_fully_qualified_name] = self
+        return
+
