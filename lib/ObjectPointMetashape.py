@@ -152,4 +152,47 @@ class ObjectPointMetashape(ObjectPoint):
         self.position_chunk = np.matmul(self.at_block.transform_inv, position_ecef)
         return str_error
 
+    def set_position(self, point_coordinates, crs_id):
+        str_error = ''
+        if not isinstance(point_coordinates, list):
+            str_error = ('Coordinates must be a list with two or three values')
+            return str_error
+        if len(point_coordinates) < 2:
+            str_error = ('Coordinates must be a list with two or three values')
+            return str_error
+        if crs_id.casefold() != self.crs_id.casefold():
+            position = [[point_coordinates[0], point_coordinates[1], point_coordinates[2]]]
+            str_error = self.crs_tools.operation(crs_id, self.crs_id, position)
+            if str_error:
+                str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}, {:.3f}]\nerror:\n{}'.
+                              format(crs_id, self.crs_id,
+                                     point_coordinates[0], point_coordinates[1], point_coordinates[2], str_error))
+                return str_error
+            self.position = np.array(position[0])
+        else:
+            self.position = np.array([point_coordinates[0], point_coordinates[1], point_coordinates[2]])
+        if self.at_block.crs_id != self.at_block.crs_ecef_id:
+            position_ecef = [self.position.tolist()]
+            str_error = self.crs_tools.operation(self.at_block.crs_id, self.at_block.crs_ecef_id, position_ecef)
+            if str_error:
+                str_error = ('In GCP: {} in metashape markers XML file:\n{}\nError in CRSs operation:\n{}'.
+                             format(self.label, self.file_path, str_error))
+                return str_error
+            self.position_ecef = np.array(position_ecef[0])
+        else:
+            self.position_ecef = np.array(self.position.tolist())
+        if self.at_block.crs_id != self.at_block.crs_geo3d_id:
+            position_geo3d = [self.position.tolist()]
+            str_error = self.crs_tools.operation(self.at_block.crs_id, self.at_block.crs_geo3d_id, position_geo3d)
+            if str_error:
+                str_error = ('In GCP: {} in metashape markers XML file:\n{}\nError in CRSs operation:\n{}'.
+                             format(self.label, self.file_path, str_error))
+                return str_error
+            self.position_geo3d = np.array(position_geo3d[0])
+        else:
+            self.position_geo3d = np.array(self.position.tolist())
+        position_ecef = np.append(self.position_ecef, 1.0)
+        self.position_chunk = np.matmul(self.at_block.transform_inv, position_ecef)
+        return str_error
+
 

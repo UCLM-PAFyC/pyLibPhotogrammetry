@@ -14,12 +14,16 @@ sys.path.append(os.path.join(current_path, '../..'))
 
 from pyLibPhotogrammetry.defs import  defs_project
 from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
+from pyLibPhotogrammetry.defs import defs_processes
+
 
 from pyLibCRSs import CRSsDefines as defs_crs
 from pyLibCRSs.CRSsTools import CRSsTools
 # from pyLibQtTools import Tools
 # from pyLibGDAL import defs_gdal
 # from pyLibGDAL.GDALTools import GDALTools
+from pyLibGDAL.RasterDEM import RasterDEM
+
 
 from pyLibPhotogrammetry.lib.ATBlock import ATBlock
 from pyLibPhotogrammetry.lib.SensorMetashape import SensorMetashape
@@ -45,6 +49,79 @@ class ATBlockMetashape(ATBlock):
         self.gcps_crs_ecef_id = None
         self.gcps_crs_geo3d_id = None
         self.cameras_group_by_id = {} # dictionary: id, label, type, cameras
+
+
+    def add_object_point_from_object_space(self,
+                                           point_coordinates,
+                                           crs_id,
+                                           use_dem):
+        str_error = ''
+        point_id = None
+        raster_dem = None
+        raster_dem_crs_id = None
+        fc = point_coordinates[0]
+        sc = point_coordinates[1]
+        tc = None
+        if use_dem:
+            dem_file_path = self.project.digitizing_parameters[
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
+            if not dem_file_path in self.project.raster_dem_by_file_path:
+                raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
+                dem_crs_id = self.project.digitizing_parameters[
+                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS]
+                if dem_crs_id: # can be empty for use internal of the DEM
+                    str_error = raster_dem.set_crs_id_by_user(dem_crs_id)
+                    if str_error:
+                        str_error = ('Adding object point, setting CRS to raster DEM from file: {}\nError:\n{}'
+                                     .format(dem_file_path, str_error))
+                        return str_error, point_id
+                str_error = raster_dem.set_from_file(dem_file_path)
+                if str_error:
+                    str_error = ('Adding object point, setting raster DEM from file: {}\nError:\n{}'
+                                 .format(dem_file_path, str_error))
+                    return str_error, point_id
+                raster_dem.set_check_domain(False) # get solution for out points
+                self.project.raster_dem_by_file_path[dem_file_path] = raster_dem
+            else:
+                raster_dem = self.project.raster_dem_by_file_path[dem_file_path]
+            str_error = raster_dem.load()
+            if str_error:
+                str_error = ('Adding object point, loading in memory raster DEM from file: {}\nError:\n{}'
+                             .format(dem_file_path, str_error))
+                return str_error, point_id
+            raster_dem_crs_id = raster_dem.get_crs_id()
+            if raster_dem_crs_id.casefold() != crs_id.casefold():
+                pto = [[fc, sc, 0.]]
+                str_error = self.crs_tools.operation(crs_id, raster_dem_crs_id,
+                                                     pto)
+                if str_error:
+                    str_error += ('Adding object point from object space')
+                    str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
+                                  format(self.crs_id, raster_dem_crs_id,
+                                         fc, sc, str_error))
+                    return str_error, point_id
+                fc = pto[0][0]
+                sc = pto[0][1]
+            str_error, tc, point_out_edge, is_no_data = raster_dem.get_elevation(fc, sc)
+            if str_error:
+                str_error += ('Adding object point from object space')
+                str_error += ('\nGetting height from dem:\n{}\nfor point: ({:3.f}, {:.3f})\nerror:\n:{}'.
+                              format(dem_file_path, fc, sc, str_error))
+                return str_error, point_id
+        else:
+            tc = point_coordinates[2]
+        self.project.point_id = self.project.point_id + 1
+        point_id = self.project.point_id
+        if point_id in self.project.object_point_by_id:
+            str_error = ('Adding object point, exists previous object point: {}'
+                         .format(str(point_id)))
+            return str_error, None
+        object_point = ObjectPointMetashape(self)
+        str_error = object_point.set_position([fc, sc, tc], )
+        self.project.object_point_by_id[point_id] = object_point
+
+        return str_error, point_id
+
 
     def from_sensors_to_object(self,
                                image_measured_coordinates_by_camera_id,
