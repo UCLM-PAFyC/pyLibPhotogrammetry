@@ -160,12 +160,12 @@ class ObjectPointMetashape(ObjectPoint):
         if len(point_coordinates) < 2:
             str_error = ('Coordinates must be a list with two or three values')
             return str_error
-        if crs_id.casefold() != self.crs_id.casefold():
+        if crs_id.casefold() != self.at_block.crs_id.casefold():
             position = [[point_coordinates[0], point_coordinates[1], point_coordinates[2]]]
             str_error = self.crs_tools.operation(crs_id, self.crs_id, position)
             if str_error:
                 str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}, {:.3f}]\nerror:\n{}'.
-                              format(crs_id, self.crs_id,
+                              format(crs_id, self.at_block.crs_id,
                                      point_coordinates[0], point_coordinates[1], point_coordinates[2], str_error))
                 return str_error
             self.position = np.array(position[0])

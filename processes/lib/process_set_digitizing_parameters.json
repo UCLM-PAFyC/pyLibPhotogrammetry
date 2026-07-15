@@ -23,7 +23,7 @@
             "mandatory": true,
             "output": false,
             "value": {
-                "file_path": "D:/PhotogrammetryToolsProjects/EjemploCandado/metashape/dsm5cm.tif",
+                "file_path": "D:/PhotogrammetryToolsProjects/EjemploCandado/metashape/dsm5cm_25830_5782.tif",
                 "layer_index": 1,
                 "scale": 1.0,
                 "offset": 0.0
@@ -42,7 +42,7 @@
             "description": "A valid CRS identifier (EPSG:25830+5782, EPSG:25830, ...) for replace the internal CRS of the DEM. Empty for no use",
             "mandatory": true,
             "output": false,
-            "value": "EPSG:25830",
+            "value": "EPSG:25830+5782",
             "type": "string",
             "output_format": "{:>s}"
         },

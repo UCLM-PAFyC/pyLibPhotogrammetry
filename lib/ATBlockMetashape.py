@@ -92,13 +92,11 @@ class ATBlockMetashape(ATBlock):
             raster_dem_crs_id = raster_dem.get_crs_id()
             if raster_dem_crs_id.casefold() != crs_id.casefold():
                 pto = [[fc, sc, 0.]]
-                str_error = self.crs_tools.operation(crs_id, raster_dem_crs_id,
-                                                     pto)
+                str_error = self.project.crs_tools.operation(crs_id, raster_dem_crs_id, pto)
                 if str_error:
                     str_error += ('Adding object point from object space')
                     str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
-                                  format(self.crs_id, raster_dem_crs_id,
-                                         fc, sc, str_error))
+                                  format(crs_id, raster_dem_crs_id, fc, sc, str_error))
                     return str_error, point_id
                 fc = pto[0][0]
                 sc = pto[0][1]
@@ -108,6 +106,7 @@ class ATBlockMetashape(ATBlock):
                 str_error += ('\nGetting height from dem:\n{}\nfor point: ({:3.f}, {:.3f})\nerror:\n:{}'.
                               format(dem_file_path, fc, sc, str_error))
                 return str_error, point_id
+            crs_id = raster_dem_crs_id
         else:
             tc = point_coordinates[2]
         self.project.point_id = self.project.point_id + 1
@@ -117,7 +116,7 @@ class ATBlockMetashape(ATBlock):
                          .format(str(point_id)))
             return str_error, None
         object_point = ObjectPointMetashape(self)
-        str_error = object_point.set_position([fc, sc, tc], )
+        str_error = object_point.set_position([fc, sc, tc], crs_id)
         self.project.object_point_by_id[point_id] = object_point
 
         return str_error, point_id
