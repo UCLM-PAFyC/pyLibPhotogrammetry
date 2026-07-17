@@ -77,7 +77,7 @@
             ],
             "output_format": "{:10.2f}"
         },
-		{
+        {
             "label": "Results report file",
             "argparser": "",
             "description": "Output file path for results report",
@@ -91,7 +91,7 @@
             ],
             "output_format": "{:s}"
         },
-		{
+        {
             "label": "Vector layer",
             "argparser": "",
             "description": "Input and output vector layer",

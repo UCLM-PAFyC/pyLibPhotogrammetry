@@ -1564,8 +1564,8 @@ class ProjectPhotogrammetry(Project):
         features = []
         numberOfProcessedPairs = 0
         for first_camera_id in stereoPairGeometryByImagesIds:
-            # debug
-            if len(features) > 2:
+            debug = False
+            if debug and len(features) > 2:
                 break
             numberOfProcessedPairs = numberOfProcessedPairs + 1
             if dialog:
@@ -1587,8 +1587,8 @@ class ProjectPhotogrammetry(Project):
             first_camera_columns = first_sensor.width
             first_camera_rows = first_sensor.height
             for second_camera_id in stereoPairGeometryByImagesIds[first_camera_id]:
-                # debug
-                if len(features) > 2:
+                debug = False
+                if debug and len(features) > 2:
                     break
                 numberOfProcessedPairs = numberOfProcessedPairs + 1
                 if dialog:
@@ -1966,6 +1966,8 @@ class ProjectPhotogrammetry(Project):
                 secondEpipolarEnvelope.append(sImgEpiMinRow)
                 secondEpipolarEnvelope.append(sImgEpiMaxColumn)
                 secondEpipolarEnvelope.append(sImgEpiMaxRow)
+                if first_camera.label == 'DSC05716' and second_camera.label == 'DSC05722':
+                    yo = 1
                 first_image_geometry = None
                 try:
                     first_image_geometry = ogr.CreateGeometryFromWkt(firstImageWktGeometry)
@@ -1983,18 +1985,41 @@ class ProjectPhotogrammetry(Project):
                         QApplication.processEvents()
                     return str_error, end_date_time, log
                 if not first_image_geometry.IsValid():
-                    str_error += ('Computing rectifying homographies')
-                    str_error += ('\nFor image: {} and image: {}'.
-                                  format(first_camera.label, second_camera.label))
-                    str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
-                                  .format(first_camera.label))
-                    if dialog:
-                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
-                        dialog.processInformationGroupBox.setEnabled(False)
-                        dialog.processLineEdit.clear()
-                        dialog.processProgressBar.reset()
-                        QApplication.processEvents()
-                    return str_error, end_date_time, log
+                    try:
+                        first_image_geometry_valid = first_image_geometry.MakeValid(
+                            ["METHOD=STRUCTURE"])
+                    except Exception as e:
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
+                                      .format(first_camera.label))
+                        str_error += ('\nTrying to validate geometry for image: {}\nGDAL error:\n{}'
+                                      .format(first_camera.label, e.args[0]))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    if not first_image_geometry_valid.IsValid():
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
+                                      .format(first_camera.label))
+                        str_error += ('\nFail trying to validate geometry for image: {}'
+                                      .format(first_camera.label))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    else:
+                        first_image_geometry = first_image_geometry_valid
                 first_image_geometry_wkb = None
                 try:
                     first_image_geometry_wkb = first_image_geometry.ExportToWkb()
@@ -2027,18 +2052,41 @@ class ProjectPhotogrammetry(Project):
                         QApplication.processEvents()
                     return str_error, end_date_time, log
                 if not second_image_geometry.IsValid():
-                    str_error += ('Computing rectifying homographies')
-                    str_error += ('\nFor image: {} and image: {}'.
-                                  format(first_camera.label, second_camera.label))
-                    str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
-                                  .format(second_camera.label))
-                    if dialog:
-                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
-                        dialog.processInformationGroupBox.setEnabled(False)
-                        dialog.processLineEdit.clear()
-                        dialog.processProgressBar.reset()
-                        QApplication.processEvents()
-                    return str_error, end_date_time, log
+                    try:
+                        second_image_geometry_valid = second_image_geometry.MakeValid(
+                            ["METHOD=STRUCTURE"])
+                    except Exception as e:
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
+                                      .format(second_camera.label))
+                        str_error += ('\nTrying to validate geometry for image: {}\nGDAL error:\n{}'
+                                      .format(second_camera.label, e.args[0]))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    if not second_image_geometry_valid.IsValid():
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nComputing geometry for image: {}\nInvalid geometry'
+                                      .format(second_camera.label))
+                        str_error += ('\nFail trying to validate geometry for image: {}'
+                                      .format(second_camera.label))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    else:
+                        second_image_geometry = second_image_geometry_valid
                 second_image_geometry_wkb = None
                 try:
                     second_image_geometry_wkb = second_image_geometry.ExportToWkb()
@@ -2071,18 +2119,41 @@ class ProjectPhotogrammetry(Project):
                         QApplication.processEvents()
                     return str_error, end_date_time, log
                 if not first_undistorted_image_geometry.IsValid():
-                    str_error += ('Computing rectifying homographies')
-                    str_error += ('\nFor image: {} and image: {}'.
-                                  format(first_camera.label, second_camera.label))
-                    str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
-                                  .format(first_camera.label))
-                    if dialog:
-                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
-                        dialog.processInformationGroupBox.setEnabled(False)
-                        dialog.processLineEdit.clear()
-                        dialog.processProgressBar.reset()
-                        QApplication.processEvents()
-                    return str_error, end_date_time, log
+                    try:
+                        first_undistorted_image_geometry_valid = first_undistorted_image_geometry.MakeValid(
+                            ["METHOD=STRUCTURE"])
+                    except Exception as e:
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
+                                      .format(first_camera.label))
+                        str_error += ('\nTrying to validate geometry for undistorted image: {}\nGDAL error:\n{}'
+                                      .format(first_camera.label, e.args[0]))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    if not first_undistorted_image_geometry_valid.IsValid():
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
+                                      .format(first_camera.label))
+                        str_error += ('\nFail trying to validate geometry for undistorted image: {}'
+                                      .format(first_camera.label))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    else:
+                        first_undistorted_image_geometry = second_undistorted_image_geometry_valid
                 first_undistorted_image_geometry_wkb = None
                 try:
                     first_undistorted_image_geometry_wkb = first_undistorted_image_geometry.ExportToWkb()
@@ -2115,18 +2186,41 @@ class ProjectPhotogrammetry(Project):
                         QApplication.processEvents()
                     return str_error, end_date_time, log
                 if not second_undistorted_image_geometry.IsValid():
-                    str_error += ('Computing rectifying homographies')
-                    str_error += ('\nFor image: {} and image: {}'.
-                                  format(first_camera.label, second_camera.label))
-                    str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
-                                  .format(second_camera.label))
-                    if dialog:
-                        dialog.processProgressBar.setValue(numberOfPairsToProcess)
-                        dialog.processInformationGroupBox.setEnabled(False)
-                        dialog.processLineEdit.clear()
-                        dialog.processProgressBar.reset()
-                        QApplication.processEvents()
-                    return str_error, end_date_time, log
+                    try:
+                        second_undistorted_image_geometry_valid = second_undistorted_image_geometry.MakeValid(
+                            ["METHOD=STRUCTURE"])
+                    except Exception as e:
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
+                                      .format(second_camera.label))
+                        str_error += ('\nTrying to validate geometry for undistorted image: {}\nGDAL error:\n{}'
+                                      .format(second_camera.label, e.args[0]))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    if not second_undistorted_image_geometry_valid.IsValid():
+                        str_error += ('Computing rectifying homographies')
+                        str_error += ('\nFor image: {} and image: {}'.
+                                      format(first_camera.label, second_camera.label))
+                        str_error += ('\nComputing geometry for undistorted image: {}\nInvalid geometry'
+                                      .format(second_camera.label))
+                        str_error += ('\nFail trying to validate geometry for undistorted image: {}'
+                                      .format(second_camera.label))
+                        if dialog:
+                            dialog.processProgressBar.setValue(numberOfPairsToProcess)
+                            dialog.processInformationGroupBox.setEnabled(False)
+                            dialog.processLineEdit.clear()
+                            dialog.processProgressBar.reset()
+                            QApplication.processEvents()
+                        return str_error, end_date_time, log
+                    else:
+                        second_undistorted_image_geometry = second_undistorted_image_geometry_valid
                 second_undistorted_image_geometry_wkb = None
                 try:
                     second_undistorted_image_geometry_wkb = second_undistorted_image_geometry.ExportToWkb()
@@ -3088,253 +3182,253 @@ class ProjectPhotogrammetry(Project):
                 content += '  {}'.format(gcp.label)
                 if len(gcp.label) > gcp_label_max_length:
                     gcp_label_max_length = len(gcp.label)
-            # content += '\n- From object space to image space (photogrammetric backward projection), ignoring no pinned image points:'
-            # content += '\n  GCP.Id    Column       Row   ColumnM      RowM  ErrorC  ErrorR Error2d  Image                              Und.Column   Und.Row  Change  GCP.Id'
-            # for gcp_id in at_block.image_points_by_gcp_id:
-            #     if not gcp_id in at_block.gcps_by_id:
-            #         continue
-            #     gcp = at_block.gcps_by_id[gcp_id]
-            #     gcp_local = None
-            #     if self.is_metashape_model:
-            #         gcp_local = gcp.position_chunk
-            #     else:
-            #         gcp_local = gcp.position_enu
-            #     image_points = at_block.image_points_by_gcp_id[gcp_id]
-            #     for i in range(len(image_points)):
-            #         image_point = image_points[i]
-            #         if not image_point.pinned:
-            #             continue
-            #         if not defs_img.IMAGE_POINT_MEASURED in image_point.values:
-            #             continue
-            #         camera = image_point.camera
-            #         image_point_measured_coordinates = image_point.values[defs_img.IMAGE_POINT_MEASURED]
-            #         column_m = image_point_measured_coordinates[0]
-            #         row_m = image_point_measured_coordinates[1]
-            #         within = None
-            #         withinAfterUndistortion = None
-            #         position_image = None
-            #         position_undistorted_image = None
-            #         if self.is_metashape_model:
-            #             str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
-            #                 = camera.from_chunk_to_sensor(gcp_local)
-            #         else:
-            #             str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
-            #                 = camera.from_enu_to_sensor(gcp_local)
-            #         if str_error:
-            #             return str_error, end_date_time, log
-            #         # set undistoted computed as measured for test backwar-forward model
-            #         image_point.set_measured_undistorted_values(position_undistorted_image)
-            #         error_column = column_m - position_image[0]
-            #         error_row = row_m - position_image[1]
-            #         error_2d = np.sqrt((error_column * error_column) + (error_row * error_row))
-            #         undistort_change_column = position_undistorted_image[0] - position_image[0]
-            #         undistort_change_row = position_undistorted_image[1] - position_image[1]
-            #         undistort_change_2d = np.sqrt(undistort_change_column ** 2. + undistort_change_row ** 2.)
-            #         content += '\n{:>8s}'.format(str(gcp_id))
-            #         content += '{:10.2f}'.format(position_image[0])
-            #         content += '{:10.2f}'.format(position_image[1])
-            #         content += '{:10.2f}'.format(column_m)
-            #         content += '{:10.2f}'.format(row_m)
-            #         content += '{:8.2f}'.format(error_column)
-            #         content += '{:8.2f}'.format(error_row)
-            #         content += '{:8.2f}'.format(error_2d)
-            #         content += '  {:35s}'.format(camera.label)
-            #         content += '{:10.2f}'.format(position_undistorted_image[0])
-            #         content += '{:10.2f}'.format(position_undistorted_image[1])
-            #         content += '{:8.2f}'.format(undistort_change_2d)
-            #         content += '  {:s}'.format(gcp.label)
-            # if not self.is_metashape_model:
-            #     try:
-            #         with open(output_file_path, "w") as f:
-            #             f.write(content)
-            #     except Exception as e:
-            #         str_error = (
-            #             'Process {}\nError occurred when opening:\n{}\nto read:\n{}'.format(name, output_file_path, e))
-            #         return str_error, end_date_time, log
-            #     end_date_time = datetime.now()
-            #     return str_error, end_date_time, log
-            # content += '\n- From image space to object space (photogrammetric forward projection), ignoring no pinned image points:'
-            # for gcp_id in at_block.image_points_by_gcp_id:
-            #     if not gcp_id in at_block.gcps_by_id:
-            #         continue
-            #     gcp = at_block.gcps_by_id[gcp_id]
-            #     gcp_chunk = gcp.position_chunk
-            #     image_points = at_block.image_points_by_gcp_id[gcp_id]
-            #     image_measured_coordinates_by_camera_id = {}
-            #     image_undistorted_coordinates_by_camera_id = {}
-            #     number_of_measured_image_points = 0
-            #     for i in range(len(image_points)):
-            #         image_point = image_points[i]
-            #         if not image_point.pinned:
-            #             continue
-            #         if not defs_img.IMAGE_POINT_MEASURED in image_point.values:
-            #             continue
-            #         camera = image_point.camera
-            #         image_point_measured_coordinates = image_point.values[defs_img.IMAGE_POINT_MEASURED]
-            #         image_measured_coordinates_by_camera_id[camera.id] = image_point_measured_coordinates
-            #         image_point_measured_undistorted_coordinates = image_point.undistorted_values[defs_img.IMAGE_POINT_MEASURED]
-            #         image_undistorted_coordinates_by_camera_id[camera.id] = image_point_measured_undistorted_coordinates
-            #         number_of_measured_image_points = number_of_measured_image_points + 1
-            #     if number_of_measured_image_points < 2:
-            #         content += "\n  - GCP .........................: "
-            #         content += gcp.label
-            #         content += "\n    The point has not been measured in the minimum number of images"
-            #         continue
-            #     compute_backward_camera_coordinates = True
-            #     use_distortion = True
-            #     use_ppa = True
-            #     str_error, position, std_position, image_position_backward_error_by_camera_id \
-            #         = at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
-            #                                           at_block.crs_id,
-            #                                           compute_backward_camera_coordinates,
-            #                                           use_distortion, use_ppa)
-            #     if str_error:
-            #         return str_error, end_date_time, log
-            #     error_fc = gcp.position[0] - position[0]
-            #     error_sc = gcp.position[1] - position[1]
-            #     error_tc = gcp.position[2] - position[2]
-            #     if ellipsoid_a:
-            #         latitude = gcp.position[1] * np.pi / 180.
-            #         rp = ellipsoid_a / np.sqrt(1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) * np.cos(latitude)
-            #         rm = ellipsoid_a * (1 - ellipsoid_e2) / ((1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) ** 3./2.)
-            #         error_fc = rp * error_fc * np.pi / 180.
-            #         error_sc = rm * error_sc * np.pi / 180.
-            #     content += "\n  - GCP ...........................: "
-            #     content += gcp.label.ljust(gcp_label_max_length)
-            #     if not ellipsoid_a:
-            #         content += "      X.GCPsCRS      Y.GCPsCRS      H.GCPsCRS"
-            #     else:
-            #         content += "   Long.GCPsCRS    Lat.GCPsCRS      H.GCPsCRS"
-            #     content += "\n    - Measured coordinates ........: "
-            #     content += ('').ljust(gcp_label_max_length)
-            #     if ellipsoid_a:
-            #         content += ("{:15.9f}".format(gcp.position[0]))
-            #         content += ("{:15.9f}".format(gcp.position[1]))
-            #     else:
-            #         content += ("{:15.4f}".format(gcp.position[0]))
-            #         content += ("{:15.4f}".format(gcp.position[1]))
-            #     content += ("{:15.4f}".format(gcp.position[2]))
-            #     content += "\n    - Computed coordinates ........: "
-            #     content += ('').ljust(gcp_label_max_length)
-            #     if ellipsoid_a:
-            #         content += ("{:15.9f}".format(position[0]))
-            #         content += ("{:15.9f}".format(position[1]))
-            #     else:
-            #         content += ("{:15.4f}".format(position[0]))
-            #         content += ("{:15.4f}".format(position[1]))
-            #     content += ("{:15.4f}".format(position[2]))
-            #     content += "\n    - Std computed coordinates ....: "
-            #     content += ('').ljust(gcp_label_max_length)
-            #     if ellipsoid_a:
-            #         content += ("{:15.9f}".format(std_position[0]))
-            #         content += ("{:15.9f}".format(std_position[1]))
-            #     else:
-            #         content += ("{:15.4f}".format(std_position[0]))
-            #         content += ("{:15.4f}".format(std_position[1]))
-            #     content += ("{:15.4f}".format(std_position[2]))
-            #     content += "\n    - Error computed coordinates ..: "
-            #     content += ('').ljust(gcp_label_max_length)
-            #     if ellipsoid_a:
-            #         content += ("{:12.4f}(E)".format(error_fc))
-            #         content += ("{:12.4f}(N)".format(error_sc))
-            #     else:
-            #         content += ("{:15.4f}".format(error_fc))
-            #         content += ("{:15.4f}".format(error_sc))
-            #     content += ("{:15.4f}".format(error_tc))
-            #     content += "\n   ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
-            #     for camera_id in image_position_backward_error_by_camera_id:
-            #         measured = image_measured_coordinates_by_camera_id[camera_id]
-            #         error_computed = image_position_backward_error_by_camera_id[camera_id]
-            #         error_c = error_computed[0]
-            #         error_r = error_computed[1]
-            #         error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
-            #         camera = at_block.camera_by_id[camera_id]
-            #         content += '\n{:10.2f}'.format(measured[0])
-            #         content += '{:10.2f}'.format(measured[1])
-            #         content += '{:10.2f}'.format(measured[0] - error_c)
-            #         content += '{:10.2f}'.format(measured[1] - error_r)
-            #         content += '{:8.2f}'.format(error_c)
-            #         content += '{:8.2f}'.format(error_r)
-            #         content += '{:8.2f}'.format(error_2d)
-            #         content += '  {:s}'.format(camera.label)
-            #     # undistorted computed image points
-            #     compute_backward_camera_coordinates = True
-            #     use_distortion = False
-            #     use_ppa = True
-            #     str_error, position, std_position, image_position_backward_error_by_camera_id \
-            #         = at_block.from_sensors_to_object(image_undistorted_coordinates_by_camera_id,
-            #                                           at_block.crs_id,
-            #                                           compute_backward_camera_coordinates,
-            #                                           use_distortion, use_ppa)
-            #     if str_error:
-            #         return str_error, end_date_time, log
-            #     error_fc = gcp.position[0] - position[0]
-            #     error_sc = gcp.position[1] - position[1]
-            #     error_tc = gcp.position[2] - position[2]
-            #     if ellipsoid_a:
-            #         latitude = gcp.position[1] * np.pi / 180.
-            #         rp = ellipsoid_a / np.sqrt(1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) * np.cos(latitude)
-            #         rm = ellipsoid_a * (1 - ellipsoid_e2) / ((1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) ** 3./2.)
-            #         error_fc = rp * error_fc * np.pi / 180.
-            #         error_sc = rm * error_sc * np.pi / 180.
-            #     content += "\n  - GCP (undistorted computed) ....: "
-            #     content += gcp.label.ljust(gcp_label_max_length)
-            #     if not ellipsoid_a:
-            #         content += "      X.GCPsCRS      Y.GCPsCRS      H.GCPsCRS"
-            #     else:
-            #         content += "   Long.GCPsCRS    Lat.GCPsCRS      H.GCPsCRS"
-            #     content += "\n    - Measured coordinates ........: "
-            #     content += ('').ljust(gcp_label_max_length)
-            #     if ellipsoid_a:
-            #         content += ("{:15.9f}".format(gcp.position[0]))
-            #         content += ("{:15.9f}".format(gcp.position[1]))
-            #     else:
-            #         content += ("{:15.4f}".format(gcp.position[0]))
-            #         content += ("{:15.4f}".format(gcp.position[1]))
-            #     content += ("{:15.4f}".format(gcp.position[2]))
-            #     content += "\n    - Computed coordinates ........: "
-            #     content += ('').ljust(gcp_label_max_length)
-            #     if ellipsoid_a:
-            #         content += ("{:15.9f}".format(position[0]))
-            #         content += ("{:15.9f}".format(position[1]))
-            #     else:
-            #         content += ("{:15.4f}".format(position[0]))
-            #         content += ("{:15.4f}".format(position[1]))
-            #     content += ("{:15.4f}".format(position[2]))
-            #     content += "\n    - Std computed coordinates ....: "
-            #     content += ('').ljust(gcp_label_max_length)
-            #     if ellipsoid_a:
-            #         content += ("{:15.9f}".format(std_position[0]))
-            #         content += ("{:15.9f}".format(std_position[1]))
-            #     else:
-            #         content += ("{:15.4f}".format(std_position[0]))
-            #         content += ("{:15.4f}".format(std_position[1]))
-            #     content += ("{:15.4f}".format(std_position[2]))
-            #     content += "\n    - Error computed coordinates ..: "
-            #     content += ('').ljust(gcp_label_max_length)
-            #     if ellipsoid_a:
-            #         content += ("{:12.4f}(E)".format(error_fc))
-            #         content += ("{:12.4f}(N)".format(error_sc))
-            #     else:
-            #         content += ("{:15.4f}".format(error_fc))
-            #         content += ("{:15.4f}".format(error_sc))
-            #     content += ("{:15.4f}".format(error_tc))
-            #     content += "\n   ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
-            #     for camera_id in image_position_backward_error_by_camera_id:
-            #         measured = image_undistorted_coordinates_by_camera_id[camera_id]
-            #         error_computed = image_position_backward_error_by_camera_id[camera_id]
-            #         error_c = error_computed[0]
-            #         error_r = error_computed[1]
-            #         error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
-            #         camera = at_block.camera_by_id[camera_id]
-            #         content += '\n{:10.2f}'.format(measured[0])
-            #         content += '{:10.2f}'.format(measured[1])
-            #         content += '{:10.2f}'.format(measured[0] - error_c)
-            #         content += '{:10.2f}'.format(measured[1] - error_r)
-            #         content += '{:8.2f}'.format(error_c)
-            #         content += '{:8.2f}'.format(error_r)
-            #         content += '{:8.2f}'.format(error_2d)
-            #         content += '  {:s}'.format(camera.label)
+            content += '\n- From object space to image space (photogrammetric backward projection), ignoring no pinned image points:'
+            content += '\n  GCP.Id    Column       Row   ColumnM      RowM  ErrorC  ErrorR Error2d  Image                              Und.Column   Und.Row  Change  GCP.Id'
+            for gcp_id in at_block.image_points_by_gcp_id:
+                if not gcp_id in at_block.gcps_by_id:
+                    continue
+                gcp = at_block.gcps_by_id[gcp_id]
+                gcp_local = None
+                if self.is_metashape_model:
+                    gcp_local = gcp.position_chunk
+                else:
+                    gcp_local = gcp.position_enu
+                image_points = at_block.image_points_by_gcp_id[gcp_id]
+                for i in range(len(image_points)):
+                    image_point = image_points[i]
+                    if not image_point.pinned:
+                        continue
+                    if not defs_img.IMAGE_POINT_MEASURED in image_point.values:
+                        continue
+                    camera = image_point.camera
+                    image_point_measured_coordinates = image_point.values[defs_img.IMAGE_POINT_MEASURED]
+                    column_m = image_point_measured_coordinates[0]
+                    row_m = image_point_measured_coordinates[1]
+                    within = None
+                    withinAfterUndistortion = None
+                    position_image = None
+                    position_undistorted_image = None
+                    if self.is_metashape_model:
+                        str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                            = camera.from_chunk_to_sensor(gcp_local)
+                    else:
+                        str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                            = camera.from_enu_to_sensor(gcp_local)
+                    if str_error:
+                        return str_error, end_date_time, log
+                    # set undistoted computed as measured for test backwar-forward model
+                    image_point.set_measured_undistorted_values(position_undistorted_image)
+                    error_column = column_m - position_image[0]
+                    error_row = row_m - position_image[1]
+                    error_2d = np.sqrt((error_column * error_column) + (error_row * error_row))
+                    undistort_change_column = position_undistorted_image[0] - position_image[0]
+                    undistort_change_row = position_undistorted_image[1] - position_image[1]
+                    undistort_change_2d = np.sqrt(undistort_change_column ** 2. + undistort_change_row ** 2.)
+                    content += '\n{:>8s}'.format(str(gcp_id))
+                    content += '{:10.2f}'.format(position_image[0])
+                    content += '{:10.2f}'.format(position_image[1])
+                    content += '{:10.2f}'.format(column_m)
+                    content += '{:10.2f}'.format(row_m)
+                    content += '{:8.2f}'.format(error_column)
+                    content += '{:8.2f}'.format(error_row)
+                    content += '{:8.2f}'.format(error_2d)
+                    content += '  {:35s}'.format(camera.label)
+                    content += '{:10.2f}'.format(position_undistorted_image[0])
+                    content += '{:10.2f}'.format(position_undistorted_image[1])
+                    content += '{:8.2f}'.format(undistort_change_2d)
+                    content += '  {:s}'.format(gcp.label)
+            if not self.is_metashape_model:
+                try:
+                    with open(output_file_path, "w") as f:
+                        f.write(content)
+                except Exception as e:
+                    str_error = (
+                        'Process {}\nError occurred when opening:\n{}\nto read:\n{}'.format(name, output_file_path, e))
+                    return str_error, end_date_time, log
+                end_date_time = datetime.now()
+                return str_error, end_date_time, log
+            content += '\n- From image space to object space (photogrammetric forward projection), ignoring no pinned image points:'
+            for gcp_id in at_block.image_points_by_gcp_id:
+                if not gcp_id in at_block.gcps_by_id:
+                    continue
+                gcp = at_block.gcps_by_id[gcp_id]
+                gcp_chunk = gcp.position_chunk
+                image_points = at_block.image_points_by_gcp_id[gcp_id]
+                image_measured_coordinates_by_camera_id = {}
+                image_undistorted_coordinates_by_camera_id = {}
+                number_of_measured_image_points = 0
+                for i in range(len(image_points)):
+                    image_point = image_points[i]
+                    if not image_point.pinned:
+                        continue
+                    if not defs_img.IMAGE_POINT_MEASURED in image_point.values:
+                        continue
+                    camera = image_point.camera
+                    image_point_measured_coordinates = image_point.values[defs_img.IMAGE_POINT_MEASURED]
+                    image_measured_coordinates_by_camera_id[camera.id] = image_point_measured_coordinates
+                    image_point_measured_undistorted_coordinates = image_point.undistorted_values[defs_img.IMAGE_POINT_MEASURED]
+                    image_undistorted_coordinates_by_camera_id[camera.id] = image_point_measured_undistorted_coordinates
+                    number_of_measured_image_points = number_of_measured_image_points + 1
+                if number_of_measured_image_points < 2:
+                    content += "\n  - GCP .........................: "
+                    content += gcp.label
+                    content += "\n    The point has not been measured in the minimum number of images"
+                    continue
+                compute_backward_camera_coordinates = True
+                use_distortion = True
+                use_ppa = True
+                str_error, position, std_position, image_position_backward_error_by_camera_id \
+                    = at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
+                                                      at_block.crs_id,
+                                                      compute_backward_camera_coordinates,
+                                                      use_distortion, use_ppa)
+                if str_error:
+                    return str_error, end_date_time, log
+                error_fc = gcp.position[0] - position[0]
+                error_sc = gcp.position[1] - position[1]
+                error_tc = gcp.position[2] - position[2]
+                if ellipsoid_a:
+                    latitude = gcp.position[1] * np.pi / 180.
+                    rp = ellipsoid_a / np.sqrt(1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) * np.cos(latitude)
+                    rm = ellipsoid_a * (1 - ellipsoid_e2) / ((1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) ** 3./2.)
+                    error_fc = rp * error_fc * np.pi / 180.
+                    error_sc = rm * error_sc * np.pi / 180.
+                content += "\n  - GCP ...........................: "
+                content += gcp.label.ljust(gcp_label_max_length)
+                if not ellipsoid_a:
+                    content += "      X.GCPsCRS      Y.GCPsCRS      H.GCPsCRS"
+                else:
+                    content += "   Long.GCPsCRS    Lat.GCPsCRS      H.GCPsCRS"
+                content += "\n    - Measured coordinates ........: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(gcp.position[0]))
+                    content += ("{:15.9f}".format(gcp.position[1]))
+                else:
+                    content += ("{:15.4f}".format(gcp.position[0]))
+                    content += ("{:15.4f}".format(gcp.position[1]))
+                content += ("{:15.4f}".format(gcp.position[2]))
+                content += "\n    - Computed coordinates ........: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(position[0]))
+                    content += ("{:15.9f}".format(position[1]))
+                else:
+                    content += ("{:15.4f}".format(position[0]))
+                    content += ("{:15.4f}".format(position[1]))
+                content += ("{:15.4f}".format(position[2]))
+                content += "\n    - Std computed coordinates ....: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(std_position[0]))
+                    content += ("{:15.9f}".format(std_position[1]))
+                else:
+                    content += ("{:15.4f}".format(std_position[0]))
+                    content += ("{:15.4f}".format(std_position[1]))
+                content += ("{:15.4f}".format(std_position[2]))
+                content += "\n    - Error computed coordinates ..: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:12.4f}(E)".format(error_fc))
+                    content += ("{:12.4f}(N)".format(error_sc))
+                else:
+                    content += ("{:15.4f}".format(error_fc))
+                    content += ("{:15.4f}".format(error_sc))
+                content += ("{:15.4f}".format(error_tc))
+                content += "\n   ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
+                for camera_id in image_position_backward_error_by_camera_id:
+                    measured = image_measured_coordinates_by_camera_id[camera_id]
+                    error_computed = image_position_backward_error_by_camera_id[camera_id]
+                    error_c = error_computed[0]
+                    error_r = error_computed[1]
+                    error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
+                    camera = at_block.camera_by_id[camera_id]
+                    content += '\n{:10.2f}'.format(measured[0])
+                    content += '{:10.2f}'.format(measured[1])
+                    content += '{:10.2f}'.format(measured[0] - error_c)
+                    content += '{:10.2f}'.format(measured[1] - error_r)
+                    content += '{:8.2f}'.format(error_c)
+                    content += '{:8.2f}'.format(error_r)
+                    content += '{:8.2f}'.format(error_2d)
+                    content += '  {:s}'.format(camera.label)
+                # undistorted computed image points
+                compute_backward_camera_coordinates = True
+                use_distortion = False
+                use_ppa = True
+                str_error, position, std_position, image_position_backward_error_by_camera_id \
+                    = at_block.from_sensors_to_object(image_undistorted_coordinates_by_camera_id,
+                                                      at_block.crs_id,
+                                                      compute_backward_camera_coordinates,
+                                                      use_distortion, use_ppa)
+                if str_error:
+                    return str_error, end_date_time, log
+                error_fc = gcp.position[0] - position[0]
+                error_sc = gcp.position[1] - position[1]
+                error_tc = gcp.position[2] - position[2]
+                if ellipsoid_a:
+                    latitude = gcp.position[1] * np.pi / 180.
+                    rp = ellipsoid_a / np.sqrt(1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) * np.cos(latitude)
+                    rm = ellipsoid_a * (1 - ellipsoid_e2) / ((1.0 - ellipsoid_e2 * np.sin(latitude) ** 2.0) ** 3./2.)
+                    error_fc = rp * error_fc * np.pi / 180.
+                    error_sc = rm * error_sc * np.pi / 180.
+                content += "\n  - GCP (undistorted computed) ....: "
+                content += gcp.label.ljust(gcp_label_max_length)
+                if not ellipsoid_a:
+                    content += "      X.GCPsCRS      Y.GCPsCRS      H.GCPsCRS"
+                else:
+                    content += "   Long.GCPsCRS    Lat.GCPsCRS      H.GCPsCRS"
+                content += "\n    - Measured coordinates ........: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(gcp.position[0]))
+                    content += ("{:15.9f}".format(gcp.position[1]))
+                else:
+                    content += ("{:15.4f}".format(gcp.position[0]))
+                    content += ("{:15.4f}".format(gcp.position[1]))
+                content += ("{:15.4f}".format(gcp.position[2]))
+                content += "\n    - Computed coordinates ........: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(position[0]))
+                    content += ("{:15.9f}".format(position[1]))
+                else:
+                    content += ("{:15.4f}".format(position[0]))
+                    content += ("{:15.4f}".format(position[1]))
+                content += ("{:15.4f}".format(position[2]))
+                content += "\n    - Std computed coordinates ....: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:15.9f}".format(std_position[0]))
+                    content += ("{:15.9f}".format(std_position[1]))
+                else:
+                    content += ("{:15.4f}".format(std_position[0]))
+                    content += ("{:15.4f}".format(std_position[1]))
+                content += ("{:15.4f}".format(std_position[2]))
+                content += "\n    - Error computed coordinates ..: "
+                content += ('').ljust(gcp_label_max_length)
+                if ellipsoid_a:
+                    content += ("{:12.4f}(E)".format(error_fc))
+                    content += ("{:12.4f}(N)".format(error_sc))
+                else:
+                    content += ("{:15.4f}".format(error_fc))
+                    content += ("{:15.4f}".format(error_sc))
+                content += ("{:15.4f}".format(error_tc))
+                content += "\n   ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
+                for camera_id in image_position_backward_error_by_camera_id:
+                    measured = image_undistorted_coordinates_by_camera_id[camera_id]
+                    error_computed = image_position_backward_error_by_camera_id[camera_id]
+                    error_c = error_computed[0]
+                    error_r = error_computed[1]
+                    error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
+                    camera = at_block.camera_by_id[camera_id]
+                    content += '\n{:10.2f}'.format(measured[0])
+                    content += '{:10.2f}'.format(measured[1])
+                    content += '{:10.2f}'.format(measured[0] - error_c)
+                    content += '{:10.2f}'.format(measured[1] - error_r)
+                    content += '{:8.2f}'.format(error_c)
+                    content += '{:8.2f}'.format(error_r)
+                    content += '{:8.2f}'.format(error_2d)
+                    content += '  {:s}'.format(camera.label)
         try:
             with open(output_file_path, "w") as f:
                 f.write(content)

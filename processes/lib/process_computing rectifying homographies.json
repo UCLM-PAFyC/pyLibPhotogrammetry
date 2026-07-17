@@ -22,7 +22,7 @@
             "mandatory": true,
             "output": false,
             "value": {
-                "file_path": "D:/PhotogrammetryToolsProjects/EjemploCandado/metashape/dsm5cm.tif",
+                "file_path": "D:/PhotogrammetryToolsProjects/CandadoCCRS/metashape/DSM_5cm_25830_5782.tif",
                 "layer_index": 1,
                 "scale": 1.0,
                 "offset": 0.0
@@ -41,7 +41,7 @@
             "description": "A valid CRS identifier (EPSG:25830+5782, EPSG:25830, ...) for replace the internal CRS of the DEM. Empty for no use",
             "mandatory": true,
             "output": false,
-            "value": "EPSG:25830",
+            "value": "EPSG:25830+5782",
             "type": "string",
             "output_format": "{:>s}"
         },
@@ -54,14 +54,14 @@
             "value": "Known orientation",
             "type": "string",
             "domain": [
+                "COLMAPStereoRectifyUncalibrated",
                 "Known orientation",
                 "New matches",
-				"OpenCvStereoRectifyUncalibrated",
-				"COLMAPStereoRectifyUncalibrated"
+                "OpenCvStereoRectifyUncalibrated"
             ],
             "output_format": "{:s}"
         },
-		{
+        {
             "label": "Ignored sensor percentage",
             "argparser": "",
             "description": "Exterior percentage of sensor format ignored",
@@ -75,7 +75,7 @@
             ],
             "output_format": "{:10.2f}"
         },
-		{
+        {
             "label": "Minimum overlap percentage",
             "argparser": "",
             "description": "Minimum overlap percentage for ABM",
@@ -115,7 +115,7 @@
             "description": "Rectified homographies images output path",
             "mandatory": true,
             "output": true,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/rectified_homographies_images",
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/rectified_homographies_images",
             "type": "path",
             "output_format": "{:s}"
         },
@@ -125,7 +125,7 @@
             "description": "Report files output path",
             "mandatory": true,
             "output": true,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/rectified_homographies_images",
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/rectified_homographies_images",
             "type": "path",
             "output_format": "{:s}"
         },

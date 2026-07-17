@@ -11,13 +11,13 @@
     "src": {
         "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
         "method": "process_debug_digitizing",
-		"store": false,
-		"debug": true
+        "store": false,
+        "debug": true
     },
     "description": "A process to debug digitizing",
     "doc": "",
     "parameters": [
-		{
+        {
             "label": "Input file",
             "argparser": "",
             "description": "Input json file",
@@ -30,8 +30,8 @@
                 ".json"
             ],
             "output_format": "{:s}"
-		},
-		{
+        },
+        {
             "label": "Output file",
             "argparser": "",
             "description": "Output json file",
@@ -44,6 +44,6 @@
                 ".json"
             ],
             "output_format": "{:s}"
-		}
+        }
     ]
 }

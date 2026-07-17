@@ -220,7 +220,7 @@ class ProjectDefinitionDialog(QDialog):
         # if okPressed and text != '':
         #     self.descriptionLineEdit.setText(text)
         title = "Enter description"
-        dialog = SimpleTextEditDialog(title, current_text, False)
+        dialog = SimpleTextEditDialog(title, current_text, False, self)
         ret = dialog.exec()
         # if ret == QDialog.Accepted:
         #     text = dialog.get_text()

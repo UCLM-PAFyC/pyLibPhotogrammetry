@@ -11,7 +11,7 @@
     "src": {
         "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
         "method": "set_digitizing_parameters",
-		"store": false
+        "store": false
     },
     "description": "A process to set digitizing parameters",
     "doc": "",
@@ -46,7 +46,7 @@
             "type": "string",
             "output_format": "{:>s}"
         },
-		{
+        {
             "label": "Ignored sensor percentage",
             "argparser": "",
             "description": "Exterior percentage of sensor format ignored",
@@ -60,7 +60,7 @@
             ],
             "output_format": "{:10.2f}"
         },
-		{
+        {
             "label": "Minimum overlap percentage",
             "argparser": "",
             "description": "Minimum overlap percentage for ABM",
@@ -114,7 +114,7 @@
             "type": "boolean",
             "output_format": "{:>10s}"
         },
-		{
+        {
             "label": "Maximum height separation within Dsm",
             "argparser": "",
             "description": "Maximum height separation of points within DSM, in meters",
@@ -128,7 +128,7 @@
             ],
             "output_format": "{:10.2f}"
         },
-		{
+        {
             "label": "Maximum height separation outside Dsm",
             "argparser": "",
             "description": "Maximum height separation of points outside DSM, in meters",
@@ -142,7 +142,7 @@
             ],
             "output_format": "{:10.2f}"
         },
-		{
+        {
             "label": "Images matches accuracy",
             "argparser": "",
             "description": "Images matches accuracy, in pixels",
@@ -156,7 +156,7 @@
             ],
             "output_format": "{:10.2f}"
         },
-		{
+        {
             "label": "Images measurements accuracy",
             "argparser": "",
             "description": "Images measurements accuracy, in pixels",
@@ -170,7 +170,7 @@
             ],
             "output_format": "{:10.2f}"
         },
-		{
+        {
             "label": "Match maximum epipolar row parallax",
             "argparser": "",
             "description": "Match maximum epipolar row parallax, in pixels",
@@ -194,13 +194,13 @@
             "type": "string",
             "domain": [
                 "ALL",
-                "TM_SQDIFF_NORMED",
-				"TM_CCORR_NORMED",
-				"TM_COEFF_NORMED"
+                "TM_CCORR_NORMED",
+                "TM_COEFF_NORMED",
+                "TM_SQDIFF_NORMED"
             ],
             "output_format": "{:s}"
         },
-		{
+        {
             "label": "Match OpenCv threshold percentage",
             "argparser": "",
             "description": "Match OpenCv threshold correlation for valid matching, in percentage. It depends on used method",
@@ -214,7 +214,7 @@
             ],
             "output_format": "{:10.2f}"
         },
-		{
+        {
             "label": "Ram maximum size",
             "argparser": "",
             "description": "Ram maximum size to use, in MBytes",
@@ -228,7 +228,7 @@
             ],
             "output_format": "{:10d}"
         },
-		{
+        {
             "label": "Match window size",
             "argparser": "",
             "description": "Match window size, odd in pixels in MBytes",

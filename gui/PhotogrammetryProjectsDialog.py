@@ -224,7 +224,7 @@ class PhotogrammetryProjectsDialog(QDialog):
         if label == defs_prj_dlg.HEADER_DESCRIPTION_TAG:
             text = self.photogrammetry_projects[id][defs_prj_dlg.FIELD_DESCRIPTION]
             readOnly = False
-            dialog =  SimpleTextEditDialog(title, text, readOnly)
+            dialog =  SimpleTextEditDialog(title, text, readOnly, self)
             ret = dialog.exec()
             text = dialog.get_text()
             if text != self.photogrammetry_projects[id][defs_prj_dlg.FIELD_DESCRIPTION]:
