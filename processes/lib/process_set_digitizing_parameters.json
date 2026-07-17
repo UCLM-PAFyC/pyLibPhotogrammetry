@@ -10,7 +10,7 @@
     },
     "src": {
         "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
-        "method": "set_digitizing_parameters",
+        "method": "process_set_digitizing_parameters",
         "store": false
     },
     "description": "A process to set digitizing parameters",
@@ -23,7 +23,7 @@
             "mandatory": true,
             "output": false,
             "value": {
-                "file_path": "D:/PhotogrammetryToolsProjects/EjemploCandado/metashape/dsm5cm_25830_5782.tif",
+                "file_path": "D:/PhotogrammetryToolsProjects/CandadoCCRS/metashape/dsm_5cm_25830_5782.tif",
                 "layer_index": 1,
                 "scale": 1.0,
                 "offset": 0.0
@@ -80,7 +80,7 @@
             "description": "Save rectified homographies images",
             "mandatory": true,
             "output": false,
-            "value": true,
+            "value": false,
             "type": "boolean",
             "output_format": "{:>10s}"
         },
@@ -90,7 +90,7 @@
             "description": "Rectified homographies images output path",
             "mandatory": true,
             "output": true,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/rectified_homographies_images",
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/rectified_homographies_images",
             "type": "path",
             "output_format": "{:s}"
         },
@@ -100,7 +100,7 @@
             "description": "Report files output path",
             "mandatory": true,
             "output": true,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/digitalizing_reports",
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/digitizing_reports",
             "type": "path",
             "output_format": "{:s}"
         },

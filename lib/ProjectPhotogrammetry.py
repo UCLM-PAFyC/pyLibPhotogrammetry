@@ -71,7 +71,6 @@ class ProjectPhotogrammetry(Project):
         self.at_block_by_label = {}
         self.raster_dem_by_file_path = {}
         self.opencv_tools = None
-        self.digitizing_parameters = None
 
         self.spUnionMinFc = None
         self.spUnionMinSc = None
@@ -89,12 +88,17 @@ class ProjectPhotogrammetry(Project):
         self.homographyMatrixByCamerasId = {}
         self.inverseHomographyMatrixByCamerasId = {}
         self.epipolarFileNameByCamerasId = {}
-        self.process_set_digitizing_parameters = None
+        # self.process_set_digitizing_parameters = None
         # self.edition_start_msec = None
         # self.object_point_by_id_by_chunk_label = {}
         self.object_point_by_id = {}
         self.object_by_fully_qualified_name = {}
         self.point_id = 0 # starting in 1 when add first point
+
+        self.process_digitizing_parameters = None # not method, process
+        self.digitizing_parameters = None
+        self.process_digitizing_report = None
+        self.process_debug_digitizing_report = None
 
     def add_image_files(self,
                         files,
@@ -213,22 +217,24 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Adding object point, invalid option: no height and no use DSM')
             return str_error, point_id
         # digitizing parameters
-        if self.process_set_digitizing_parameters is None:
+        process_digitizing_parameters = self.process_digitizing_parameters
+        if process_digitizing_parameters is None:
             process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
-            process_set_digitizing_parameters = None
+            process_digitizing_parameters = None
             process_provider = None
             for process_provider in self.processes_manager.processes_by_provider:
                 if process_set_digitizing_parameters_name in self.processes_manager.processes_by_provider[process_provider]:
-                    self.process_set_digitizing_parameters = self.processes_manager.processes_by_provider[
+                    process_digitizing_parameters = self.processes_manager.processes_by_provider[
                         process_provider][process_set_digitizing_parameters_name]
                     break
-            if self.process_set_digitizing_parameters is None:
+            if process_digitizing_parameters is None:
                 str_error = ('Adding object point, not found process: {}'
                              .format(process_set_digitizing_parameters_name))
                 return str_error, point_id
-        str_error, end_date_time, log = self.set_digitizing_parameters(self.process_set_digitizing_parameters)
+        str_error, end_date_time, log = self.process_set_digitizing_parameters(process_digitizing_parameters)
         if str_error:
             return str_error, point_id
+        # self.process_set_digitizing_parameters = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
         str_error, point_id = at_block.add_object_point_from_object_space(point_coordinates, crs_id, use_dem)
                                                                           # self.digitizing_parameters)
         return str_error, point_id
@@ -1508,22 +1514,23 @@ class ProjectPhotogrammetry(Project):
             end_date_time = datetime.now()
             return str_error, end_date_time, log
         # digitizing parameters
-        if self.process_set_digitizing_parameters is None:
+        process_digitizing_parameters = self.process_digitizing_parameters
+        if process_digitizing_parameters is None:
             process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
-            process_set_digitizing_parameters = None
+            process_digitizing_parameters = None
             process_provider = None
             for process_provider in self.processes_manager.processes_by_provider:
                 if process_set_digitizing_parameters_name in self.processes_manager.processes_by_provider[process_provider]:
-                    self.process_set_digitizing_parameters = self.processes_manager.processes_by_provider[
+                    process_digitizing_parameters = self.processes_manager.processes_by_provider[
                         process_provider][process_set_digitizing_parameters_name]
                     break
-            if self.process_set_digitizing_parameters is None:
-                str_error = ('Not found process: {}'
+            if process_digitizing_parameters is None:
+                str_error = ('Adding object point, not found process: {}'
                              .format(process_set_digitizing_parameters_name))
                 return str_error, end_date_time, log
-        str_error, end_date_time, log = self.set_digitizing_parameters(self.process_set_digitizing_parameters)
+        str_error, end_date_time, log = self.process_set_digitizing_parameters(process_digitizing_parameters)
         if str_error:
-            return str_error, end_date_time, log
+            return str_error, point_id
         # DEM
         raster_dem = None
         if not dem_file_path in self.raster_dem_by_file_path:
@@ -1966,8 +1973,8 @@ class ProjectPhotogrammetry(Project):
                 secondEpipolarEnvelope.append(sImgEpiMinRow)
                 secondEpipolarEnvelope.append(sImgEpiMaxColumn)
                 secondEpipolarEnvelope.append(sImgEpiMaxRow)
-                if first_camera.label == 'DSC05716' and second_camera.label == 'DSC05722':
-                    yo = 1
+                # if first_camera.label == 'DSC05716' and second_camera.label == 'DSC05722':
+                #     yo = 1
                 first_image_geometry = None
                 try:
                     first_image_geometry = ogr.CreateGeometryFromWkt(firstImageWktGeometry)
@@ -2966,12 +2973,12 @@ class ProjectPhotogrammetry(Project):
             return str_error, end_date_time, log
         parameter_output_file = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE]
-        parameter_output_file = str(parameter_input_file)
         if not parameter_output_file:
             str_error = ('Process {} has a empty parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE))
             return str_error, end_date_time, log
+        parameter_output_file_path = str(parameter_output_file)
         # if not os.path.exists(parameter_output_file):
         #     str_error = ('Process {} has a not existing file parameter: {}'.
         #                  format(name,
@@ -2985,6 +2992,8 @@ class ProjectPhotogrammetry(Project):
                          format(defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_STEPS_TAG,
                                 input_file_path))
             return str_error, end_date_time, log
+        if parameter_output_file_path:
+            self.process_debug_digitizing_report = {}
         steps = input_data[defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_STEPS_TAG]
         for i in range(len(steps)):
             step = steps[i]
@@ -4254,20 +4263,31 @@ class ProjectPhotogrammetry(Project):
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
-    def set_digitizing_parameters(self,
-                                  process,
-                                  dialog = None):
+    def process_set_digitizing_parameters(self,
+                                          process,
+                                          dialog=None):
         str_error = ''
         end_date_time = None
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        parameters = parameters_manager.parameters
+        str_error = self.set_digitizing_parameters(parameters)
+        if not str_error:
+            self.process_digitizing_parameters = process
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
+    def set_digitizing_parameters(self,
+                                  parameters):
+        str_error = ''
+        name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
         # parameter dem
-        if not defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM in parameters_manager.parameters:
+        if not defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM in parameters:
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
-            return str_error, end_date_time, log
-        parameter_dem_file_path = parameters_manager.parameters[
+            return str_error
+        parameter_dem_file_path = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
         parameter_dem_file_as_dict = json.loads(str(parameter_dem_file_path))
         dem_file_path = parameter_dem_file_as_dict[defs_pars.TAG_FILE_PATH]
@@ -4279,30 +4299,30 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Process: {} has a empty parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
-            return str_error, end_date_time, log
+            return str_error
         if not os.path.exists(dem_file_path):
             str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
-            return str_error, end_date_time, log
+            return str_error
         # parameter dem crs
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS))
-            return str_error, end_date_time, log
-        parameter_dem_crs_id = parameters_manager.parameters[
+            return str_error
+        parameter_dem_crs_id = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS]
         dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
         # parameter Ignored sensor percentage
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE]
         str_value = str(parameter_value)
         ignored_sensor_percentage = None
@@ -4313,15 +4333,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Minimum overlap percentage
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE]
         str_value = str(parameter_value)
         minimum_overlap_percentage = None
@@ -4332,15 +4352,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Save rectified homographies images
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES))
-            return str_error, end_date_time, log
-        parameter_save_recitified_images = parameters_manager.parameters[
+            return str_error
+        parameter_save_recitified_images = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES]
         str_save_rectified_images = str(parameter_save_recitified_images)
         save_rectified_homographies_images = True
@@ -4348,18 +4368,18 @@ class ProjectPhotogrammetry(Project):
             save_rectified_homographies_images = False
         # parameter Rectified homographies images output path
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
-            return str_error, end_date_time, log
-        parameter_output_path = parameters_manager.parameters[
+            return str_error
+        parameter_output_path = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH]
         rectified_homographies_images_output_path = str(parameter_output_path)
         if not rectified_homographies_images_output_path:
             str_error = ('Process {} has a empty parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
-            return str_error, end_date_time, log
+            return str_error
         rectified_homographies_images_output_path = os.path.normpath(rectified_homographies_images_output_path)
         if not os.path.exists(rectified_homographies_images_output_path):
             str_error = ('Process {} parameter: {}'.
@@ -4367,21 +4387,21 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
             str_error += ('\nnot exists path: {}'.
                          format(rectified_homographies_images_output_path))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Report files output path
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
-            return str_error, end_date_time, log
-        parameter_output_path = parameters_manager.parameters[
+            return str_error
+        parameter_output_path = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH]
         report_files_output_path = str(parameter_output_path)
         if not report_files_output_path:
             str_error = ('Process {} has a empty parameter: {}'.
                          format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
-            return str_error, end_date_time, log
+            return str_error
         report_files_output_path = os.path.normpath(report_files_output_path)
         if not os.path.exists(report_files_output_path):
             str_error = ('Process {} parameter: {}'.
@@ -4389,15 +4409,15 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
             str_error += ('\nnot exists path: {}'.
                          format(report_files_output_path))
-            return str_error, end_date_time, log
+            return str_error
         # parameter process only enabled images
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES))
-            return str_error, end_date_time, log
-        parameter_enabled_images = parameters_manager.parameters[
+            return str_error
+        parameter_enabled_images = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
         str_enabled = str(parameter_enabled_images)
         only_enabled_images = True
@@ -4405,12 +4425,12 @@ class ProjectPhotogrammetry(Project):
             only_enabled_images = False
         # parameter Maximum height separation within Dsm
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM]
         str_value = str(parameter_value)
         maximum_height_separation_within_dsm = None
@@ -4421,15 +4441,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Maximum height separation outside Dsm
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM]
         str_value = str(parameter_value)
         maximum_height_separation_outside_dsm = None
@@ -4440,15 +4460,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Images matches accuracy
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY]
         str_value = str(parameter_value)
         images_matches_accuracy = None
@@ -4459,15 +4479,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Images measurements accuracy
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY]
         str_value = str(parameter_value)
         images_measurements_accuracy = None
@@ -4478,15 +4498,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Match maximum epipolar row parallax
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX]
         str_value = str(parameter_value)
         match_maximum_epipolar_row_parallax = None
@@ -4497,15 +4517,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Match OpenCv method
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD))
-            return str_error, end_date_time, log
-        parameter_match_opencv_method = parameters_manager.parameters[
+            return str_error
+        parameter_match_opencv_method = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD]
         match_opencv_method = str(parameter_match_opencv_method)
         if (match_opencv_method.casefold() !=
@@ -4521,15 +4541,15 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD))
             str_error += ('\noption: {} not implemented'.
                          format(match_opencv_method))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Match OpenCv threshold percentage
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE]
         str_value = str(parameter_value)
         match_pencv_threshold_percentage = None
@@ -4540,15 +4560,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Ram maximum size
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE]
         str_value = str(parameter_value)
         ram_maximum_size = None
@@ -4559,15 +4579,15 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
         # parameter Match window size
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE
-                in parameters_manager.parameters):
+                in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE))
-            return str_error, end_date_time, log
-        parameter_value = parameters_manager.parameters[
+            return str_error
+        parameter_value = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE]
         str_value = str(parameter_value)
         match_window_size = None
@@ -4578,7 +4598,7 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE,
                                 str_value))
-            return str_error, end_date_time, log
+            return str_error
 
         # dem_file_path
         # dem_crs_id
@@ -4633,8 +4653,8 @@ class ProjectPhotogrammetry(Project):
             = ram_maximum_size
         self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE] \
             = match_window_size
-        end_date_time = datetime.now()
-        return str_error, end_date_time, log
+        # end_date_time = datetime.now()
+        return str_error
 
     def process_undistort_images(self,
                                  process,

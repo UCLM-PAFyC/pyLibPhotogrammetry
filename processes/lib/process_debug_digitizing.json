@@ -23,7 +23,7 @@
             "description": "Input json file",
             "mandatory": true,
             "output": false,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/debug_digitalizing/example_20260714.json",
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/debug_digitizing/example_20260714.json",
             "type": "file",
             "file_mode": "read",
             "domain": [
@@ -35,9 +35,9 @@
             "label": "Output file",
             "argparser": "",
             "description": "Output json file",
-            "mandatory": true,
+            "mandatory": false,
             "output": false,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/debug_digitalizing/example_20260714_output.json",
+            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/debug_digitizing/example_20260714_output.json",
             "type": "file",
             "file_mode": "write",
             "domain": [
