@@ -99,6 +99,8 @@ class ProjectPhotogrammetry(Project):
         self.digitizing_parameters = None
         self.process_digitizing_report = None
         self.digitizing_report_file_path = None
+        self.digitizing_in_process = False
+        self.debugging_digitizing_in_process = False
 
     def add_image_files(self,
                         files,
@@ -2979,17 +2981,20 @@ class ProjectPhotogrammetry(Project):
                                 input_file_path))
             return str_error, end_date_time, log
         steps = input_data[defs_processes.DIGITIZING_REPORT_STEPS]
+        # self.debugging_digitizing_in_process = True # de momento
         for i in range(len(steps)):
             step = steps[i]
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS in step:
                 str_error = ("Not exists {} attribute in step position: {} in file:\n{}".
                        format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS, str(i+1), input_file_path))
                 str_error += ("\nfor proccess: {}".format(name))
+                self.debugging_digitizing_in_process = False
                 return str_error, end_date_time, log
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD in step:
                 str_error = ("Not exists {} attribute in step position: {} in file:\n{}".
                        format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD, str(i+1), input_file_path))
                 str_error += ("\nfor proccess: {}".format(name))
+                self.debugging_digitizing_in_process = False
                 return str_error, end_date_time, log
             object_fully_qualified_name = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS]
             object_method_name = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD]
@@ -2998,11 +3003,13 @@ class ProjectPhotogrammetry(Project):
             if not object_fully_qualified_name in self.object_by_fully_qualified_name:
                 str_error = ("Not exists registered object: {}".format(object_fully_qualified_name))
                 str_error += ("\nfor proccess: {}".format(name))
+                self.debugging_digitizing_in_process = False
                 return str_error, end_date_time, log
             object = self.object_by_fully_qualified_name[object_fully_qualified_name]
             if object is None:
                 str_error = ("None object: {}".format(object_fully_qualified_name))
                 str_error += ("\nfor proccess: {}".format(process_name))
+                self.debugging_digitizing_in_process = False
                 return str_error, end_date_time, log
             method = None
             try:
@@ -3010,16 +3017,19 @@ class ProjectPhotogrammetry(Project):
             except AttributeError as e:
                 str_error = ("For proccess: {}".format(process_name))
                 str_error += ("\nError: {}".format(str(e)))
+                self.debugging_digitizing_in_process = False
                 return str_error, end_date_time, log
             if method is None:
                 str_error = ("No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
                 str_error += ("\nfor proccess: {}".format(process_name))
+                self.debugging_digitizing_in_process = False
                 return str_error, end_date_time, log
             method_definition_arguments_names = method.__code__.co_varnames[:method.__code__.co_argcount]
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS in step:
                 str_error = ("Not exists {} attribute in step position: {} in file:\n{}".
                        format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS, str(i+1), input_file_path))
                 str_error += ("\nfor proccess: {}".format(process_name))
+                self.debugging_digitizing_in_process = False
                 return str_error, end_date_time, log
             arguments = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS]
             arguments_as_dict = {}
@@ -3029,6 +3039,7 @@ class ProjectPhotogrammetry(Project):
                            format(object_method_name, processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME,
                                   str(j + 1), str(i+1), input_file_path))
                     str_error += ("\nfor proccess: {}".format(process_name))
+                    self.debugging_digitizing_in_process = False
                     return str_error, end_date_time, log
                 argument_name = arguments[j][processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME]
                 if not argument_name in method_definition_arguments_names:
@@ -3036,12 +3047,14 @@ class ProjectPhotogrammetry(Project):
                            format(object_method_name, argument_name,
                                   str(i + 1), input_file_path))
                     str_error += ("\nfor proccess: {}".format(process_name))
+                    self.debugging_digitizing_in_process = False
                     return str_error, end_date_time, log
                 if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE in arguments[j]:
                     str_error = ("In method: {} not exists {} in attribute position: {} in step position: {} in file:\n{}".
                            format(object_method_name, processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE,
                                   str(j + 1), str(i+1), input_file_path))
                     str_error += ("\nfor proccess: {}".format(process_name))
+                    self.debugging_digitizing_in_process = False
                     return str_error, end_date_time, log
                 argument_value = arguments[j][processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE]
                 arguments_as_dict[argument_name] = argument_value
@@ -3055,6 +3068,7 @@ class ProjectPhotogrammetry(Project):
                 str_error = ("Executing method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
                 str_error += ("\nfor proccess: {}".format(process_name))
                 str_error += ("\nerror: {}".format(str_error_in_method))
+                self.debugging_digitizing_in_process = False
                 return str_error, end_date_time, log
             yo = 1
             # # str_error = object.run_library_process(process, self)
@@ -3063,6 +3077,7 @@ class ProjectPhotogrammetry(Project):
             #     Tools.error_msg(str_error)
             #     return
 
+        # self.debugging_digitizing_in_process = False # de momento
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
@@ -4255,8 +4270,9 @@ class ProjectPhotogrammetry(Project):
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
         parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
-        parameters = parameters_manager.parameters
-        str_error = self.set_digitizing_parameters(parameters)
+        # parameters = parameters_manager.parameters
+        parameters_as_list_of_dictionaries = parameters_manager.parameters_as_list_of_dict
+        str_error = self.set_digitizing_parameters(parameters_as_list_of_dictionaries)
         if not str_error:
             self.process_digitizing_parameters = process
         end_date_time = datetime.now()
@@ -4266,6 +4282,15 @@ class ProjectPhotogrammetry(Project):
                                   parameters):
         str_error = ''
         name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
+        parameters_as_list_of_dictionaries = parameters
+        parameters_manager = ParametersManager()
+        str_aux_error = parameters_manager.initialize(parameters)
+        if str_aux_error:
+            str_error = ('Process: {} error parsing parameters: {}'.
+                         format(name, str_aux_error))
+            return str_error
+        parameters = parameters_manager.parameters
+        # if isinstance(parameters, list):
         # parameter dem
         if not defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM in parameters:
             str_error = ('Process: {} does not have parameter: {}'.
@@ -4654,21 +4679,63 @@ class ProjectPhotogrammetry(Project):
         self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE] \
             = match_window_size
         # end_date_time = datetime.now()
-        if self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]:
-            if self.digitizing_report_file_path is None:
-                self.digitizing_report_file_path = self.digitizing_parameters[
-                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH]
-                self.digitizing_report_file_path += "/" + defs_processes.DIGITIZING_REPORT_FILE_PATH_PREFIX
-                str_date_time = QDateTime.currentDateTime().toString(
-                    defs_processes.DIGITIZING_REPORT_DATE_TIME_STRING_FORMAT)
-                self.digitizing_report_file_path += str_date_time + ".json"
-                self.digitizing_report_file_path = os.path.normpath(self.digitizing_report_file_path)
-                digitizing_report = {}
-                digitizing_report[defs_processes.DIGITIZING_REPORT_PROJECT_FILE_PATH] = self.file_path
-                with open(self.digitizing_report_file_path, 'w') as fp:
-                    json.dump(digitizing_report, fp, indent=4)
-                # json.dumps(digitizing_report, indent=4)
-            # add parameters
+        if not self.debugging_digitizing_in_process:
+            if self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]:
+                if self.digitizing_report_file_path is None:
+                    self.digitizing_report_file_path = self.digitizing_parameters[
+                        defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH]
+                    self.digitizing_report_file_path += "/" + defs_processes.DIGITIZING_REPORT_FILE_PATH_PREFIX
+                    str_date_time = QDateTime.currentDateTime().toString(
+                        defs_processes.DIGITIZING_REPORT_DATE_TIME_STRING_FORMAT)
+                    self.digitizing_report_file_path += str_date_time + ".json"
+                    self.digitizing_report_file_path = os.path.normpath(self.digitizing_report_file_path)
+                    digitizing_report = {}
+                    digitizing_report[defs_processes.DIGITIZING_REPORT_PROJECT_FILE_PATH] = self.file_path
+                    digitizing_report[defs_processes.DIGITIZING_REPORT_STEPS] = []
+                    with open(self.digitizing_report_file_path, 'w') as fp:
+                        json.dump(digitizing_report, fp, indent=4)
+                    # json.dumps(digitizing_report, indent=4)
+                # add steep set digitizing parameters
+                object_fully_qualified_name = type(self).__module__
+                object_fully_qualified_name_lower = object_fully_qualified_name.lower()
+                self.update_objects_fully_qualified_names()
+                object = self.object_by_fully_qualified_name[object_fully_qualified_name_lower]
+                if object is None:
+                    str_error = ("None object: {}".format(object_fully_qualified_name))
+                    str_error += ("\nfor proccess: {}".format(name))
+                    self.debugging_digitizing_in_process = False
+                    return str_error
+                object_method_name = self.set_digitizing_parameters.__name__
+                method = None
+                try:
+                    method = getattr(object, object_method_name)
+                except AttributeError as e:
+                    str_error = ("For proccess: {}".format(name))
+                    str_error += ("\nError: {}".format(str(e)))
+                    self.debugging_digitizing_in_process = False
+                    return str_error
+                if method is None:
+                    str_error = (
+                        "No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
+                    str_error += ("\nfor proccess: {}".format(name))
+                    self.debugging_digitizing_in_process = False
+                    return str_error
+                step = {}
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS] = object_fully_qualified_name
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD] = object_method_name
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS] = []
+                argument_parameters = {}
+                method_definition_arguments_names = method.__code__.co_varnames[:method.__code__.co_argcount]
+                argument_parameters[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME] \
+                    = method_definition_arguments_names[1] # first is self
+                argument_parameters[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE] \
+                    = parameters_as_list_of_dictionaries
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS].append(argument_parameters)
+                with open(self.digitizing_report_file_path, "r+") as file:
+                    data = json.load(file)
+                    data[defs_processes.DIGITIZING_REPORT_STEPS].append(step)
+                    file.seek(0)
+                    json.dump(data, file, indent=4)
         return str_error
 
     def process_undistort_images(self,

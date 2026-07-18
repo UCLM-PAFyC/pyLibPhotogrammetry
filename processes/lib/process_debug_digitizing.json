@@ -23,7 +23,7 @@
             "description": "Input json file",
             "mandatory": true,
             "output": false,
-            "value": "D:/PhotogrammetryToolsProjects/EjemploCandado/debug_digitizing/example_20260714.json",
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/digitizing_reports/digitizing_report_20260714_120405.json",
             "type": "file",
             "file_mode": "read",
             "domain": [
