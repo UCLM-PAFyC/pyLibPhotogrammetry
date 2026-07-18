@@ -98,7 +98,7 @@ class ProjectPhotogrammetry(Project):
         self.process_digitizing_parameters = None # not method, process
         self.digitizing_parameters = None
         self.process_digitizing_report = None
-        self.process_debug_digitizing_report = None
+        self.digitizing_report_file_path = None
 
     def add_image_files(self,
                         files,
@@ -2964,37 +2964,21 @@ class ProjectPhotogrammetry(Project):
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_INPUT_FILE))
             return str_error, end_date_time, log
-        # output json file
-        if not (defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE
-                in parameters_manager.parameters):
-            str_error = ('Process: {} does not have parameter: {}'.
-                         format(name,
-                                defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE))
-            return str_error, end_date_time, log
-        parameter_output_file = parameters_manager.parameters[
-            defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE]
-        if not parameter_output_file:
-            str_error = ('Process {} has a empty parameter: {}'.
-                         format(name,
-                                defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE))
-            return str_error, end_date_time, log
-        parameter_output_file_path = str(parameter_output_file)
-        # if not os.path.exists(parameter_output_file):
-        #     str_error = ('Process {} has a not existing file parameter: {}'.
-        #                  format(name,
-        #                         defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_PARAMETER_OUTPUT_FILE))
-        #     return str_error, end_date_time, log
         self.update_objects_fully_qualified_names()
         with open(input_file_path, "r") as file:
             input_data = json.load(file)
-        if not defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_STEPS_TAG in input_data:
+        if not defs_processes.DIGITIZING_REPORT_PROJECT_FILE_PATH in input_data:
             str_error = ('Not exists {} in file:\n'.
-                         format(defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_STEPS_TAG,
+                         format(defs_processes.DIGITIZING_REPORT_PROJECT_FILE_PATH,
                                 input_file_path))
             return str_error, end_date_time, log
-        if parameter_output_file_path:
-            self.process_debug_digitizing_report = {}
-        steps = input_data[defs_processes.PROCESS_FUNCTION_DEBUG_DIGITIZING_STEPS_TAG]
+        project_file_path = input_data[defs_processes.DIGITIZING_REPORT_PROJECT_FILE_PATH]
+        if not defs_processes.DIGITIZING_REPORT_STEPS in input_data:
+            str_error = ('Not exists {} in file:\n'.
+                         format(defs_processes.DIGITIZING_REPORT_STEPS,
+                                input_file_path))
+            return str_error, end_date_time, log
+        steps = input_data[defs_processes.DIGITIZING_REPORT_STEPS]
         for i in range(len(steps)):
             step = steps[i]
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS in step:
@@ -4388,6 +4372,19 @@ class ProjectPhotogrammetry(Project):
             str_error += ('\nnot exists path: {}'.
                          format(rectified_homographies_images_output_path))
             return str_error
+        # parameter Save report
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT
+                in parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT))
+            return str_error
+        parameter_save_report = parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]
+        str_save_report = str(parameter_save_report)
+        save_report = True
+        if str_save_report.casefold() == 'false':
+            save_report = False
         # parameter Report files output path
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH
                 in parameters):
@@ -4398,18 +4395,19 @@ class ProjectPhotogrammetry(Project):
         parameter_output_path = parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH]
         report_files_output_path = str(parameter_output_path)
-        if not report_files_output_path:
-            str_error = ('Process {} has a empty parameter: {}'.
-                         format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
-            return str_error
-        report_files_output_path = os.path.normpath(report_files_output_path)
-        if not os.path.exists(report_files_output_path):
-            str_error = ('Process {} parameter: {}'.
-                         format(name,
-                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
-            str_error += ('\nnot exists path: {}'.
-                         format(report_files_output_path))
-            return str_error
+        if save_report:
+            if not report_files_output_path:
+                str_error = ('Process {} has a empty parameter: {}'.
+                             format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
+                return str_error
+            report_files_output_path = os.path.normpath(report_files_output_path)
+            if not os.path.exists(report_files_output_path):
+                str_error = ('Process {} parameter: {}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH))
+                str_error += ('\nnot exists path: {}'.
+                             format(report_files_output_path))
+                return str_error
         # parameter process only enabled images
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES
                 in parameters):
@@ -4631,6 +4629,8 @@ class ProjectPhotogrammetry(Project):
             = save_rectified_homographies_images
         self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH] \
             = rectified_homographies_images_output_path
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT] \
+            = save_report
         self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH] \
             = report_files_output_path
         self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES] \
@@ -4654,6 +4654,21 @@ class ProjectPhotogrammetry(Project):
         self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE] \
             = match_window_size
         # end_date_time = datetime.now()
+        if self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]:
+            if self.digitizing_report_file_path is None:
+                self.digitizing_report_file_path = self.digitizing_parameters[
+                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH]
+                self.digitizing_report_file_path += "/" + defs_processes.DIGITIZING_REPORT_FILE_PATH_PREFIX
+                str_date_time = QDateTime.currentDateTime().toString(
+                    defs_processes.DIGITIZING_REPORT_DATE_TIME_STRING_FORMAT)
+                self.digitizing_report_file_path += str_date_time + ".json"
+                self.digitizing_report_file_path = os.path.normpath(self.digitizing_report_file_path)
+                digitizing_report = {}
+                digitizing_report[defs_processes.DIGITIZING_REPORT_PROJECT_FILE_PATH] = self.file_path
+                with open(self.digitizing_report_file_path, 'w') as fp:
+                    json.dump(digitizing_report, fp, indent=4)
+                # json.dumps(digitizing_report, indent=4)
+            # add parameters
         return str_error
 
     def process_undistort_images(self,

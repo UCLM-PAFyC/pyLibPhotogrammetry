@@ -105,6 +105,16 @@
             "output_format": "{:s}"
         },
         {
+            "label": "Save report",
+            "argparser": "",
+            "description": "Save report",
+            "mandatory": true,
+            "output": false,
+            "value": true,
+            "type": "boolean",
+            "output_format": "{:>10s}"
+        },
+        {
             "label": "Process only enabled images",
             "argparser": "",
             "description": "Process only enabled images",
