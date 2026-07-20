@@ -197,6 +197,7 @@ class ProjectPhotogrammetry(Project):
                                            crs_id,
                                            use_dem):
         str_error = ''
+        saved_args = {**locals()}
         point_id = None
         if not self.is_metashape_model:
             str_error = ('Algorithm add object point is only valid for projects of type metashape')
@@ -209,7 +210,7 @@ class ProjectPhotogrammetry(Project):
             return str_error, point_id
         if len(self.at_block_by_label) > 1:
             str_error = ('Algorithm add object point is only valid for one AT block')
-            return str_error, end_date_time, log
+            return str_error, point_id
         at_block_label = list(self.at_block_by_label.keys())[0]
         at_block = self.at_block_by_label[at_block_label]
         exists_height = False
@@ -219,8 +220,7 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Adding object point, invalid option: no height and no use DSM')
             return str_error, point_id
         # digitizing parameters
-        process_digitizing_parameters = self.process_digitizing_parameters
-        if process_digitizing_parameters is None:
+        if self.digitizing_parameters is None:
             process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
             process_digitizing_parameters = None
             process_provider = None
@@ -233,78 +233,56 @@ class ProjectPhotogrammetry(Project):
                 str_error = ('Adding object point, not found process: {}'
                              .format(process_set_digitizing_parameters_name))
                 return str_error, point_id
-        str_error, end_date_time, log = self.process_set_digitizing_parameters(process_digitizing_parameters)
-        if str_error:
-            return str_error, point_id
+            str_error, end_date_time, log = self.process_set_digitizing_parameters(process_digitizing_parameters)
+            if str_error:
+                return str_error, point_id
         # self.process_set_digitizing_parameters = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
         str_error, point_id = at_block.add_object_point_from_object_space(point_coordinates, crs_id, use_dem)
                                                                           # self.digitizing_parameters)
+        if not self.debugging_digitizing_in_process:
+            if self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]:
+                # add steep
+                object_fully_qualified_name = type(self).__module__
+                object_fully_qualified_name_lower = object_fully_qualified_name.lower()
+                self.update_objects_fully_qualified_names()
+                object = self.object_by_fully_qualified_name[object_fully_qualified_name_lower]
+                if object is None:
+                    str_error = ("Adding object point, none object: {}".format(object_fully_qualified_name))
+                    return str_error
+                # object_method_name = self.add_object_point_from_object_space.__name__
+                # object_method_name_caller = sys._getframe(1).f_code.co_name
+                object_method_name = sys._getframe(0).f_code.co_name
+                method = None
+                try:
+                    method = getattr(object, object_method_name)
+                except AttributeError as e:
+                    str_error = ("Adding object point")
+                    str_error += ("\nError: {}".format(str(e)))
+                    return str_error
+                if method is None:
+                    str_error = (
+                        "No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
+                    str_error = ("Adding object point")
+                    return str_error
+                step = {}
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS] = object_fully_qualified_name
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD] = object_method_name
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS] = []
+                method_definition_arguments_names = method.__code__.co_varnames[:method.__code__.co_argcount]
+                for narg in range(1, len(method_definition_arguments_names)):
+                    argument = {}
+                    argument_name = method_definition_arguments_names[narg]
+                    argument_value = saved_args[argument_name]
+                    argument[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME] = argument_name # first is self
+                    argument[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE] = argument_value
+                    step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS].append(argument)
+                step[processes_defs_processes.PROCESS_SRC_REPORT] = ""
+                with open(self.digitizing_report_file_path, "r+") as file:
+                    data = json.load(file)
+                    data[defs_processes.DIGITIZING_REPORT_STEPS].append(step)
+                    file.seek(0)
+                    json.dump(data, file, indent=4)
         return str_error, point_id
-        # raster_dem = None
-        # raster_dem_crs_id = None
-        # fc = point_coordinates[0]
-        # sc = point_coordinates[1]
-        # tc = None
-        # if use_dem:
-        #     dem_file_path = self.digitizing_parameters[
-        #         defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
-        #     if not dem_file_path in self.raster_dem_by_file_path:
-        #         raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
-        #         dem_crs_id = self.digitizing_parameters[
-        #             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS]
-        #         if dem_crs_id: # can be empty for use internal of the DEM
-        #             str_error = raster_dem.set_crs_id_by_user(dem_crs_id)
-        #             if str_error:
-        #                 str_error = ('Adding object point, setting CRS to raster DEM from file: {}\nError:\n{}'
-        #                              .format(dem_file_path, str_error))
-        #                 return str_error, point_id
-        #         str_error = raster_dem.set_from_file(dem_file_path)
-        #         if str_error:
-        #             str_error = ('Adding object point, setting raster DEM from file: {}\nError:\n{}'
-        #                          .format(dem_file_path, str_error))
-        #             return str_error, point_id
-        #         raster_dem.set_check_domain(False) # get solution for out points
-        #         self.raster_dem_by_file_path[dem_file_path] = raster_dem
-        #     else:
-        #         raster_dem = self.raster_dem_by_file_path[dem_file_path]
-        #     str_error = raster_dem.load()
-        #     if str_error:
-        #         str_error = ('Adding object point, loading in memory raster DEM from file: {}\nError:\n{}'
-        #                      .format(dem_file_path, str_error))
-        #         return str_error, point_id
-        #     raster_dem_crs_id = raster_dem.get_crs_id()
-        #     if raster_dem_crs_id.casefold() != at_block.crs_id.casefold():
-        #         pto = [[fc, sc, 0.]]
-        #         str_error = self.crs_tools.operation(at_block.crs_id, raster_dem_crs_id,
-        #                                              pto)
-        #         if str_error:
-        #             str_error += ('Adding object point from object space')
-        #             str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}]\nerror:\n{}'.
-        #                           format(at_block.crs_id, raster_dem_crs_id,
-        #                                  fc, sc, str_error))
-        #             return str_error, point_id
-        #         fc = pto[0][0]
-        #         sc = pto[0][1]
-        #     str_error, elevation, point_out_edge, is_no_data = raster_dem.get_elevation(fc, sc)
-        #     if str_error:
-        #         str_error += ('Adding object point from object space')
-        #         str_error += ('\nGetting height from dem:\n{}\nfor point: ({:3.f}, {:.3f})\nerror:\n:{}'.
-        #                       format(dem_file_path, fc, sc, str_error))
-        #         return str_error, point_id
-        # else:
-        #     tc = point_coordinates[2]
-        # point_id = int(QDateTime.currentDateTime().toMSecsSinceEpoch() - self.edition_start_msec)
-        # if point_id in self.object_point_by_id:
-        #     str_error = ('Adding object point, exists previous object point: {}'
-        #                  .format(str(point_id)))
-        #     return str_error, None
-        # object_point = ObjectPointMetashape(at_block)
-        # self.object_point_by_id[point_id] = object_point
-
-
-
-
-        # return str_error, point_id
 
     def add_undistort_image_files(self,
                                   files,
@@ -1516,7 +1494,7 @@ class ProjectPhotogrammetry(Project):
             end_date_time = datetime.now()
             return str_error, end_date_time, log
         # digitizing parameters
-        process_digitizing_parameters = self.process_digitizing_parameters
+        process_digitizing_parameters = self.digitizing_parameters
         if process_digitizing_parameters is None:
             process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
             process_digitizing_parameters = None
@@ -4703,22 +4681,21 @@ class ProjectPhotogrammetry(Project):
                 if object is None:
                     str_error = ("None object: {}".format(object_fully_qualified_name))
                     str_error += ("\nfor proccess: {}".format(name))
-                    self.debugging_digitizing_in_process = False
                     return str_error
-                object_method_name = self.set_digitizing_parameters.__name__
+                # object_method_name = self.set_digitizing_parameters.__name__
+                object_method_name_caller = sys._getframe(1).f_code.co_name # caller method name
+                object_method_name = sys._getframe(0).f_code.co_name
                 method = None
                 try:
                     method = getattr(object, object_method_name)
                 except AttributeError as e:
                     str_error = ("For proccess: {}".format(name))
                     str_error += ("\nError: {}".format(str(e)))
-                    self.debugging_digitizing_in_process = False
                     return str_error
                 if method is None:
                     str_error = (
                         "No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
                     str_error += ("\nfor proccess: {}".format(name))
-                    self.debugging_digitizing_in_process = False
                     return str_error
                 step = {}
                 step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS] = object_fully_qualified_name
@@ -4731,6 +4708,7 @@ class ProjectPhotogrammetry(Project):
                 argument_parameters[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE] \
                     = parameters_as_list_of_dictionaries
                 step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS].append(argument_parameters)
+                step[processes_defs_processes.PROCESS_SRC_REPORT] = ""
                 with open(self.digitizing_report_file_path, "r+") as file:
                     data = json.load(file)
                     data[defs_processes.DIGITIZING_REPORT_STEPS].append(step)
