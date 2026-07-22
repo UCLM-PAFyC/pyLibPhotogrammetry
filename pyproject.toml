@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pylib-photogrammetry"
+version = "0.1.0"
+description = "..."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "DHL" }
+]
+
+dependencies = [
+    "pylib-opencv",
+    "pylib-crss",
+    "pylib-gdal",
+    "pylib-qttools",
+    "pylib-project",
+]
+
+[project.optional-dependencies]
+numpy = [
+    "numpy",
+    "quaternion",
+    "exiftool",
+]
+osgeo = [
+    "ogr",
+    "gdal",
+#    "osr",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

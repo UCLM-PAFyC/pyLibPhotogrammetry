@@ -1,0 +1,124 @@
+{
+    "name": "Images To Object From Ascii File",
+    "contributions": {
+        "methodology": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ],
+        "software": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ]
+    },
+    "src": {
+        "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
+        "method": "process_images_to_object_from_ascii_file"
+    },
+    "description": "Description:\n\nA process to get object points from its images measurements in ascii file",
+    "doc": "",
+    "parameters": [
+        {
+            "label": "Input file",
+            "argparser": "",
+            "description": "Input ascii file",
+            "mandatory": true,
+            "output": false,
+            "value": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/data/detections_id_image_code_column_row.txt",
+            "type": "file",
+            "file_mode": "read",
+            "domain": [
+                ".txt"
+            ],
+            "output_format": "{:s}"
+        },
+        {
+            "label": "Input file format",
+            "argparser": "",
+            "description": "A valid input ascii file format.\nExamples:\nPointId,ImageId,PointCode,Column,Row",
+            "mandatory": true,
+            "output": false,
+            "value": "PointId,ImageId,PointCode,Column,Row",
+            "type": "string",
+            "output_format": "{:>s}"
+        },
+        {
+            "label": "Number of header lines",
+            "argparser": "",
+            "description": "Number of headers lines in input file to ignore",
+            "mandatory": true,
+            "output": false,
+            "value": 1,
+            "type": "integer",
+            "domain": [
+                0,
+                100
+            ],
+            "output_format": "{:10d}"
+        },
+        {
+            "label": "Process only enabled images",
+            "argparser": "",
+            "description": "Process only enabled images",
+            "mandatory": true,
+            "output": false,
+            "value": true,
+            "type": "boolean",
+            "output_format": "{:>10s}"
+        },
+        {
+            "label": "Image space tolerance",
+            "argparser": "shadows_maximum_reflectance",
+            "description": "Image space tolerance for outliers detection, in pixels",
+            "mandatory": true,
+            "output": false,
+            "value": 10.0,
+            "type": "real",
+            "domain": [
+                0.01,
+                100.0
+            ],
+            "output_format": "{:10.2f}"
+        },
+		{
+            "label": "Results report file",
+            "argparser": "",
+            "description": "Output file path for results report",
+            "mandatory": true,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/output/image_to_object_results.txt",
+            "type": "file",
+            "file_mode": "write",
+            "domain": [
+                ".txt"
+            ],
+            "output_format": "{:s}"
+        },
+		{
+            "label": "Vector layer",
+            "argparser": "vector_layer",
+            "description": "Input and output vector layer for detections",
+            "mandatory": true,
+            "output": true,
+            "value": {
+                "file_path": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/output/InspectiaDetections.geojson",
+                "layer_name": "test4_detections",
+                "layer_geometry_type": [
+                    "polygon",
+                    "multipolygon",
+                    "polygon_m",
+                    "multipolygon_m",
+                    "polygon_zm",
+                    "multipolygon_zm",
+                    "polygon_25d",
+                    "multipolygon_25d"
+                ]
+            },
+            "type": "vector_layer",
+            "file_mode": "write",
+            "domain": [
+                ".gpkg",
+                ".shp",
+				".geojson"
+            ],
+            "output_format": "{:s}"
+        }
+    ]
+}
