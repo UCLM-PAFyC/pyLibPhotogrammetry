@@ -18,9 +18,9 @@ gdal.PushErrorHandler(err.handler)
 gdal.UseExceptions()  # Exceptions will get raised on anything >= gdal.CE_Failure
 assert err.err_level == gdal.CE_None, 'the error level starts at 0'
 
-from pyLibPhotogrammetry.defs import defs_graphos as defs_gr
-from pyLibPhotogrammetry.core.Sensor import Sensor
-from pyLibPhotogrammetry.core.CalibrationGraphos import CalibrationGraphos
+from ..defs import defs_graphos as defs_gr
+from ..core.Sensor import Sensor
+from ..core.CalibrationGraphos import CalibrationGraphos
 
 SENSOR_INTEGER_NO_VALUE = -9999
 SENSOR_DOUBLE_NO_VALUE = -9999.999

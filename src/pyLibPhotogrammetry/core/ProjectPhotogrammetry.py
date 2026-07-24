@@ -1,8 +1,7 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
-# from numpy.core.multiarray import array_function_from_c_func_and_dispatcher
+
 from qgis.PyQt.QtWidgets import QApplication, QMessageBox, QDialog, QFileDialog, QPushButton, QComboBox
-from qgis.PyQt.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
 
 import os, sys
 import json
@@ -15,26 +14,26 @@ gdal.UseExceptions()
 
 from qgis.PyQt.QtCore import QDir, QFileInfo, QFile, QDate, QDateTime
 
-from pyLibProject.defs import defs_project_definition
-from pyLibProject.core.Project import Project
-from pyLibProcesses.defs import defs_project as processes_defs_project
-from pyLibProcesses.defs import defs_processes as processes_defs_processes
-from pyLibPhotogrammetry.defs import defs_project as defs_project
-from pyLibPhotogrammetry.defs import defs_processes
-from pyLibPhotogrammetry.defs import defs_images as defs_img
-from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
-from pyLibPhotogrammetry.defs import defs_graphos as defs_gr
+from pyLibProject import defs_project_definition
+from pyLibProject import Project
+from pyLibProcesses import defs_processes as processes_defs_processes
 from pyLibParameters import defs_pars
-from pyLibParameters.ParametersManager import ParametersManager
-from pyLibPhotogrammetry.core.ATBlockMetashape import ATBlockMetashape
-from pyLibPhotogrammetry.core.ATBlockGraphos import ATBlockGraphos
-from pyLibPhotogrammetry.core.IExifTool import IExifTool
-from pyLibPhotogrammetry.core.computations import *
+from pyLibParameters import ParametersManager
 from pyLibGDAL import defs_gdal
-from pyLibGDAL.GDALTools import GDALTools
-from pyLibGDAL.RasterDEM import RasterDEM
-from pyLibOpenCV.OpenCVTools import OpenCVTools
-from pyLibOpenCV.IOpenCV import warp_perspective
+from pyLibGDAL import GDALTools
+from pyLibGDAL import RasterDEM
+from pyLibOpenCV import OpenCVTools
+from pyLibOpenCV import warp_perspective
+
+from ..defs import defs_project as defs_project
+from ..defs import defs_processes
+from ..defs import defs_images as defs_img
+from ..defs import defs_metashape_markers as defs_msm
+from ..defs import defs_graphos as defs_gr
+from ..core.ATBlockMetashape import ATBlockMetashape
+from ..core.ATBlockGraphos import ATBlockGraphos
+from ..core.IExifTool import IExifTool
+from ..core.computations import *
 
 class ProjectPhotogrammetry(Project):
     def __init__(self, qgis_iface, settings, crs_tools):

@@ -4,12 +4,12 @@
 import os
 import numpy as np
 
-from pyLibPhotogrammetry.defs import defs_graphos as defs_gr
-from pyLibPhotogrammetry.core.ATBlock import ATBlock
-from pyLibPhotogrammetry.core.SensorGraphos import SensorGraphos
-from pyLibPhotogrammetry.core.CameraGraphos import CameraGraphos
-from pyLibPhotogrammetry.core.ObjectPointGraphos import ObjectPointGraphos
-from pyLibPhotogrammetry.core.ImagePoint import ImagePoint
+from ..defs import defs_graphos as defs_gr
+from ..core.ATBlock import ATBlock
+from ..core.SensorGraphos import SensorGraphos
+from ..core.CameraGraphos import CameraGraphos
+from ..core.ObjectPointGraphos import ObjectPointGraphos
+from ..core.ImagePoint import ImagePoint
 
 class ATBlockGraphos(ATBlock):
     def __init__(self,

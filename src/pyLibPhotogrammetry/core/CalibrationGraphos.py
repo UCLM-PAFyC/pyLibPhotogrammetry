@@ -1,8 +1,8 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
-from pyLibPhotogrammetry.defs import defs_graphos as defs_gr
-from pyLibPhotogrammetry.core.Calibration import Calibration
+from ..defs import defs_graphos as defs_gr
+from ..core.Calibration import Calibration
 
 class CalibrationGraphos(Calibration):
     def __init__(self,

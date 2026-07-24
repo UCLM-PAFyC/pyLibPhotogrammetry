@@ -1,7 +1,7 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
-import os, sys
+import os
 import exiftool
 
 from qgis.PyQt.QtWidgets import QApplication

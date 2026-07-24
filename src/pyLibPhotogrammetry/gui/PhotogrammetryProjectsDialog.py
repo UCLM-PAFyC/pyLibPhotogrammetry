@@ -10,16 +10,12 @@ from qgis.PyQt.QtWidgets import (QApplication, QMessageBox, QDialog, QTreeWidget
                              QDialogButtonBox, QVBoxLayout, QTableWidget, QTableWidgetItem, QInputDialog)
 from qgis.PyQt.QtCore import QDir, QFileInfo, QFile, QSize, Qt, QDate
 
-from pyLibPhotogrammetry.defs import defs_projects_dialog as defs_prj_dlg
-from pyLibPhotogrammetry.core.ProjectPhotogrammetry import ProjectPhotogrammetry
-from pyLibCRSs.CompoundProjectedCRSDialog import CompoundProjectedCRSDialog
-from pyLibQtTools import Tools
-from pyLibQtTools.Tools import SimpleTextEditDialog
-from pyLibQtTools.CalendarDialog import CalendarDialog
+from ..defs import defs_projects_dialog as defs_prj_dlg
+from ..core.ProjectPhotogrammetry import ProjectPhotogrammetry
+from pyLibCRSs import CompoundProjectedCRSDialog
+from pyLibQtTools import info_msg, error_msg, SimpleTextEditDialog, CalendarDialog
 
 class PhotogrammetryProjectsDialog(QDialog):
-    """Employee dialog."""
-
     def __init__(self,
                  project,
                  title,
@@ -41,37 +37,37 @@ class PhotogrammetryProjectsDialog(QDialog):
         format = self.formatComboBox.currentText()
         if format == defs_prj_dlg.CONST_NO_COMBO_SELECT:
             str_msg = ("Select format before")
-            Tools.error_msg(str_msg)
+            error_msg(str_msg)
             return
         id = self.idLineEdit.text()
         if not id:
             str_msg = ("Select id before")
-            Tools.error_msg(str_msg)
+            error_msg(str_msg)
             return
         if id in self.photogrammetry_projects:
             str_msg = ("Exists another project with id: {}\nSelect a new id".format(id))
-            Tools.error_msg(str_msg)
+            error_msg(str_msg)
             return
         str_date = self.dateLineEdit.text()
         if not str_date:
             str_msg = ("Select date before")
-            Tools.error_msg(str_msg)
+            error_msg(str_msg)
             return
         file_path = ''
         if format == defs_prj_dlg.FORMAT_PHOTOGRAMMETRY_TOOLS:
             file_path = self.fileLineEdit.text()
             if not file_path:
                 str_msg = ("Select file before")
-                Tools.error_msg(str_msg)
+                error_msg(str_msg)
                 return
             if not os.path.exists(file_path):
                 str_msg = ("Not exists file:\n{}".format(file_path))
-                Tools.error_msg(str_msg)
+                error_msg(str_msg)
                 return
         crs_id = self.crsLineEdit.text()
         if not crs_id:
             str_msg = ("Select CRS before")
-            Tools.error_msg(str_msg)
+            error_msg(str_msg)
             return
         photogrammetry_project = {}
         photogrammetry_project[defs_prj_dlg.FIELD_ID] = id
@@ -340,7 +336,7 @@ class PhotogrammetryProjectsDialog(QDialog):
                 ids_to_remove.append(id_item.text())
         if len(ids_to_remove) < 1:
             str_error = "Select rows to remove"
-            Tools.error_msg(str_error)
+            error_msg(str_error)
             return
         for i in range(len(ids_to_remove)):
             for j in range(self.tableWidget.rowCount()):
@@ -358,10 +354,10 @@ class PhotogrammetryProjectsDialog(QDialog):
         if str_aux_error:
             str_error = ('Error saving project:\n{}'.
                          format(str_aux_error))
-            Tools.error_msg(str_error)
+            error_msg(str_error)
         else:
             str_msg = "Process completed"
-            Tools.info_msg(str_msg)
+            info_msg(str_msg)
         return
 
     def select_crs(self):
@@ -393,11 +389,11 @@ class PhotogrammetryProjectsDialog(QDialog):
         selected_format = self.formatComboBox.currentText()
         if selected_format == defs_prj_dlg.CONST_NO_COMBO_SELECT:
             str_msg = "Select format before"
-            Tools.info_msg(str_msg)
+            info_msg(str_msg)
             return
         if selected_format != defs_prj_dlg.FORMAT_PHOTOGRAMMETRY_TOOLS:
             str_msg = "Option not implemented"
-            Tools.info_msg(str_msg)
+            info_msg(str_msg)
             return
         title = "Select Photogrammetry Project File"
         previous_file_name = self.fileLineEdit.text()
@@ -422,11 +418,11 @@ class PhotogrammetryProjectsDialog(QDialog):
                 str_error = ph_project.load_project(file_name)
                 if str_error:
                     str_error = ('Opening Photogrammetry Project:\n{}\nerror:\n{}'.format(file_name, str_error))
-                    Tools.error_msg(str_error)
+                    error_msg(str_error)
                     return
                 # str_error = self.project.load_processes()
                 # if str_error:
-                #     Tools.error_msg(str_error)
+                #     error_msg(str_error)
                 #     return
                 ph_project_crs_id = ph_project.crs_id
                 self.crsLineEdit.setText(ph_project_crs_id)
@@ -444,7 +440,7 @@ class PhotogrammetryProjectsDialog(QDialog):
             # check exists previous id
             if text in self.project.geometric_design_projects:
                 str_msg = ("Exists another geometric design project with id: {}\nSelect another id".format(text))
-                Tools.info_msg(str_msg)
+                info_msg(str_msg)
                 return
             self.idLineEdit.setText(text)
         return

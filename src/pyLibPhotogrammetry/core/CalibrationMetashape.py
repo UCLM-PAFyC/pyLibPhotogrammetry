@@ -1,8 +1,8 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
-from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
-from pyLibPhotogrammetry.core.Calibration import Calibration
+from ..defs import defs_metashape_markers as defs_msm
+from ..core.Calibration import Calibration
 
 class CalibrationMetashape(Calibration):
     def __init__(self,

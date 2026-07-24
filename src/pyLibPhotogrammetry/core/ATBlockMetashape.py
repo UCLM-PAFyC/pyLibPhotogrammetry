@@ -3,15 +3,15 @@
 
 import numpy as np
 
-from pyLibPhotogrammetry.defs import  defs_project
-from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
-from pyLibPhotogrammetry.defs import defs_processes
-from pyLibGDAL.RasterDEM import RasterDEM
-from pyLibPhotogrammetry.core.ATBlock import ATBlock
-from pyLibPhotogrammetry.core.SensorMetashape import SensorMetashape
-from pyLibPhotogrammetry.core.CameraMetashape import CameraMetashape
-from pyLibPhotogrammetry.core.ObjectPointMetashape import ObjectPointMetashape
-from pyLibPhotogrammetry.core.ImagePoint import ImagePoint
+from ..defs import  defs_project
+from ..defs import defs_metashape_markers as defs_msm
+from ..defs import defs_processes
+from pyLibGDAL import RasterDEM
+from ..core.ATBlock import ATBlock
+from ..core.SensorMetashape import SensorMetashape
+from ..core.CameraMetashape import CameraMetashape
+from ..core.ObjectPointMetashape import ObjectPointMetashape
+from ..core.ImagePoint import ImagePoint
 
 class ATBlockMetashape(ATBlock):
     def __init__(self,

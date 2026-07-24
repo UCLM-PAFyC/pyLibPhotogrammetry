@@ -1,7 +1,7 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
-from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
+from ..defs import defs_metashape_markers as defs_msm
 
 class Camera:
     def __init__(self,

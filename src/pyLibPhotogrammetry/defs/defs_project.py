@@ -1,7 +1,7 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
-from pyLibProject.defs.defs_project import *
+from pyLibProject.defs.defs_project import * # exception to standard notation
 
 PHOTOGRAMMETRY_PROJECT_STRING_SEPARATOR = "#"
 

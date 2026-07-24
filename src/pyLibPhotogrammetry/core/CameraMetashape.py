@@ -2,11 +2,10 @@
 # David Hernandez Lopez, david.hernandez@uclm.es
 
 import numpy as np
-# from numpy.core.records import ndarray
 
-from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
-from pyLibPhotogrammetry.defs import defs_images
-from pyLibPhotogrammetry.core.Camera import Camera
+from ..defs import defs_metashape_markers as defs_msm
+from ..defs import defs_images
+from ..core.Camera import Camera
 
 class CameraMetashape(Camera):
     def __init__(self,

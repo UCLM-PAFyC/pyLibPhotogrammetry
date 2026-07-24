@@ -21,10 +21,10 @@ gdal.PushErrorHandler(err.handler)
 gdal.UseExceptions()  # Exceptions will get raised on anything >= gdal.CE_Failure
 assert err.err_level == gdal.CE_None, 'the error level starts at 0'
 
-from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
-from pyLibPhotogrammetry.defs import defs_images
-from pyLibPhotogrammetry.core.Sensor import Sensor
-from pyLibPhotogrammetry.core.CalibrationMetashape import CalibrationMetashape
+from ..defs import defs_metashape_markers as defs_msm
+from ..defs import defs_images
+from ..core.Sensor import Sensor
+from ..core.CalibrationMetashape import CalibrationMetashape
 
 SENSOR_INTEGER_NO_VALUE = -9999
 SENSOR_DOUBLE_NO_VALUE = -9999.999

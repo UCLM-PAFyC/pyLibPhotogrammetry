@@ -3,8 +3,8 @@
 
 import numpy as np
 
-from pyLibPhotogrammetry.defs import defs_metashape_markers as defs_msm
-from pyLibPhotogrammetry.core.ObjectPoint import ObjectPoint
+from ..defs import defs_metashape_markers as defs_msm
+from ..core.ObjectPoint import ObjectPoint
 
 class ObjectPointMetashape(ObjectPoint):
     def __init__(self,

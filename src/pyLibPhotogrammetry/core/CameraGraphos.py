@@ -2,9 +2,8 @@
 # David Hernandez Lopez, david.hernandez@uclm.es
 
 import numpy as np
-# from numpy.core.records import ndarray
 
-from pyLibPhotogrammetry.core.Camera import Camera
+from ..core.Camera import Camera
 
 class CameraGraphos(Camera):
     def __init__(self,

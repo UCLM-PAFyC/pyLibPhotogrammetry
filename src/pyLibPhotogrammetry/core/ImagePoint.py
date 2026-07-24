@@ -1,7 +1,7 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
-from pyLibPhotogrammetry.defs import defs_images as defs_img
+from ..defs import defs_images as defs_img
 
 class ImagePoint:
     def __init__(self,

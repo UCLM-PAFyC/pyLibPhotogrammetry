@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from pyLibPhotogrammetry.core.ObjectPoint import ObjectPoint
+from ..core.ObjectPoint import ObjectPoint
 
 class ObjectPointGraphos(ObjectPoint):
     def __init__(self,
