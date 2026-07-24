@@ -11,7 +11,7 @@ from qgis.PyQt.QtWidgets import (QApplication, QMessageBox, QDialog, QTreeWidget
 from qgis.PyQt.QtCore import QDir, QFileInfo, QFile, QSize, Qt, QDate
 
 from pyLibPhotogrammetry.defs import defs_projects_dialog as defs_prj_dlg
-from pyLibPhotogrammetry.core.ProjectPhotogrammetry import ProjectPhotogrammetry as PhProject
+from pyLibPhotogrammetry.core.ProjectPhotogrammetry import ProjectPhotogrammetry
 from pyLibCRSs.CompoundProjectedCRSDialog import CompoundProjectedCRSDialog
 from pyLibQtTools import Tools
 from pyLibQtTools.Tools import SimpleTextEditDialog
@@ -23,10 +23,12 @@ class PhotogrammetryProjectsDialog(QDialog):
     def __init__(self,
                  project,
                  title,
+                 crs_tools,
                  parent=None):
         super().__init__(parent)
         loadUi(os.path.join(os.path.dirname(__file__), 'PhotogrammetryProjectsDialog.ui'), self)
         self.project = project
+        self.crs_tools = crs_tools
         self.last_path = None
         self.title = title
         self.is_saved = False
@@ -414,8 +416,9 @@ class PhotogrammetryProjectsDialog(QDialog):
         if file_name:
             file_name = os.path.normpath(file_name)
             if file_name != previous_file_name:
-                ph_project = PhProject(self.project.qgis_iface,
-                                      self.project.settings)
+                ph_project = ProjectPhotogrammetry(self.project.qgis_iface,
+                                                   self.project.settings,
+                                                   self.crs_tools)
                 str_error = ph_project.load_project(file_name)
                 if str_error:
                     str_error = ('Opening Photogrammetry Project:\n{}\nerror:\n{}'.format(file_name, str_error))
