@@ -9,7 +9,7 @@
         ]
     },
     "src": {
-        "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
+        "class": "pyLibPhotogrammetry.core.ProjectPhotogrammetry",
         "method": "process_set_digitizing_parameters",
         "store": false
     },

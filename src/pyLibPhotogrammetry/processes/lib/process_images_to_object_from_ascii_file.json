@@ -9,7 +9,7 @@
         ]
     },
     "src": {
-        "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
+        "class": "pyLibPhotogrammetry.core.ProjectPhotogrammetry",
         "method": "process_images_to_object_from_ascii_file"
     },
     "description": "Description:\n\nA process to get object points from its images measurements in ascii file",

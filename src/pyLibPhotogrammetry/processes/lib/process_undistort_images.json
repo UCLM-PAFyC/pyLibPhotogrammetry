@@ -9,7 +9,7 @@
         ]
     },
     "src": {
-        "class": "pyLibPhotogrammetry.lib.ProjectPhotogrammetry",
+        "class": "pyLibPhotogrammetry.core.ProjectPhotogrammetry",
         "method": "process_undistort_images"
     },
     "description": "Description:\n\nA process to undistort images",
