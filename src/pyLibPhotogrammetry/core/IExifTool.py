@@ -17,9 +17,12 @@ class IExifTool(object):
     @classmethod
     def initialize(self):
         str_error = ''
-        parent_path = os.path.dirname(current_path)
-        exiftool_file_path = parent_path + "\\external_tools\\exiftool-13.36_64\\exiftool.exe"
-        exiftool_file_path = os.path.normpath(exiftool_file_path)
+        exiftool_file_path = shutil.which("exiftool")
+
+        if not (exiftool_file_path and os.path.exists(exiftool_file_path)):
+            parent_path = Path(current_path).parent
+            exiftool_file_path = parent_path / "external_tools" / "exiftool-13.36_64" / "exiftool"
+
         if not os.path.exists(exiftool_file_path):
             str_error = ("The exiftool path:\n'{}'\ndoes not exist".format(exiftool_file_path))
             return str_error
