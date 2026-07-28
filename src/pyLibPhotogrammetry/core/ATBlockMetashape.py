@@ -345,9 +345,9 @@ class ATBlockMetashape(ATBlock):
             var_pos = np.matmul(V.transpose(), V) / degrees_of_freedom
             var_pos = var_pos.item(0)
         chunk_coor = np.zeros(4)
-        chunk_coor[0] = x[0]
-        chunk_coor[1] = x[1]
-        chunk_coor[2] = x[2]
+        chunk_coor[0] = x[0][0]
+        chunk_coor[1] = x[1][0]
+        chunk_coor[2] = x[2][0]
         chunk_coor[3] = 1
         ecef_coordinates = np.dot(self.transform, chunk_coor)
         pc_crs = [[ecef_coordinates[0], ecef_coordinates[1], ecef_coordinates[2]]]

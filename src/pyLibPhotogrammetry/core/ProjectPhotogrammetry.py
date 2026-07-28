@@ -1484,7 +1484,7 @@ class ProjectPhotogrammetry(Project):
                 return str_error, end_date_time, log
         str_error, end_date_time, log = self.process_set_digitizing_parameters(process_digitizing_parameters)
         if str_error:
-            return str_error, point_id
+            return str_error, end_date_time, log
         # DEM
         raster_dem = None
         if not dem_file_path in self.raster_dem_by_file_path:
