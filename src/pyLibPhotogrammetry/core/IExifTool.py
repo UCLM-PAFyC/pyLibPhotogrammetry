@@ -3,6 +3,8 @@
 
 import os
 import exiftool
+import shutil
+from pathlib import Path
 
 from qgis.PyQt.QtWidgets import QApplication
 
