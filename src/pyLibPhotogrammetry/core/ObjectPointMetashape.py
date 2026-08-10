@@ -135,7 +135,7 @@ class ObjectPointMetashape(ObjectPoint):
         self.position_chunk = np.matmul(self.at_block.transform_inv, position_ecef)
         return str_error
 
-    def set_position(self, point_coordinates, crs_id):
+    def set_position(self, point_coordinates, crs_id, write_report = False):
         str_error = ''
         if not isinstance(point_coordinates, list):
             str_error = ('Coordinates must be a list with two or three values')
@@ -143,6 +143,10 @@ class ObjectPointMetashape(ObjectPoint):
         if len(point_coordinates) < 2:
             str_error = ('Coordinates must be a list with two or three values')
             return str_error
+        if write_report and self.report_file is None:
+            str_error = self.open_report_file(self.id)
+            if str_error:
+                return str_error
         if crs_id.casefold() != self.at_block.crs_id.casefold():
             position = [[point_coordinates[0], point_coordinates[1], point_coordinates[2]]]
             str_error = self.crs_tools.operation(crs_id, self.crs_id, position)
@@ -176,6 +180,23 @@ class ObjectPointMetashape(ObjectPoint):
             self.position_geo3d = np.array(self.position.tolist())
         position_ecef = np.append(self.position_ecef, 1.0)
         self.position_chunk = np.matmul(self.at_block.transform_inv, position_ecef)
+        if self.report_file is not None:
+            content = "\n- ObjectPoint.set_position"
+            content += "\n  - CRS id ...............: " + self.at_block.crs_id
+            content += ("\n  - Coordinates ..........: ({:.4f}, {:.4f}, {:.4f})".format(self.position[0],
+                                                                                        self.position[1],
+                                                                                        self.position[2]))
+            content += ("\n  - GEO3D Coordinates ....: ({:.9f}, {:.9f}, {:.4f})".format(self.position_geo3d[0],
+                                                                                        self.position_geo3d[1],
+                                                                                        self.position_geo3d[2]))
+            content += ("\n  - ECEF Coordinates .....: ({:.4f}, {:.4f}, {:.4f})".format(self.position_ecef[0],
+                                                                                        self.position_ecef[1],
+                                                                                        self.position_ecef[2]))
+            content += ("\n  - Chunk Coordinates.....: ({:.4f}, {:.4f}, {:.4f})".format(self.position_chunk[0],
+                                                                                        self.position_chunk[1],
+                                                                                        self.position_chunk[2]))
+            self.report_file.write(content)
+            self.report_file.flush()
         return str_error
 
 

@@ -5,6 +5,10 @@ import os
 current_path = os.path.dirname(os.path.realpath(__file__))
 
 from pyLibGDAL import defs_gdal
+from datetime import datetime
+
+# dt_now = datetime.now()
+dt_start_digitizing = datetime(2026, 1, 1, 0, 0)
 
 processes_path = os.path.normpath(os.path.dirname(current_path) + '/processes')
 GDAL_PATH = "gdal"

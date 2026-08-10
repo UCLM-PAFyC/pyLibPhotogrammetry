@@ -1,5 +1,6 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
+from math import floor
 
 from qgis.PyQt.QtWidgets import QApplication, QMessageBox, QDialog, QFileDialog, QPushButton, QComboBox
 
@@ -67,8 +68,16 @@ class ProjectPhotogrammetry(Project):
         # self.object_point_by_id_by_chunk_label = {}
         self.object_point_by_id = {}
         self.object_by_fully_qualified_name = {}
-        self.point_id = 0 # starting in 1 when add first point
-
+        current_dt = datetime.now()
+        current_timestamp = current_dt.timestamp()
+        dt_start_digitizing = defs_processes.dt_start_digitizing
+        start_timestamp = dt_start_digitizing.timestamp()
+        timestamp_increment = (current_timestamp - start_timestamp) / (24.*60.*60.)
+        number_of_days = floor(timestamp_increment)
+        number_of_seconds_in_day = (current_dt.time().hour * 60 * 60 + current_dt.time().minute * 60
+                                    + current_dt.time().second)
+        start_point_id = int(str(number_of_days) + str(number_of_seconds_in_day))
+        self.point_id = start_point_id # starting in 1 when add first point
         self.process_digitizing_parameters = None # not method, process
         self.digitizing_parameters = None
         self.process_digitizing_report = None

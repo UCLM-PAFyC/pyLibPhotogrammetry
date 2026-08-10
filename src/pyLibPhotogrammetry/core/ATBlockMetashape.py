@@ -98,7 +98,19 @@ class ATBlockMetashape(ATBlock):
                          .format(str(point_id)))
             return str_error, None
         object_point = ObjectPointMetashape(self)
+        str_error = object_point.set_id(point_id,
+                            self.project.digitizing_parameters[
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]
+                            )
+        if str_error:
+            str_error = ('Adding object point, error:\n{}'
+                         .format(str_error))
+            return str_error, None
         str_error = object_point.set_position([fc, sc, tc], crs_id)
+        if str_error:
+            str_error = ('Adding object point, error:\n{}'
+                         .format(str_error))
+            return str_error, None
         self.project.object_point_by_id[point_id] = object_point
 
         return str_error, point_id

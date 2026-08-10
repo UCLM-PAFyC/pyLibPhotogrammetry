@@ -3,6 +3,8 @@
 
 import numpy as np
 
+from ..defs import defs_processes
+
 class ObjectPoint:
     def __init__(self,
                  at_block):
@@ -15,6 +17,41 @@ class ObjectPoint:
         self.position = None # self.at_block.crs_id
         self.position_ecef = None
         self.position_geo3d = None
+        self.report_file_name = None
+        self.report_file = None
+        self.report_text = None
+
+    def open_report_file(self, id):
+        str_error = ''
+        report_file_path = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_REPORT_FILES_OUTPUT_PATH]
+        report_file_path += "/ObjectPoint_" + str(id) + ".txt"
+        try:
+            self.report_file = open(report_file_path, "w")
+        except Exception as e:
+            str_error = ('Opening report file:\nError:\n'.format(report_file_path, e))
+            self.report_file = None
+            return str_error
+        self.report_file_name = report_file_path
+        self.report_text = None
+        return str_error
+
+    def set_id(self, id, write_report = False):
+        str_error = ''
+        if write_report and self.report_file is None:
+            str_error = self.open_report_file(id)
+            if str_error:
+                return str_error
+        if self.report_file is not None:
+            content = "\n- ObjectPoint.set_id"
+            content += "\n  - Id ...................: " + str(id)
+            self.report_file.write(content)
+            self.report_file.flush()
+        self.id = id
+        return str_error
+
+    def set_label(self, label):
+        self.label = label
 
     def set_from_at_position_in_at_block_crs(self,
                                              point_coordinates):
