@@ -4714,6 +4714,8 @@ class ProjectPhotogrammetry(Project):
         if not isinstance(point_id, int):
             str_error = ('Point id argument must be a integer value')
             return str_error
+        if point_id == -1: # debugging
+            point_id = self.object_point_id_last
         if not isinstance(ignore_hided_points_in_images, bool):
             str_error = ('Ignore hided points in images argument must be a boolean value')
             return str_error
@@ -4747,9 +4749,6 @@ class ProjectPhotogrammetry(Project):
             if str_error:
                 return str_error
         # self.process_set_digitizing_parameters = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
-        # debugging
-        point_id = self.object_point_id_last
-        # debugging
         if not point_id in self.object_point_by_id:
             str_error = ('Not found point: {}'
                          .format(str(point_id)))

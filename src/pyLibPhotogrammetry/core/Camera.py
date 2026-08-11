@@ -2,6 +2,7 @@
 # David Hernandez Lopez, david.hernandez@uclm.es
 
 from ..defs import defs_metashape_markers as defs_msm
+import math
 
 class Camera:
     def __init__(self,
@@ -54,7 +55,7 @@ class Camera:
         if self.sensor_id is None:
             str_error = 'sensor_id is None'
             return str_error
-        if not self.sensor_id in self.at_block.sensors_by_id:
+        if not self.sensor_id in self.at_block.sensor_by_id:
             str_error = ('Not exists sensor_id: {}'.format(self.sensor_id))
             return str_error
         sensor = self.at_block.sensor_by_id[self.sensor_id]

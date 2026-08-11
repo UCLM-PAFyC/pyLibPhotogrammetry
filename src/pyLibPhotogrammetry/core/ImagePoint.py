@@ -24,5 +24,11 @@ class ImagePoint:
     def set_measured_undistorted_values(self, measured_undistorted_values):
         self.undistorted_values[defs_img.IMAGE_POINT_MEASURED] = measured_undistorted_values
 
+    def set_projected_values(self, projected_values):
+        self.values[defs_img.IMAGE_POINT_PROJECTED] = projected_values
+
+    def set_projected_undistorted_values(self, projected_undistorted_values):
+        self.undistorted_values[defs_img.IMAGE_POINT_PROJECTED] = projected_undistorted_values
+
     def set_pinned(self, pinned):
         self.pinned = pinned

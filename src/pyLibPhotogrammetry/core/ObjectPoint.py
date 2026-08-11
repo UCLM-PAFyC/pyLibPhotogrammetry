@@ -4,6 +4,7 @@
 import numpy as np
 
 from ..defs import defs_processes
+from .ImagePoint import ImagePoint
 
 class ObjectPoint:
     def __init__(self,
@@ -19,7 +20,23 @@ class ObjectPoint:
         self.position_geo3d = None
         self.report_file_name = None
         self.report_file = None
-        self.report_text = None
+        self.report_text = ""
+        self.image_point_by_image_id = {}
+
+    def add_image_projected_value(self,
+                                  camera,
+                                  projected_values,
+                                  projected_undistorted_values):
+        camera_id = camera.id
+        image_point = None
+        if camera_id not in self.image_point_by_image_id:
+            image_point = self.image_point_by_image_id[camera_id]
+        else:
+            image_point = ImagePoint(camera, self)
+            self.image_point_by_image_id[camera_id] = image_point
+        image_point.set_projected_values(projected_values)
+        image_point.set_projected_undistorted_values(projected_undistorted_values)
+        return
 
     def get_report(self):
         return self.report_text
@@ -36,7 +53,7 @@ class ObjectPoint:
             self.report_file = None
             return str_error
         self.report_file_name = report_file_path
-        self.report_text = None
+        # self.report_text = None
         return str_error
 
     def set_id(self, id, write_report = False):
@@ -47,7 +64,7 @@ class ObjectPoint:
                 return str_error
         content = "\n- ObjectPoint.set_id"
         content += "\n  - Id ...................: " + str(id)
-        self.report_text = content
+        self.report_text += content
         if self.report_file is not None:
             self.report_file.write(content)
             self.report_file.flush()

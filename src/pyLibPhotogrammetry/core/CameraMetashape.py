@@ -261,6 +261,46 @@ class CameraMetashape(Camera):
         dz = chunk_coordinates[2]
         return str_error, dx, dy, dz
 
+    def from_sensor_to_dem(self,
+                           column, row,
+                           raster_dem):
+        str_error = ''
+        pto_dem = None
+        use_distortion = True
+        use_ppa = True
+        pc_at_block_crs = self.get_pc() # self.at_block.crs_id
+        str_error, dx, dy, dz = self.from_sensor_to_chunk_coordinates_direction(column, row,
+                                                                                use_distortion, use_ppa)
+        if str_error:
+            str_error = ('Getting direction for pixel: [{}, {}]\nerror:\n{}'.
+                         format(str(column), str(row), str_error))
+            return str_error, pto_dem
+        pto_direction_chunk = np.zeros(4)
+        pto_direction_chunk[0] = dx
+        pto_direction_chunk[1] = dy
+        pto_direction_chunk[2] = dz
+        pto_direction_chunk[3] = 1
+        pto_direction_ecef = np.matmul(self.at_block.transform, pto_direction_chunk)
+        pto_direction_at_block_crs_aux = [[pto_direction_ecef[0], pto_direction_ecef[1], pto_direction_ecef[2]]]
+        str_error = self.crs_tools.operation(self.at_block.crs_ecef_id, self.at_block.crs_id,
+                                             pto_direction_at_block_crs_aux)
+        if str_error:
+            str_error = ('From AT Block ECEF CRS: {} to CRS: {}\nfor pixel: [{}, {}]\nerror:\n{}'.
+                         format(self.at_block.crs_ecef_id, self.at_block.crs_id,
+                                str(column), str(row), str_error))
+            return str_error, pto_dem
+        pto_direction_at_block_crs = [pto_direction_at_block_crs_aux[0][0],
+                                      pto_direction_at_block_crs_aux[0][1],
+                                      pto_direction_at_block_crs_aux[0][2]]
+        str_error, pto_dem = raster_dem.get_vector_dem_intersection(self.at_block.crs_id,
+                                                                    pc_at_block_crs,
+                                                                    pto_direction_at_block_crs)
+        if str_error:
+            str_error = ('Getting DEM intersection for pixel: [{}, {}]\nerror:\n{}'.
+                         format(str(column), str(row), str_error))
+            return str_error, pto_dem
+        return str_error, pto_dem
+
     def get_pc_chunk(self):
         if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
             master_camera = self.at_block.camera_by_id[self.master_id]

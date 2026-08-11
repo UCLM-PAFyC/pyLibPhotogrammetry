@@ -195,7 +195,7 @@ class ObjectPointMetashape(ObjectPoint):
         content += ("\n  - Chunk Coordinates.....: ({:.4f}, {:.4f}, {:.4f})".format(self.position_chunk[0],
                                                                                     self.position_chunk[1],
                                                                                     self.position_chunk[2]))
-        self.report_text = content
+        self.report_text += content
         if self.report_file is not None:
             self.report_file.write(content)
             self.report_file.flush()
