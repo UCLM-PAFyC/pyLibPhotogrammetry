@@ -67,6 +67,7 @@ class ProjectPhotogrammetry(Project):
         # self.edition_start_msec = None
         # self.object_point_by_id_by_chunk_label = {}
         self.object_point_by_id = {}
+        self.object_point_id_last = None # for debugging
         self.object_by_fully_qualified_name = {}
         current_dt = datetime.now()
         current_timestamp = current_dt.timestamp()
@@ -183,7 +184,7 @@ class ProjectPhotogrammetry(Project):
         saved_args = {**locals()}
         point_id = None
         if not self.is_metashape_model:
-            str_error = ('Algorithm add object point is only valid for projects of type metashape')
+            str_error = ('Algorithm is only valid for projects of type metashape')
             return str_error, point_id
         if not isinstance(point_coordinates, list):
             str_error = ('Point object space coordinates must be a list with two or three values')
@@ -200,7 +201,7 @@ class ProjectPhotogrammetry(Project):
         if len(point_coordinates) == 3:
             exists_height = True
         if not exists_height and not use_dem:
-            str_error = ('Adding object point, invalid option: no height and no use DSM')
+            str_error = ('Invalid option: no height and no use DSM')
             return str_error, point_id
         # digitizing parameters
         if self.digitizing_parameters is None:
@@ -213,7 +214,7 @@ class ProjectPhotogrammetry(Project):
                         process_provider][process_set_digitizing_parameters_name]
                     break
             if process_digitizing_parameters is None:
-                str_error = ('Adding object point, not found process: {}'
+                str_error = ('Not found process: {}'
                              .format(process_set_digitizing_parameters_name))
                 return str_error, point_id
             str_error, end_date_time, log = self.process_set_digitizing_parameters(process_digitizing_parameters)
@@ -222,6 +223,10 @@ class ProjectPhotogrammetry(Project):
         # self.process_set_digitizing_parameters = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
         str_error, point_id = at_block.add_object_point_from_object_space(point_coordinates, crs_id, use_dem)
                                                                           # self.digitizing_parameters)
+        if str_error:
+            return str_error, point_id
+        report = self.object_point_by_id[point_id].get_report()
+        # self.debugging_digitizing_in_process = False
         if not self.debugging_digitizing_in_process:
             if self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]:
                 # add steep
@@ -230,8 +235,8 @@ class ProjectPhotogrammetry(Project):
                 self.update_objects_fully_qualified_names()
                 object = self.object_by_fully_qualified_name[object_fully_qualified_name_lower]
                 if object is None:
-                    str_error = ("Adding object point, none object: {}".format(object_fully_qualified_name))
-                    return str_error
+                    str_error = ("None object: {}".format(object_fully_qualified_name))
+                    return str_error, point_id
                 # object_method_name = self.add_object_point_from_object_space.__name__
                 # object_method_name_caller = sys._getframe(1).f_code.co_name
                 object_method_name = sys._getframe(0).f_code.co_name
@@ -239,14 +244,12 @@ class ProjectPhotogrammetry(Project):
                 try:
                     method = getattr(object, object_method_name)
                 except AttributeError as e:
-                    str_error = ("Adding object point")
-                    str_error += ("\nError: {}".format(str(e)))
-                    return str_error
+                    str_error = ("\nError: {}".format(str(e)))
+                    return str_error, point_id
                 if method is None:
                     str_error = (
                         "No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
-                    str_error = ("Adding object point")
-                    return str_error
+                    return str_error, point_id
                 step = {}
                 step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS] = object_fully_qualified_name
                 step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD] = object_method_name
@@ -259,7 +262,7 @@ class ProjectPhotogrammetry(Project):
                     argument[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME] = argument_name # first is self
                     argument[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE] = argument_value
                     step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS].append(argument)
-                step[processes_defs_processes.PROCESS_SRC_REPORT] = ""
+                step[processes_defs_processes.PROCESS_SRC_REPORT] = report
                 with open(self.digitizing_report_file_path, "r+") as file:
                     data = json.load(file)
                     data[defs_processes.DIGITIZING_REPORT_STEPS].append(step)
@@ -4692,6 +4695,109 @@ class ProjectPhotogrammetry(Project):
                     = parameters_as_list_of_dictionaries
                 step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS].append(argument_parameters)
                 step[processes_defs_processes.PROCESS_SRC_REPORT] = ""
+                with open(self.digitizing_report_file_path, "r+") as file:
+                    data = json.load(file)
+                    data[defs_processes.DIGITIZING_REPORT_STEPS].append(step)
+                    file.seek(0)
+                    json.dump(data, file, indent=4)
+        return str_error
+
+    def set_object_point_projected_images(self,
+                                          point_id,
+                                          ignore_hided_points_in_images,
+                                          ignored_images):
+        str_error = ''
+        saved_args = {**locals()}
+        if not self.is_metashape_model:
+            str_error = ('Algorithm is only valid for projects of type metashape')
+            return str_error
+        if not isinstance(point_id, int):
+            str_error = ('Point id argument must be a integer value')
+            return str_error
+        if not isinstance(ignore_hided_points_in_images, bool):
+            str_error = ('Ignore hided points in images argument must be a boolean value')
+            return str_error
+        if not isinstance(ignored_images, list):
+            str_error = ('Ignored images argument must be a list of ids of images')
+            return str_error
+        at_block_label = list(self.at_block_by_label.keys())[0]
+        at_block = self.at_block_by_label[at_block_label]
+        for camera_id in ignored_images:
+            if not isinstance(camera_label, str):
+                str_error = ('Ignored images argument must be a list of ids of images')
+                return str_error
+            if not camera_id in at_block.camera_by_id:
+                str_error = ('Ignored images: {} not exists'.format(str(camera_id)))
+                return str_error
+        # digitizing parameters
+        if self.digitizing_parameters is None:
+            process_set_digitizing_parameters_name = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
+            process_digitizing_parameters = None
+            process_provider = None
+            for process_provider in self.processes_manager.processes_by_provider:
+                if process_set_digitizing_parameters_name in self.processes_manager.processes_by_provider[process_provider]:
+                    process_digitizing_parameters = self.processes_manager.processes_by_provider[
+                        process_provider][process_set_digitizing_parameters_name]
+                    break
+            if process_digitizing_parameters is None:
+                str_error = ('Not found process: {}'
+                             .format(process_set_digitizing_parameters_name))
+                return str_error
+            str_error, end_date_time, log = self.process_set_digitizing_parameters(process_digitizing_parameters)
+            if str_error:
+                return str_error
+        # self.process_set_digitizing_parameters = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
+        # debugging
+        point_id = self.object_point_id_last
+        # debugging
+        if not point_id in self.object_point_by_id:
+            str_error = ('Not found point: {}'
+                         .format(str(point_id)))
+            return str_error
+        object_point = self.object_point_by_id[point_id]
+        str_error, point_id = object_point.set_projected_images(ignore_hided_points_in_images,
+                                                                ignored_images)
+                                                                          # self.digitizing_parameters)
+        if str_error:
+            return str_error, point_id
+        report = self.object_point_by_id[point_id].get_report()
+        # self.debugging_digitizing_in_process = False
+        if not self.debugging_digitizing_in_process:
+            if self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]:
+                # add steep
+                object_fully_qualified_name = type(self).__module__
+                object_fully_qualified_name_lower = object_fully_qualified_name.lower()
+                self.update_objects_fully_qualified_names()
+                object = self.object_by_fully_qualified_name[object_fully_qualified_name_lower]
+                if object is None:
+                    str_error = ("None object: {}".format(object_fully_qualified_name))
+                    return str_error
+                # object_method_name = self.add_object_point_from_object_space.__name__
+                # object_method_name_caller = sys._getframe(1).f_code.co_name
+                object_method_name = sys._getframe(0).f_code.co_name
+                method = None
+                try:
+                    method = getattr(object, object_method_name)
+                except AttributeError as e:
+                    str_error = ("\nError: {}".format(str(e)))
+                    return str_error
+                if method is None:
+                    str_error = (
+                        "No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
+                    return str_error
+                step = {}
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS] = object_fully_qualified_name
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD] = object_method_name
+                step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS] = []
+                method_definition_arguments_names = method.__code__.co_varnames[:method.__code__.co_argcount]
+                for narg in range(1, len(method_definition_arguments_names)):
+                    argument = {}
+                    argument_name = method_definition_arguments_names[narg]
+                    argument_value = saved_args[argument_name]
+                    argument[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME] = argument_name # first is self
+                    argument[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE] = argument_value
+                    step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS].append(argument)
+                step[processes_defs_processes.PROCESS_SRC_REPORT] = report
                 with open(self.digitizing_report_file_path, "r+") as file:
                     data = json.load(file)
                     data[defs_processes.DIGITIZING_REPORT_STEPS].append(step)

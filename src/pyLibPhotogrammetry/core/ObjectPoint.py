@@ -21,6 +21,9 @@ class ObjectPoint:
         self.report_file = None
         self.report_text = None
 
+    def get_report(self):
+        return self.report_text
+
     def open_report_file(self, id):
         str_error = ''
         report_file_path = self.at_block.project.digitizing_parameters[
@@ -42,9 +45,10 @@ class ObjectPoint:
             str_error = self.open_report_file(id)
             if str_error:
                 return str_error
+        content = "\n- ObjectPoint.set_id"
+        content += "\n  - Id ...................: " + str(id)
+        self.report_text = content
         if self.report_file is not None:
-            content = "\n- ObjectPoint.set_id"
-            content += "\n  - Id ...................: " + str(id)
             self.report_file.write(content)
             self.report_file.flush()
         self.id = id

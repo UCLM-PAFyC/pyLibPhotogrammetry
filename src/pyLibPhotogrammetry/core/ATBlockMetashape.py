@@ -32,7 +32,6 @@ class ATBlockMetashape(ATBlock):
         self.gcps_crs_geo3d_id = None
         self.cameras_group_by_id = {} # dictionary: id, label, type, cameras
 
-
     def add_object_point_from_object_space(self,
                                            point_coordinates,
                                            crs_id,
@@ -112,9 +111,8 @@ class ATBlockMetashape(ATBlock):
                          .format(str_error))
             return str_error, None
         self.project.object_point_by_id[point_id] = object_point
-
+        self.project.object_point_id_last = point_id
         return str_error, point_id
-
 
     def from_sensors_to_object(self,
                                image_measured_coordinates_by_camera_id,
@@ -402,6 +400,57 @@ class ATBlockMetashape(ATBlock):
                         outliers_camera_ids.remove(camera_id)
         self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
         return str_error, position, std_position, image_position_backward_error_by_camera_id
+
+    def get_projected_images_from_object_point(self,
+                                               object_point,
+                                               ignore_hided_points_in_images,
+                                               ignored_images):
+        str_error = ''
+        if not self.exists_footprints():
+            str_error = ('Images footprints are not loaded')
+            return str_error
+        # if not self.exists_footprints_undistorted():
+        #     str_error = ('Images undistorted footprints are not loaded')
+        #     return str_error
+        only_enabled_images = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
+        if only_enabled_images:
+            str_error = self.update_enabled_images_from_db()
+            if str_error:
+                str_error = ('Updating enabled images from file: {}\nError:\n{}'
+                             .format(self.file_path, str_error))
+                return str_error
+        ogr_point = ogr.Geometry(ogr.wkbPoint)
+        ogr_point.AddPoint(self.position[0], self.position[1])
+        cameras_to_process = []
+        for camera_id in self.camera_by_id:
+            if camera_id in ignored_images:
+                continue
+            camera = self.camera_by_id[camera_id]
+            camera_enabled = camera.get_enabled()  # multisensor ...
+            if camera_enabled:
+                if camera.is_usefull():
+                    cameras_to_process.append(camera)
+        for i in range(len(cameras_to_process)):
+            camera = cameras_to_process[i]
+            camera_id = camera.id
+            camera_footprint_geometry = camera.footprint_geometry
+            if not camera_footprint_geometry.Contains(ogr_point):
+                continue
+            if camera.gsd is None:
+                camera_footprint_area = camera_footprint_geometry.GetArea()
+                str_error = camera.set_gsd_from_footprint_area(camera_footprint_area)
+                if str_error:
+                    str_error = ("Getting GSD for image: {}\nError:\n{}".format(camera.label, str_error))
+                    return str_error
+            distance2dTolerance = 2. * camera.gsd
+            distanceTcTolerance = 3. * camera.gsd
+            str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                = camera.from_chunk_to_sensor(self.position_chunk)
+            if str_error:
+                str_error = ("Getting position in image: {}\nError:\n{}".format(camera.label, str_error))
+                return str_error
+        return str_error
 
     def set_from_xml(self,
                      xml_element):

@@ -31,6 +31,7 @@ class Camera:
         self.footprint_geometry = None
         self.undistorted_footprint_geometry = None
         self.pinhole_camera_model = None # .R, .t, .C., .P, K
+        self.gsd = None
 
     def get_enabled(self):
         if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
@@ -46,5 +47,20 @@ class Camera:
             return pc
         return self.pc
 
+    def set_gsd_from_footprint_area(self, footprint_area):
+        str_error = ''
+        if not self.gsd is None:
+            return str_error
+        if self.sensor_id is None:
+            str_error = 'sensor_id is None'
+            return str_error
+        if not self.sensor_id in self.at_block.sensors_by_id:
+            str_error = ('Not exists sensor_id: {}'.format(self.sensor_id))
+            return str_error
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        columns = sensor.width
+        rows = sensor.height
+        self.gsd = math.sqrt(footprint_area / float(columns * rows))
+        return str_error
 
 

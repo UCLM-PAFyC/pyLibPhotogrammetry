@@ -180,21 +180,40 @@ class ObjectPointMetashape(ObjectPoint):
             self.position_geo3d = np.array(self.position.tolist())
         position_ecef = np.append(self.position_ecef, 1.0)
         self.position_chunk = np.matmul(self.at_block.transform_inv, position_ecef)
+        content = "\n- ObjectPoint.set_position"
+        content += "\n  - Id ...................: " + str(self.id)
+        content += "\n  - CRS id ...............: " + self.at_block.crs_id
+        content += ("\n  - Coordinates ..........: ({:.4f}, {:.4f}, {:.4f})".format(self.position[0],
+                                                                                    self.position[1],
+                                                                                    self.position[2]))
+        content += ("\n  - GEO3D Coordinates ....: ({:.9f}, {:.9f}, {:.4f})".format(self.position_geo3d[0],
+                                                                                    self.position_geo3d[1],
+                                                                                    self.position_geo3d[2]))
+        content += ("\n  - ECEF Coordinates .....: ({:.4f}, {:.4f}, {:.4f})".format(self.position_ecef[0],
+                                                                                    self.position_ecef[1],
+                                                                                    self.position_ecef[2]))
+        content += ("\n  - Chunk Coordinates.....: ({:.4f}, {:.4f}, {:.4f})".format(self.position_chunk[0],
+                                                                                    self.position_chunk[1],
+                                                                                    self.position_chunk[2]))
+        self.report_text = content
         if self.report_file is not None:
-            content = "\n- ObjectPoint.set_position"
-            content += "\n  - CRS id ...............: " + self.at_block.crs_id
-            content += ("\n  - Coordinates ..........: ({:.4f}, {:.4f}, {:.4f})".format(self.position[0],
-                                                                                        self.position[1],
-                                                                                        self.position[2]))
-            content += ("\n  - GEO3D Coordinates ....: ({:.9f}, {:.9f}, {:.4f})".format(self.position_geo3d[0],
-                                                                                        self.position_geo3d[1],
-                                                                                        self.position_geo3d[2]))
-            content += ("\n  - ECEF Coordinates .....: ({:.4f}, {:.4f}, {:.4f})".format(self.position_ecef[0],
-                                                                                        self.position_ecef[1],
-                                                                                        self.position_ecef[2]))
-            content += ("\n  - Chunk Coordinates.....: ({:.4f}, {:.4f}, {:.4f})".format(self.position_chunk[0],
-                                                                                        self.position_chunk[1],
-                                                                                        self.position_chunk[2]))
+            self.report_file.write(content)
+            self.report_file.flush()
+        return str_error
+
+    def set_projected_images(self,
+                             ignore_hided_points_in_images,
+                             ignored_images):
+        str_error = ''
+        content = "\n- ObjectPoint.set_projected_images"
+        content += "\n  - Id ...................: " + str(id)
+        str_error = self.at_block.get_projected_images_from_object_point(self,
+                                                                         ignore_hided_points_in_images, ignored_images)
+        if str_error:
+            return str_error
+        
+        self.report_text = content
+        if self.report_file is not None:
             self.report_file.write(content)
             self.report_file.flush()
         return str_error
