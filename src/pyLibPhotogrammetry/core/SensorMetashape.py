@@ -414,6 +414,22 @@ class SensorMetashape(Sensor):
             Z = rotated_coor[2]
         return str_error, X, Y, Z
 
+    def get_undistorted(self,
+                        column, row):
+        str_error = ''
+        column_nd = None
+        row_nd = None
+        use_distortion = True
+        use_ppa = True
+        str_error, X, Y, Z = self.from_sensor_to_camera_coordinates_direction(column, row, use_distortion, use_ppa)
+        if str_error:
+            return str_error, column_nd, row_nd
+        str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+            = self.from_camera_to_sensor([X, Y, Z])
+        column_nd = position_undistorted_image[0]
+        row_nd = position_undistorted_image[1]
+        return str_error, column_nd, row_nd
+
     def set_from_xml(self,
                      xml_element):
         str_error = ''

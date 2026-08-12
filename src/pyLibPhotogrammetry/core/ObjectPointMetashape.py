@@ -2,9 +2,12 @@
 # David Hernandez Lopez, david.hernandez@uclm.es
 
 import numpy as np
+import math
 
 from ..defs import defs_metashape_markers as defs_msm
 from ..core.ObjectPoint import ObjectPoint
+from ..defs import  defs_project
+from ..defs import defs_processes
 
 class ObjectPointMetashape(ObjectPoint):
     def __init__(self,
@@ -228,12 +231,129 @@ class ObjectPointMetashape(ObjectPoint):
                                     measured_images,
                                     ignored_images):
         str_error = ''
+        if not self.at_block.exists_footprints():
+            str_error = ('Images footprints are not loaded')
+            return str_error, content
         # 1. get parameters
+        only_enabled_images = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
+        ignored_sensor_percentage = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE]
+        raster_dem = None
+        dem_file_path = None
+        if ignore_hided_points_in_images or use_dem:
+            dem_file_path = self.at_block.project.digitizing_parameters[
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
+            if not dem_file_path in self.at_block.project.raster_dem_by_file_path:
+                raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
+                dem_crs_id = self.at_block.project.digitizing_parameters[
+                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS]
+                if dem_crs_id: # can be empty for use internal of the DEM
+                    str_error = raster_dem.set_crs_id_by_user(dem_crs_id)
+                    if str_error:
+                        str_error = ('Setting CRS to raster DEM from file: {}\nError:\n{}'
+                                     .format(dem_file_path, str_error))
+                        return str_error
+                str_error = raster_dem.set_from_file(dem_file_path)
+                if str_error:
+                    str_error = ('Setting raster DEM from file: {}\nError:\n{}'
+                                 .format(dem_file_path, str_error))
+                    return str_error
+                raster_dem.set_check_domain(False) # get solution for out points
+                self.at_block.project.raster_dem_by_file_path[dem_file_path] = raster_dem
+            else:
+                raster_dem = self.at_block.project.raster_dem_by_file_path[dem_file_path]
+            str_error = raster_dem.load()
+            if str_error:
+                str_error = ('Loading in memory raster DEM from file: {}\nError:\n{}'
+                             .format(dem_file_path, str_error))
+                return str_error
+            raster_dem_crs_id = raster_dem.get_crs_id()
+        if only_enabled_images:
+            str_error = self.at_block.project.update_enabled_images_from_db()
+            if str_error:
+                str_error = ('Updating enabled images from file: {}\nError:\n{}'
+                             .format(self.file_path, str_error))
+                return str_error
+        minimum_overlap_percentage = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE]
+        images_meaurements_accuracy = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY]
+        images_matches_accuracy = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY]
+        match_correlation_threhold_percentage = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE]
         # 2. get valid measurements (enabled, no ignored, not near sensor limits)
         #    and project in dem
         #    check exists valid measurement
+        content = "\n- ObjectPoint.update_from_measured_images"
+        image_id_to_process_by_image_label = {}
+        measured_by_image_id = {}
+        undistorted_measured_by_image_id = {}
+        measured_backward_errors_by_image_id = {}
+        projected_dem_by_image_id = {}
+        for image_label in measured_images:
+            column = measured_images[image_label][0]
+            row = measured_images[image_label][1]
+            content += "\n  - Image.................: " + image_label
+            content += ("\n    Coordinates ..........: ({:.3f}, {:.3f})".format(column, row))
+            camera = self.at_block.get_camera_from_image_label(image_label)
+            if camera is None:
+                content += "\n    Not exists image"
+                continue
+            image_id = camera.id
+            if image_id in ignored_images:
+                content += "\n    Ignored image"
+                continue
+            camera_enabled = camera.get_enabled()  # multisensor ...
+            if not camera_enabled:
+                content += "\n    Disabled image"
+                continue
+            sensor = self.at_block.sensor_by_id[camera.sensor_id]
+            columns = sensor.width
+            rows = sensor.height
+            number_of_columns_to_ignore = math.floor(float(columns * ignored_sensor_percentage / 100.))
+            number_of_rows_to_ignore = math.floor(float(rows * ignored_sensor_percentage / 100.))
+            min_column = number_of_columns_to_ignore
+            max_column = columns - number_of_columns_to_ignore
+            min_row = number_of_rows_to_ignore
+            max_row = rows - number_of_rows_to_ignore
+            inside_valid_area = True
+            if column < min_column or column > max_column or row < min_row or row > max_row:
+                content += "\n    Outside valid sensor area"
+                continue
+            str_error, column_nd, row_nd = sensor.get_undistorted(column, row)
+            if str_error:
+                content += ("\n    Error getting undistorted coordinates: {}".format(str_error))
+                continue
+            content += ("\n    Coordinates (Undist) .: ({:.3f}, {:.3f})".format(column_nd, row_nd))
+            if use_dem:
+                str_error, pto_dem = camera.from_sensor_to_dem(column, row, raster_dem)
+                if str_error:
+                    content += ("\n    Error projecting to dem: {}".format(str_error))
+                    continue
+                content += ("\n    Proj. to DEM coor ....: ({:.3f}, {:.3f}, {:.3f})".
+                            format(pto_dem[0], pto_dem[1], pto_dem[2]))
+            image_id_to_process_by_image_label[image_label] = [image_id]
+            measured_by_image_id[image_id] = [column, row,
+                                              images_meaurements_accuracy, images_meaurements_accuracy]
+            undistorted_measured_by_image_id[image_id] = [column_nd, row_nd,
+                                              images_meaurements_accuracy, images_meaurements_accuracy]
+            measured_backward_errors_by_image_id[image_id] = [None, None]
+            projected_dem_by_image_id[image_id] = pto_dem
         # 3. remove existing locations
+        # image_id_to_process_by_image_label = []
+        # measured_by_image_id = {}
+        # undistorted_measured_by_image_id = {}
+        # measured_backward_errors_by_image_id = {}
+        # projected_dem_by_image_id = {}
+
         # 4. add measurement locations
 
+        self.report_text += content
+        self.report_text_last_step = content
+        if self.report_file is not None:
+            self.report_file.write(self.report_text_last_step)
+            self.report_file.flush()
         return str_error
 

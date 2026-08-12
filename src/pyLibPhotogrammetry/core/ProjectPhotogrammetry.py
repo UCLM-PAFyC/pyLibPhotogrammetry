@@ -4728,7 +4728,7 @@ class ProjectPhotogrammetry(Project):
         at_block_label = list(self.at_block_by_label.keys())[0]
         at_block = self.at_block_by_label[at_block_label]
         for camera_id in ignored_images:
-            if not isinstance(camera_label, str):
+            if not isinstance(camera_id, int):
                 str_error = ('Ignored images argument must be a list of ids of images')
                 return str_error
             if not camera_id in at_block.camera_by_id:
@@ -5032,7 +5032,7 @@ class ProjectPhotogrammetry(Project):
         if not isinstance(point_outside_dem, bool):
             str_error = ('Point outside DEM argument must be a boolean value')
             return str_error
-        if not isinstance(measured_images, list):
+        if not isinstance(measured_images, dict):
             str_error = ('Measured images argument must be a dictionary')
             return str_error
         if not isinstance(ignored_images, list):
@@ -5041,7 +5041,7 @@ class ProjectPhotogrammetry(Project):
         at_block_label = list(self.at_block_by_label.keys())[0]
         at_block = self.at_block_by_label[at_block_label]
         for camera_id in ignored_images:
-            if not isinstance(camera_label, str):
+            if not isinstance(camera_id, int):
                 str_error = ('Ignored images argument must be a list of ids of images')
                 return str_error
             if not camera_id in at_block.camera_by_id:
