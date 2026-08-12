@@ -221,4 +221,19 @@ class ObjectPointMetashape(ObjectPoint):
             self.report_file.flush()
         return str_error
 
+    def update_from_measured_images(self,
+                                    ignore_hided_points_in_images,
+                                    use_dem,
+                                    point_outside_dem,
+                                    measured_images,
+                                    ignored_images):
+        str_error = ''
+        # 1. get parameters
+        # 2. get valid measurements (enabled, no ignored, not near sensor limits)
+        #    and project in dem
+        #    check exists valid measurement
+        # 3. remove existing locations
+        # 4. add measurement locations
+
+        return str_error
 
