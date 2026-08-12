@@ -21,6 +21,7 @@ class ObjectPoint:
         self.report_file_name = None
         self.report_file = None
         self.report_text = ""
+        self.report_text_last_step = ""
         self.image_point_by_image_id = {}
 
     def add_image_projected_value(self,
@@ -62,11 +63,12 @@ class ObjectPoint:
             str_error = self.open_report_file(id)
             if str_error:
                 return str_error
-        content = "\n- ObjectPoint.set_id"
+        content = "- ObjectPoint.set_id" # first always
         content += "\n  - Id ...................: " + str(id)
-        self.report_text += content
+        self.report_text = content
+        self.report_text_last_step = content
         if self.report_file is not None:
-            self.report_file.write(content)
+            self.report_file.write(self.report_text_last_step)
             self.report_file.flush()
         self.id = id
         return str_error

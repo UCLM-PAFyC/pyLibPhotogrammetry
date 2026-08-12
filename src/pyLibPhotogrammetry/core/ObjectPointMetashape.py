@@ -196,8 +196,9 @@ class ObjectPointMetashape(ObjectPoint):
                                                                                     self.position_chunk[1],
                                                                                     self.position_chunk[2]))
         self.report_text += content
+        self.report_text_last_step = content
         if self.report_file is not None:
-            self.report_file.write(content)
+            self.report_file.write(self.report_text_last_step)
             self.report_file.flush()
         return str_error
 
@@ -206,15 +207,17 @@ class ObjectPointMetashape(ObjectPoint):
                              ignored_images):
         str_error = ''
         content = "\n- ObjectPoint.set_projected_images"
-        content += "\n  - Id ...................: " + str(id)
-        str_error = self.at_block.get_projected_images_from_object_point(self,
-                                                                         ignore_hided_points_in_images, ignored_images)
+        self.report_text += content
+        self.report_text_last_step = content
+        str_error, content = (
+            self.at_block.set_projected_images_from_object_point(self,
+                                                                 ignore_hided_points_in_images, ignored_images))
         if str_error:
             return str_error
-        
-        self.report_text = content
+        self.report_text += content
+        self.report_text_last_step += content
         if self.report_file is not None:
-            self.report_file.write(content)
+            self.report_file.write(self.report_text_last_step)
             self.report_file.flush()
         return str_error
 

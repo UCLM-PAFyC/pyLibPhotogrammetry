@@ -4702,6 +4702,32 @@ class ProjectPhotogrammetry(Project):
                     json.dump(data, file, indent=4)
         return str_error
 
+    def set_object_point_from_measured_images(self,
+                                              point_id,
+                                              ignore_hided_points_in_images,
+                                              use_dem,
+                                              point_outside_dem,
+                                              measured_images,
+                                              ignored_images):
+        str_error = ''
+        saved_args = {**locals()}
+        if not self.is_metashape_model:
+            str_error = ('Algorithm is only valid for projects of type metashape')
+            return str_error
+        if not isinstance(point_id, int):
+            str_error = ('Point id argument must be a integer value')
+            return str_error
+        if point_id == -1: # debugging
+            point_id = self.object_point_id_last
+        if not isinstance(ignore_hided_points_in_images, bool):
+            str_error = ('Ignore hided points in images argument must be a boolean value')
+            return str_error
+        if not isinstance(ignored_images, list):
+            str_error = ('Ignored images argument must be a list of ids of images')
+            return str_error
+
+        return str_error
+
     def set_object_point_projected_images(self,
                                           point_id,
                                           ignore_hided_points_in_images,
@@ -4754,8 +4780,7 @@ class ProjectPhotogrammetry(Project):
                          .format(str(point_id)))
             return str_error
         object_point = self.object_point_by_id[point_id]
-        str_error, point_id = object_point.set_projected_images(ignore_hided_points_in_images,
-                                                                ignored_images)
+        str_error = object_point.set_projected_images(ignore_hided_points_in_images, ignored_images)
                                                                           # self.digitizing_parameters)
         if str_error:
             return str_error, point_id
