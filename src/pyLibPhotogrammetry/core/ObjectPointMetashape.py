@@ -233,7 +233,15 @@ class ObjectPointMetashape(ObjectPoint):
         str_error = ''
         if not self.at_block.exists_footprints():
             str_error = ('Images footprints are not loaded')
-            return str_error, content
+            return str_error
+        str_error, at_block_crs_is_geographic = self.at_block.project.crs_tools.is_geographic(self.at_block.crs_id)
+        if str_error:
+            str_error = ('For AT Block: {}, getting is geographic CRS: {}\nError:\n{}'
+                         .format(self.at_block.label, self.at_block.crs_id, str_error))
+            return str_error
+        crs2d_precision = 4
+        if at_block_crs_is_geographic:
+            crs2d_precision = 9
         # 1. get parameters
         only_enabled_images = self.at_block.project.digitizing_parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
@@ -286,12 +294,14 @@ class ObjectPointMetashape(ObjectPoint):
         # 2. get valid measurements (enabled, no ignored, not near sensor limits)
         #    and project in dem
         #    check exists valid measurement
+        updated_object_point_position = False
         content = "\n- ObjectPoint.update_from_measured_images"
         image_id_to_process_by_image_label = {}
         measured_by_image_id = {}
         undistorted_measured_by_image_id = {}
         measured_backward_errors_by_image_id = {}
         projected_dem_by_image_id = {}
+        outliers_images_ids = []
         for image_label in measured_images:
             column = measured_images[image_label][0]
             row = measured_images[image_label][1]
@@ -341,14 +351,100 @@ class ObjectPointMetashape(ObjectPoint):
                                               images_meaurements_accuracy, images_meaurements_accuracy]
             measured_backward_errors_by_image_id[image_id] = [None, None]
             projected_dem_by_image_id[image_id] = pto_dem
-        # 3. remove existing locations
+        if len(measured_by_image_id) == 0:
+            content += ("\n- Error: There are no valid measurements")
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('There are no valid measurements')
+            return str_error
+        # 3. Update object position
         # image_id_to_process_by_image_label = []
         # measured_by_image_id = {}
         # undistorted_measured_by_image_id = {}
         # measured_backward_errors_by_image_id = {}
         # projected_dem_by_image_id = {}
+        fc = None
+        sc = None
+        tc = None
+        if len(measured_by_image_id) == 1:
+            if len(projected_dem_by_image_id) == 1:
+                first_key = next(iter(projected_dem_by_image_id))
+                fc = projected_dem_by_image_id[first_key][0]
+                sc = projected_dem_by_image_id[first_key][1]
+                tc = projected_dem_by_image_id[first_key][2]
+                updated_object_point_position = True
+        else:
+            image_space_tolerance = None
+            if len(measured_by_image_id) > 2:
+                image_space_tolerance = images_meaurements_accuracy * 3.
+            compute_backward_camera_coordinates = True
+            use_distortion = True
+            use_ppa = True
+            image_measured_coordinates_by_camera_id = measured_by_image_id
+            str_error, position, std_position, image_position_backward_error_by_camera_id \
+                = self.at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
+                                                       self.at_block.project.crs_id,
+                                                       compute_backward_camera_coordinates,
+                                                       use_distortion, use_ppa,
+                                                       image_space_tolerance)
+            if str_error:
+                content += ("\n- Error: computing position from images measurements:\n{}".format(str_error))
+                self.report_text += content
+                self.report_text_last_step = content
+                if self.report_file is not None:
+                    self.report_file.write(self.report_text_last_step)
+                    self.report_file.flush()
+                str_error = ('Error computing position from images measurements:\n{}'.format(str_error))
+                return str_error
+            outliers_images_ids = self.at_block.sensors_to_object_outliers_camera_ids
+            content += "\n  - Computing object position from images measurements"
+            content += "\n    - Computed coordinates ......: ("
+            if crs2d_precision == 9:
+                content += ("{:.9f}".format(position[0]))
+                content += (", {:.9f}".format(position[1]))
+            else:
+                content += (" {:.4f}".format(position[0]))
+                content += (", {:.4f}".format(position[1]))
+            content += (", {:.4f}".format(position[2]))
+            content += "\n    - Std computed coordinates ..: "
+            if crs2d_precision == 9:
+                content += ("{:.9f}".format(std_position[0]))
+                content += (", {:.9f}".format(std_position[1]))
+            else:
+                content += ("{:.4f}".format(std_position[0]))
+                content += (", {:.4f}".format(std_position[1]))
+            content += (", {:.4f}".format(std_position[2]))
+            content += "\n     ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
+            for camera_id in image_position_backward_error_by_camera_id:
+                measured = image_measured_coordinates_by_camera_id[camera_id]
+                error_computed = image_position_backward_error_by_camera_id[camera_id]
+                error_c = error_computed[0]
+                error_r = error_computed[1]
+                error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
+                camera = self.at_block.camera_by_id[camera_id]
+                content += '\n{:12.2f}'.format(measured[0])
+                content += '{:10.2f}'.format(measured[1])
+                content += '{:10.2f}'.format(measured[0] - error_c)
+                content += '{:10.2f}'.format(measured[1] - error_r)
+                content += '{:8.2f}'.format(error_c)
+                content += '{:8.2f}'.format(error_r)
+                content += '{:8.2f}'.format(error_2d)
+                content += '  {:s}'.format(camera.label)
+                detected_outlier = False
+                if camera_id in outliers_images_ids:
+                    content += ' **** outlier detected'
+                    detected_outlier = True
 
-        # 4. add measurement locations
+            updated_object_point_position = True
+        # 4. remove existing locations
+        if updated_object_point_position:
+            yo = 1
+        # 5. add measurement locations
+
+        # ...
 
         self.report_text += content
         self.report_text_last_step = content
