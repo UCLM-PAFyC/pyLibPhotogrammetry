@@ -172,7 +172,7 @@
             "description": "Images measurements accuracy, in pixels",
             "mandatory": true,
             "output": false,
-            "value": 0.5,
+            "value": 1.0,
             "type": "real",
             "domain": [
                 0.0,

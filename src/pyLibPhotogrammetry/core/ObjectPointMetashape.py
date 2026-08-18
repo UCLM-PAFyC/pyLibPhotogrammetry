@@ -377,66 +377,91 @@ class ObjectPointMetashape(ObjectPoint):
                 tc = projected_dem_by_image_id[first_key][2]
                 updated_object_point_position = True
         else:
-            image_space_tolerance = None
-            if len(measured_by_image_id) > 2:
-                image_space_tolerance = images_meaurements_accuracy * 3.
-            compute_backward_camera_coordinates = True
-            use_distortion = True
-            use_ppa = True
-            image_measured_coordinates_by_camera_id = measured_by_image_id
-            str_error, position, std_position, image_position_backward_error_by_camera_id \
-                = self.at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
-                                                       self.at_block.project.crs_id,
-                                                       compute_backward_camera_coordinates,
-                                                       use_distortion, use_ppa,
-                                                       image_space_tolerance)
-            if str_error:
-                content += ("\n- Error: computing position from images measurements:\n{}".format(str_error))
-                self.report_text += content
-                self.report_text_last_step = content
-                if self.report_file is not None:
-                    self.report_file.write(self.report_text_last_step)
-                    self.report_file.flush()
-                str_error = ('Error computing position from images measurements:\n{}'.format(str_error))
-                return str_error
-            outliers_images_ids = self.at_block.sensors_to_object_outliers_camera_ids
-            content += "\n  - Computing object position from images measurements"
-            content += "\n    - Computed coordinates ......: ("
-            if crs2d_precision == 9:
-                content += ("{:.9f}".format(position[0]))
-                content += (", {:.9f}".format(position[1]))
-            else:
-                content += (" {:.4f}".format(position[0]))
-                content += (", {:.4f}".format(position[1]))
-            content += (", {:.4f}".format(position[2]))
-            content += "\n    - Std computed coordinates ..: "
-            if crs2d_precision == 9:
-                content += ("{:.9f}".format(std_position[0]))
-                content += (", {:.9f}".format(std_position[1]))
-            else:
-                content += ("{:.4f}".format(std_position[0]))
-                content += (", {:.4f}".format(std_position[1]))
-            content += (", {:.4f}".format(std_position[2]))
-            content += "\n     ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
-            for camera_id in image_position_backward_error_by_camera_id:
-                measured = image_measured_coordinates_by_camera_id[camera_id]
-                error_computed = image_position_backward_error_by_camera_id[camera_id]
-                error_c = error_computed[0]
-                error_r = error_computed[1]
-                error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
-                camera = self.at_block.camera_by_id[camera_id]
-                content += '\n{:12.2f}'.format(measured[0])
-                content += '{:10.2f}'.format(measured[1])
-                content += '{:10.2f}'.format(measured[0] - error_c)
-                content += '{:10.2f}'.format(measured[1] - error_r)
-                content += '{:8.2f}'.format(error_c)
-                content += '{:8.2f}'.format(error_r)
-                content += '{:8.2f}'.format(error_2d)
-                content += '  {:s}'.format(camera.label)
-                detected_outlier = False
-                if camera_id in outliers_images_ids:
-                    content += ' **** outlier detected'
-                    detected_outlier = True
+            measured_by_image_id_original = measured_by_image_id
+            iteration = True
+            n_iteration = 0
+            while iteration: # stop if no outliers or only two image points
+                image_space_tolerance = None
+                if len(measured_by_image_id) > 2:
+                    image_space_tolerance = images_meaurements_accuracy * 3.
+                compute_backward_camera_coordinates = True
+                use_distortion = True
+                use_ppa = True
+                image_measured_coordinates_by_camera_id = measured_by_image_id
+                str_error, position, std_position, image_position_backward_error_by_camera_id \
+                    = self.at_block.from_sensors_to_object(image_measured_coordinates_by_camera_id,
+                                                           self.at_block.project.crs_id,
+                                                           compute_backward_camera_coordinates,
+                                                           use_distortion, use_ppa,
+                                                           image_space_tolerance)
+                if str_error:
+                    content += ("\n- Error: computing position from images measurements:\n{}".format(str_error))
+                    self.report_text += content
+                    self.report_text_last_step = content
+                    if self.report_file is not None:
+                        self.report_file.write(self.report_text_last_step)
+                        self.report_file.flush()
+                    str_error = ('Error computing position from images measurements:\n{}'.format(str_error))
+                    return str_error
+                outliers_images_ids_before_lsa = self.at_block.sensors_to_object_outliers_camera_ids_before_lsa
+                outliers_images_ids = self.at_block.sensors_to_object_outliers_camera_ids
+                outliers_images_ids_lsa = []
+                for i in range(len(outliers_images_ids_lsa)):
+                    if not outliers_images_ids_lsa[i] in outliers_images_ids_before_lsa:
+                        outliers_images_ids_lsa.append(outliers_images_ids_lsa[i])
+                content += "\n  - Computing object position from images measurements"
+                if n_iteration == 0:
+                    content += ": First computation"
+                else:
+                    content += ": iteration number " + str(n_iteration)
+                content += "\n    - Computed coordinates ......: ("
+                if crs2d_precision == 9:
+                    content += ("{:.9f}".format(position[0]))
+                    content += (", {:.9f}".format(position[1]))
+                else:
+                    content += (" {:.4f}".format(position[0]))
+                    content += (", {:.4f}".format(position[1]))
+                content += (", {:.4f}".format(position[2]))
+                content += "\n    - Std computed coordinates ..: "
+                if crs2d_precision == 9:
+                    content += ("{:.9f}".format(std_position[0]))
+                    content += (", {:.9f}".format(std_position[1]))
+                else:
+                    content += ("{:.4f}".format(std_position[0]))
+                    content += (", {:.4f}".format(std_position[1]))
+                content += (", {:.4f}".format(std_position[2]))
+                content += "\n     ColumnM      RowM   ColumnC      RowC  ErrorC  ErrorR Error2d  Image"
+                exists_outliers_lsa = False
+                for camera_id in image_position_backward_error_by_camera_id:
+                    measured = image_measured_coordinates_by_camera_id[camera_id]
+                    error_computed = image_position_backward_error_by_camera_id[camera_id]
+                    error_c = error_computed[0]
+                    error_r = error_computed[1]
+                    error_2d = np.sqrt(error_c ** 2 + error_r ** 2)
+                    camera = self.at_block.camera_by_id[camera_id]
+                    content += '\n{:12.2f}'.format(measured[0])
+                    content += '{:10.2f}'.format(measured[1])
+                    content += '{:10.2f}'.format(measured[0] - error_c)
+                    content += '{:10.2f}'.format(measured[1] - error_r)
+                    content += '{:8.2f}'.format(error_c)
+                    content += '{:8.2f}'.format(error_r)
+                    content += '{:8.2f}'.format(error_2d)
+                    content += '  {:s}'.format(camera.label)
+                    detected_outlier_lsa = False
+                    if camera_id in outliers_images_ids:
+                        if not camera_id in outliers_images_ids_lsa:
+                            content += ' **** outlier detected before LSA'
+                        else:
+                            content += ' **** outlier detected in LSA'
+                            detected_outlier_lsa = True
+                            if not exists_outliers_lsa:
+                                exists_outliers_lsa = True
+                            measured_by_image_id.pop(camera_id)
+                if not exists_outliers_lsa:
+                    iteration = False
+                elif len(measured_by_image_id) == 2:
+                    iteration = False
+                n_iteration += 1
 
             updated_object_point_position = True
         # 4. remove existing locations
