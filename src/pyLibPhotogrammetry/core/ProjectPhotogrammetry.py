@@ -4757,7 +4757,7 @@ class ProjectPhotogrammetry(Project):
                          .format(str(point_id)))
             return str_error
         object_point = self.object_point_by_id[point_id]
-        str_error = object_point.set_projected_images(ignore_hided_points_in_images, ignored_images)
+        str_error = object_point.set_projected_images(ignore_hided_points_in_images, ignored_images, True)
                                                                           # self.digitizing_parameters)
         if str_error:
             return str_error, point_id

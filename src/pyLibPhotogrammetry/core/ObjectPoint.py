@@ -24,13 +24,28 @@ class ObjectPoint:
         self.report_text_last_step = ""
         self.image_point_by_image_id = {}
 
+    def add_image_measured_value(self,
+                                  camera,
+                                  measured_values,
+                                  measured_undistorted_values):
+        camera_id = camera.id
+        image_point = None
+        if camera_id in self.image_point_by_image_id:
+            image_point = self.image_point_by_image_id[camera_id]
+        else:
+            image_point = ImagePoint(camera, self)
+            self.image_point_by_image_id[camera_id] = image_point
+        image_point.set_measured_values(measured_values)
+        image_point.set_measured_undistorted_values(measured_undistorted_values)
+        return
+
     def add_image_projected_value(self,
                                   camera,
                                   projected_values,
                                   projected_undistorted_values):
         camera_id = camera.id
         image_point = None
-        if camera_id not in self.image_point_by_image_id:
+        if camera_id in self.image_point_by_image_id:
             image_point = self.image_point_by_image_id[camera_id]
         else:
             image_point = ImagePoint(camera, self)
@@ -56,6 +71,9 @@ class ObjectPoint:
         self.report_file_name = report_file_path
         # self.report_text = None
         return str_error
+
+    def remove_image_points(self):
+        self.image_point_by_image_id.clear()
 
     def set_id(self, id, write_report = False):
         str_error = ''

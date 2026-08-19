@@ -200,14 +200,15 @@ class ObjectPointMetashape(ObjectPoint):
                                                                                     self.position_chunk[2]))
         self.report_text += content
         self.report_text_last_step = content
-        if self.report_file is not None:
+        if write_report and self.report_file is not None:
             self.report_file.write(self.report_text_last_step)
             self.report_file.flush()
         return str_error
 
     def set_projected_images(self,
                              ignore_hided_points_in_images,
-                             ignored_images):
+                             ignored_images,
+                             write_report = False):
         str_error = ''
         content = "\n- ObjectPoint.set_projected_images"
         self.report_text += content
@@ -219,7 +220,7 @@ class ObjectPointMetashape(ObjectPoint):
             return str_error
         self.report_text += content
         self.report_text_last_step += content
-        if self.report_file is not None:
+        if write_report and self.report_file is not None:
             self.report_file.write(self.report_text_last_step)
             self.report_file.flush()
         return str_error
@@ -302,6 +303,7 @@ class ObjectPointMetashape(ObjectPoint):
         measured_backward_errors_by_image_id = {}
         projected_dem_by_image_id = {}
         outliers_images_ids = []
+        camera_by_id = {}
         for image_label in measured_images:
             column = measured_images[image_label][0]
             row = measured_images[image_label][1]
@@ -351,6 +353,7 @@ class ObjectPointMetashape(ObjectPoint):
                                               images_meaurements_accuracy, images_meaurements_accuracy]
             measured_backward_errors_by_image_id[image_id] = [None, None]
             projected_dem_by_image_id[image_id] = pto_dem
+            camera_by_id[image_id] = camera
         if len(measured_by_image_id) == 0:
             content += ("\n- Error: There are no valid measurements")
             self.report_text += content
@@ -380,6 +383,7 @@ class ObjectPointMetashape(ObjectPoint):
             measured_by_image_id_original = measured_by_image_id
             iteration = True
             n_iteration = 0
+            # to do, check with all measurements outliers
             while iteration: # stop if no outliers or only two image points
                 image_space_tolerance = None
                 if len(measured_by_image_id) > 2:
@@ -461,14 +465,46 @@ class ObjectPointMetashape(ObjectPoint):
                     iteration = False
                 elif len(measured_by_image_id) == 2:
                     iteration = False
+                fc = position[0]
+                sc = position[1]
+                tc = position[2]
                 n_iteration += 1
-
             updated_object_point_position = True
+        if not updated_object_point_position:
+            return str_error
         # 4. remove existing locations
-        if updated_object_point_position:
-            yo = 1
-        # 5. add measurement locations
-
+        self.remove_image_points()
+        # 5. Update position
+        str_error = self.set_position([fc, sc, tc], self.at_block.crs_id)
+        content += self.report_text_last_step
+        if str_error:
+            content += ("\n- Error: setting position after computing position from images measurements:\n{}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('Error setting position after computing position from images measurements:\n{}'.format(str_error))
+            return str_error
+        # 6. Set projected images
+        str_error = self.set_projected_images(ignore_hided_points_in_images, ignored_images)
+        content += self.report_text_last_step
+        if str_error:
+            content += ("\n- Error: setting setting projected images after computing position from images measurements:\n{}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('Error setting position after computing position from images measurements:\n{}'.format(str_error))
+            return str_error
+        # 7. Set measured images
+        for camera_id in measured_by_image_id:
+            camera = camera_by_id[camera_id]
+            measured_values = [measured_by_image_id[camera_id][0], measured_by_image_id[camera_id][1]]
+            measured_undistorted_values = [undistorted_measured_by_image_id[camera_id][0],
+                                           undistorted_measured_by_image_id[camera_id][1]]
+            self.add_image_measured_value(camera, measured_values, measured_undistorted_values)
         # ...
 
         self.report_text += content

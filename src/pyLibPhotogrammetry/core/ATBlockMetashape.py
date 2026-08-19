@@ -111,7 +111,7 @@ class ATBlockMetashape(ATBlock):
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))
             return str_error, None
-        str_error = object_point.set_position([fc, sc, tc], crs_id)
+        str_error = object_point.set_position([fc, sc, tc], crs_id, True)
         if str_error:
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))
@@ -1140,6 +1140,9 @@ class ATBlockMetashape(ATBlock):
                     is_visible = False
                     content += "\n    Hyde by DSM"
                     continue
+            projected_values = [column, row]
+            projected_undistorted_values = position_undistorted_image
+            object_point.add_image_projected_value(camera, projected_values, projected_undistorted_values)
         return str_error, content
 
 
