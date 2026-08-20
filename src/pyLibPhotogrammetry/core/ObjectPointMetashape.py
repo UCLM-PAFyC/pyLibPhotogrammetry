@@ -288,10 +288,7 @@ class ObjectPointMetashape(ObjectPoint):
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE]
         images_meaurements_accuracy = self.at_block.project.digitizing_parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY]
-        images_matches_accuracy = self.at_block.project.digitizing_parameters[
-            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY]
-        match_correlation_threhold_percentage = self.at_block.project.digitizing_parameters[
-            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE]
+
         # 2. get valid measurements (enabled, no ignored, not near sensor limits)
         #    and project in dem
         #    check exists valid measurement
@@ -496,7 +493,7 @@ class ObjectPointMetashape(ObjectPoint):
             if self.report_file is not None:
                 self.report_file.write(self.report_text_last_step)
                 self.report_file.flush()
-            str_error = ('Error setting position after computing position from images measurements:\n{}'.format(str_error))
+            str_error = ('Error setting projected images after computing position from images measurements:\n{}'.format(str_error))
             return str_error
         # 7. Set measured images
         for camera_id in measured_by_image_id:
@@ -505,6 +502,47 @@ class ObjectPointMetashape(ObjectPoint):
             measured_undistorted_values = [undistorted_measured_by_image_id[camera_id][0],
                                            undistorted_measured_by_image_id[camera_id][1]]
             self.add_image_measured_value(camera, measured_values, measured_undistorted_values)
+        # 8. Matching needs exists stereopairs homographies
+        if not self.at_block.project.self.exists_stereopairs_homographies:
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            return str_error
+        # 9. set memory data for matching
+        maximum_ram_user = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE]
+
+        images_matches_accuracy = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY]
+        match_correlation_threshold_percentage = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE]
+        match_windows_size = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE]
+
+        # 8. Iterate over projected values for find matched solutions
+        str_error, projected_images = self.get_projected_images()
+        if str_error:
+            content += ("\n- Error: getting projected images after computing position from images measurements:\n{}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('Error getting projected images after computing position from images measurements:\n{}'.format(str_error))
+            return str_error
+        str_error, undistorted_projected_images = self.get_undistorted_projected_images()
+        if str_error:
+            content += ("\n- Error: getting undistorted projected images after computing position from images measurements:\n{}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('Error getting undistorted projected images after computing position from images measurements:\n{}'.format(str_error))
+            return str_error
+
         # ...
 
         self.report_text += content

@@ -63,6 +63,7 @@ class ProjectPhotogrammetry(Project):
         self.homographyMatrixByCamerasId = {}
         self.inverseHomographyMatrixByCamerasId = {}
         self.epipolarFileNameByCamerasId = {}
+        self.exists_stereopairs_homographies = False
         # self.process_set_digitizing_parameters = None
         # self.edition_start_msec = None
         # self.object_point_by_id_by_chunk_label = {}
@@ -1099,6 +1100,7 @@ class ProjectPhotogrammetry(Project):
             return str_error
 
         # To do: one case for each project type. At the moment, only metashape
+        self.exists_stereopairs_homographies = False
 
         # "Metashape Markers XML File"
         layer_name = defs_project.MANAGEMENT_LAYER_NAME
@@ -1192,6 +1194,7 @@ class ProjectPhotogrammetry(Project):
                     str_error = ('Error loading images tiles data from db:\n{}'
                                  .format(str_error))
                     return str_error
+                self.exists_stereopairs_homographies = True
         self.file_path = file_path
         self.opencv_tools = OpenCVTools()
         self.opencv_tools.initialize()
@@ -4567,7 +4570,25 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE,
                                 str_value))
             return str_error
-        # parameter Match window size
+        # SystemInfo * ptrSystemInfo = mPtrPhotogrammetryManager->getSystemInfo();
+        # float
+        # physicalMemory, availablePhysicalMemory;
+        # if (!ptrSystemInfo->getMemory(physicalMemory, availablePhysicalMemory, strAuxError))
+        # {
+        #     strError = QObject::tr("ATBlock::updateObjectPointsMeasurementsParameters");
+        # strError += QObject::tr("\nGetting system memory, error:\n %1").arg(strAuxError);
+        # return (false);
+        # }
+        # if (ramMaximumSizeInMBytes > (availablePhysicalMemory / 2.))
+        # {
+        # strError = QObject::tr("ATBlock::updateObjectPointsMeasurementsParameters");
+        # strError += QObject::tr("\nMemory selected: %1 MBytes is greather than half available: MBytes");
+        # strError += QObject::tr("\nSelect a lower value");
+        # return (false);
+        # }
+        # mRamMaximumSizeInMBytes = ramMaximumSizeInMBytes;
+
+    # parameter Match window size
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE
                 in parameters):
             str_error = ('Process: {} does not have parameter: {}'.

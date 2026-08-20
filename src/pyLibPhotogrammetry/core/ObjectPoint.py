@@ -39,6 +39,24 @@ class ObjectPoint:
         image_point.set_measured_undistorted_values(measured_undistorted_values)
         return
 
+    def get_projected_images(self):
+        str_error = ''
+        projected_images = {}
+        for image_id in self.image_point_by_image_id:
+            image_point = self.image_point_by_image_id[image_id]
+            if defs_img.IMAGE_POINT_PROJECTED in image_point.values:
+                projected_images[image_id] = image_point.values[defs_img.IMAGE_POINT_PROJECTED]
+        return str_error, projected_images
+
+    def get_undistorted_projected_images(self):
+        str_error = ''
+        undistorted_projected_images = {}
+        for image_id in self.image_point_by_image_id:
+            image_point = self.image_point_by_image_id[image_id]
+            if defs_img.IMAGE_POINT_PROJECTED in image_point.undistorted_values:
+                undistorted_projected_images[image_id] = image_point.undistorted_values[defs_img.IMAGE_POINT_PROJECTED]
+        return str_error, undistorted_projected_images
+
     def add_image_projected_value(self,
                                   camera,
                                   projected_values,
