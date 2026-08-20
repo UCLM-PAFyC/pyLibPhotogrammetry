@@ -503,7 +503,7 @@ class ObjectPointMetashape(ObjectPoint):
                                            undistorted_measured_by_image_id[camera_id][1]]
             self.add_image_measured_value(camera, measured_values, measured_undistorted_values)
         # 8. Matching needs exists stereopairs homographies
-        if not self.at_block.project.self.exists_stereopairs_homographies:
+        if not self.at_block.project.exists_stereopairs_homographies:
             self.report_text += content
             self.report_text_last_step = content
             if self.report_file is not None:

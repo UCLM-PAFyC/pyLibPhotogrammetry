@@ -3,6 +3,7 @@
 
 import numpy as np
 
+from ..defs import defs_images as defs_img
 from ..defs import defs_processes
 from .ImagePoint import ImagePoint
 
