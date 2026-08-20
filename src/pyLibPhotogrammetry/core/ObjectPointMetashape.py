@@ -487,7 +487,7 @@ class ObjectPointMetashape(ObjectPoint):
         str_error = self.set_projected_images(ignore_hided_points_in_images, ignored_images)
         content += self.report_text_last_step
         if str_error:
-            content += ("\n- Error: setting setting projected images after computing position from images measurements:\n{}".format(str_error))
+            content += ("\n- Error: setting projected images after computing position from images measurements:\n{}".format(str_error))
             self.report_text += content
             self.report_text_last_step = content
             if self.report_file is not None:
@@ -513,13 +513,23 @@ class ObjectPointMetashape(ObjectPoint):
         # 9. set memory data for matching
         maximum_ram_user = self.at_block.project.digitizing_parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE]
+        str_error = self.at_block.project.set_epipolar_memory_data_for_match_object_point(fc, sc)
+        if str_error:
+            content += ("\n- Error: setting epipolar memory data:\n{}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('Error: setting epipolar memory data:\n{}'.format(str_error))
+            return str_error
 
-        images_matches_accuracy = self.at_block.project.digitizing_parameters[
-            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY]
-        match_correlation_threshold_percentage = self.at_block.project.digitizing_parameters[
-            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE]
-        match_windows_size = self.at_block.project.digitizing_parameters[
-            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE]
+        # images_matches_accuracy = self.at_block.project.digitizing_parameters[
+        #     defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY]
+        # match_correlation_threshold_percentage = self.at_block.project.digitizing_parameters[
+        #     defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE]
+        # match_windows_size = self.at_block.project.digitizing_parameters[
+        #     defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE]
 
         # 8. Iterate over projected values for find matched solutions
         str_error, projected_images = self.get_projected_images()

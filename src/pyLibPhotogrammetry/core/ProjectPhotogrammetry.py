@@ -1,6 +1,6 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
-from math import floor
+from math import floor, ceil
 
 from qgis.PyQt.QtWidgets import QApplication, QMessageBox, QDialog, QFileDialog, QPushButton, QComboBox
 
@@ -9,6 +9,7 @@ import json
 import xmltodict
 from datetime import datetime
 import quaternion
+import psutil
 
 from osgeo import gdal, osr, ogr
 gdal.UseExceptions()
@@ -35,6 +36,7 @@ from ..core.ATBlockMetashape import ATBlockMetashape
 from ..core.ATBlockGraphos import ATBlockGraphos
 from ..core.IExifTool import IExifTool
 from ..core.computations import *
+from ..core.EpipolarGeometryMatcherManager import EpipolarGeometryMatcherManager
 
 class ProjectPhotogrammetry(Project):
     def __init__(self, qgis_iface, settings, crs_tools):
@@ -86,6 +88,7 @@ class ProjectPhotogrammetry(Project):
         self.digitizing_report_file_path = None
         self.digitizing_in_process = False
         self.debugging_digitizing_in_process = False
+        self.epipolar_geometry_matcher_manager = None
 
     def add_image_files(self,
                         files,
@@ -4570,6 +4573,15 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE,
                                 str_value))
             return str_error
+        ram = psutil.virtual_memory()
+        available_ram_in_bytes = ram.available
+        available_ram_in_megabytes = available_ram_in_bytes / 1024 / 1024
+        if ram_maximum_size > available_ram_in_megabytes:
+            str_error = ('Process: {} for parameter: {}\nvalue: {} is greather than available: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE,
+                                str(ram_maximum_size), str(int(available_ram_in_megabytes))))
+            return str_error
         # SystemInfo * ptrSystemInfo = mPtrPhotogrammetryManager->getSystemInfo();
         # float
         # physicalMemory, availablePhysicalMemory;
@@ -4721,6 +4733,57 @@ class ProjectPhotogrammetry(Project):
                     data[defs_processes.DIGITIZING_REPORT_STEPS].append(step)
                     file.seek(0)
                     json.dump(data, file, indent=4)
+        return str_error
+
+    def set_epipolar_memory_data_for_match_object_point(self, fc, sc):
+        str_error = ''
+        if self.digitizing_parameters is None:
+            str_error = ('Digitizing parameters is not initialized')
+            return str_error
+        if not self.exists_stereopairs_homographies:
+            str_error = ('Not exists stereopairs homographies data in project')
+            return str_error
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE
+                in self.digitizing_parameters):
+            str_error = ('Not exists {} in digitizing parameters'.
+                         format(defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE))
+            return str_error
+        maximum_ram_user = self.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE]
+        ram = psutil.virtual_memory()
+        available_ram_in_bytes = ram.available
+        available_ram_in_megabytes = available_ram_in_bytes / 1024 / 1024
+        if maximum_ram_user > available_ram_in_megabytes:
+            str_error = ('Process: {} for parameter: {}\nvalue: {} is greather than available: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RAM_MAXIMUM_SIZE,
+                                str(maximum_ram_user), str(int(available_ram_in_megabytes))))
+            return str_error
+        tile_size = 0
+        minimum_ram = 100000000
+        for tile_size_value in self.imagesMaximumRamMBsBySize:
+            max_tile_ram = self.imagesMaximumRamMBsBySize[tile_size_value]
+            if max_tile_ram < minimum_ram:
+                minimum_ram = ceil(max_tile_ram)
+            if max_tile_ram < maximum_ram_user:
+                tile_size = tile_size_value
+            else:
+                break
+        if tile_size == 0:
+            str_error = ('RAM selected by user: {} Mb\nis less than minimum needed: {} Mb\nfor load images'.
+                         format(str(maximum_ram_user), str(minimum_ram)))
+            return str_error
+        if self.epipolar_geometry_matcher_manager is None:
+            self.epipolar_geometry_matcher_manager = EpipolarGeometryMatcherManager(self)
+        tile_x = floor((fc - self.spUnionMinFc) / (float(tile_size)))
+        tile_y = floor((sc - self.spUnionMinSc) / (float(tile_size)))
+        str_error, loaded_tile = self.epipolar_geometry_matcher_manager.load_tile_in_memory(tile_size, tile_x, tile_y)
+        if str_error:
+            str_error = ('Loading in memory tile: ({}, {}) for tile size: {}, error:\n{}'.
+                         format(str(tile_x), str(tile_y), str(tile_size), str_error))
+            return str_error
+
+
         return str_error
 
     def set_object_point_projected_images(self,
