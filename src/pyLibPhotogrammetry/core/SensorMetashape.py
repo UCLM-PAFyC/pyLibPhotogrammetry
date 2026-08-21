@@ -414,6 +414,37 @@ class SensorMetashape(Sensor):
             Z = rotated_coor[2]
         return str_error, X, Y, Z
 
+    def get_focal(self):
+        str_error = ''
+        focal = None
+        if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class\
+                and not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL in self.calibration_by_class:
+            str_error = ('For sensor: {} not found calibration class: {}'.
+                         format(self.label, defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED))
+            return str_error, focal
+        calibration = None
+        if defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class:
+            calibration = self.calibration_by_class[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED]
+        else:
+            calibration = self.calibration_by_class[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL]
+        if (calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL):
+            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {}, {} or {}'.
+                         format(self.label, calibration.type, defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME,
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE,
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL))
+            return str_error, focal
+        columns = calibration.width
+        rows = calibration.height
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME:
+            focal = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE:
+            focal = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
+            focal = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+        return str_error, focal
+
     def get_undistorted(self,
                         column, row):
         str_error = ''

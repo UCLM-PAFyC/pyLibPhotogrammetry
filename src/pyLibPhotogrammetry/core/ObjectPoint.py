@@ -24,6 +24,7 @@ class ObjectPoint:
         self.report_text = ""
         self.report_text_last_step = ""
         self.image_point_by_image_id = {}
+        self.dem_height = None
 
     def add_image_measured_value(self,
                                   camera,

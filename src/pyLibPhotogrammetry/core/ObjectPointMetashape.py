@@ -552,6 +552,154 @@ class ObjectPointMetashape(ObjectPoint):
                 self.report_file.flush()
             str_error = ('Error getting undistorted projected images after computing position from images measurements:\n{}'.format(str_error))
             return str_error
+        # Preparo vectores para matching con multiproceso
+        measuredImagesId = [] # QVector<int> measuredImagesId;
+        undistortedMeasuredColumns = [] # QVector<double> undistortedMeasuredColumns;
+        undistortedMeasuredRows = [] # QVector<double> undistortedMeasuredRows;
+        projectedImagesId = [] # QVector<int> projectedImagesDbId;
+        undistortedMatchedColumns = [] # QVector<QVector<double> > undistortedMatchedColumns;
+        undistortedMatchedRows = [] # QVector<QVector<double> > undistortedMatchedRows;
+        matchedFinds = [] # QVector<bool> matchedFinds;
+        qualitiesValues = [] # QVector<QVector<double> > qualitiesValues;
+        measuredCamerasPc = [] # QVector<QVector<double> > measuredCamerasPc;
+        matchedCamerasPc = [] # QVector<QVector<double> > matchedCamerasPc;
+        matchedNames = [] # QVector<QVector<QString> > ;
+        focal_in_pixels = None
+        exists_several_sensors_in_at_block = False
+        for projected_image_id in projectedImagesId:
+            if projected_image_id in measured_by_image_id:
+                continue
+            if not projected_image_id in undistorted_projected_images:
+                continue
+            projected_camera = self.at_block.get_camera_from_camera_id(projected_image_id)
+            if projected_camera is None:
+                continue
+            projected_camera_label = projected_camera.label
+            # con los valores proyectados como aproximados para los matcheados
+            undistorted_matched_column = undistorted_projected_images[projected_image_id][0]
+            undistorted_matched_row = undistorted_projected_images[projected_image_id][1]
+            if undistorted_matched_column is None or undistorted_matched_row is None:
+                continue
+            matched_camera_pc = projected_camera.get_pc()
+            if matched_camera_pc is None:
+                continue
+            projected_sensor_id = projected_camera.sensor_id
+            if projected_sensor_id is None:
+                continue
+            if not projected_sensor_id in self.at_block.sensor_by_id:
+                continue
+            projected_sensor = self.at_block.sensor_by_id[projected_sensor_id]
+            if projected_sensor is None:
+                continue
+            str_error, projected_camera_focal_in_pixels = projected_sensor.get_focal()
+            if str_error:
+                continue
+            if projected_camera_focal_in_pixels is None:
+                continue
+            if focal_in_pixels is None:
+                focal_in_pixels = projected_camera_focal_in_pixels
+            elif abs(projected_camera_focal_in_pixels - focal_in_pixels) > 0.5:
+                exists_several_sensors_in_at_block = True
+            for measured_image_id in measured_by_image_id:
+                measured_camera = self.at_block.get_camera_from_camera_id(measured_image_id)
+                if measured_camera is None:
+                    continue
+                measured_camera_label = measured_camera.label
+                if not measured_image_id in undistorted_measured_by_image_id:
+                    continue
+                undistorted_measured_column = undistorted_measured_by_image_id[measured_image_id][0]
+                undistorted_measured_row = undistorted_measured_by_image_id[measured_image_id][1]
+                if undistorted_measured_column is None or undistorted_measured_row is None:
+                    continue
+                measured_camera_pc = measured_camera.get_pc()
+                if measured_camera_pc is None:
+                    continue
+                measured_sensor_id = measured_camera.sensor_id
+                if measured_sensor_id is None:
+                    continue
+                if not measured_sensor_id in self.at_block.sensor_by_id:
+                    continue
+                measured_sensor = self.at_block.sensor_by_id[measured_sensor_id]
+                if measured_sensor is None:
+                    continue
+                str_error, measured_camera_focal_in_pixels = measured_sensor.get_focal()
+                if str_error:
+                    continue
+                if measured_camera_focal_in_pixels is None:
+                    continue
+                if focal_in_pixels is None:
+                    focal_in_pixels = measured_camera_focal_in_pixels
+                elif abs(measured_camera_focal_in_pixels - focal_in_pixels) > 0.5:
+                    exists_several_sensors_in_at_block = True
+                matchedFind = False
+                qualityValues = []
+                measuredImagesId.append(measured_image_id)
+                undistortedMeasuredColumns.append(undistorted_measured_column)
+                undistortedMeasuredRows.append(undistorted_measured_row)
+                projectedImagesDbId.append(projected_image_id)
+                undistortedMatchedColumnsValues = []
+                undistortedMatchedRowsValues = []
+                undistortedMatchedColumnsValues.append(undistorted_matched_column)
+                undistortedMatchedColumns.append(undistortedMatchedColumnsValues)
+                undistortedMatchedRowsValues.append(undistorted_measured_row)
+                undistortedMatchedRows.append(undistortedMatchedRowsValues)
+                matchedFinds.append(matchedFind)
+                qualitiesValues.append(qualityValues)
+                measuredCamerasPc.append(measured_camera_pc)
+                matchedCamerasPc.append(matched_camera_pc)
+                matchedNamesValues = []
+                matchedNames.append(matchedNamesValues)
+        if exists_several_sensors_in_at_block:
+            content += ("\n- Error: getting values for matching, exists several sensors width different focals")
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ("\n- Error: getting values for matching, exists several sensors width different focals")
+            return str_error
+        for projected_image_id in projectedImagesId:
+            if projected_image_id in measured_by_image_id:
+                continue
+            if not projected_image_id in undistorted_projected_images:
+                continue
+            projected_camera = self.at_block.get_camera_from_camera_id(projected_image_id)
+            if projected_camera is None:
+                continue
+            projected_camera_label = projected_camera.label
+            # con los valores proyectados como aproximados para los matcheados
+            undistorted_matched_column = undistorted_projected_images[projected_image_id][0]
+            undistorted_matched_row = undistorted_projected_images[projected_image_id][1]
+            if undistorted_matched_column is None or undistorted_matched_row is None:
+                continue
+            content += ("\n  - Finding match img ...: {}".format(projected_camera_label))
+            content += ("\n    Proj. Und. coor .....: ({:.2f},{:.2f})".format(undistorted_matched_column,
+                                                                              undistorted_matched_row))
+            content += ("\n      Measured Image    Meas.U.C    Meas.U.R     Method-WindowSize   Match.U.C   Match.U.R")
+            content += ("     Match.C     Match.R   Quality  Obj.Pto.Fc  Obj.Pto.Sc  Obj.Pto.Tc")
+            content += ("  Std.Fc  Std.Sc  Std.Tc")
+            for measured_image_id in measured_by_image_id:
+                measured_camera = self.at_block.get_camera_from_camera_id(measured_image_id)
+                if measured_camera is None:
+                    continue
+                measured_camera_label = measured_camera.label
+                if not measured_image_id in undistorted_measured_by_image_id:
+                    continue
+                undistorted_measured_column = undistorted_measured_by_image_id[measured_image_id][0]
+                undistorted_measured_row = undistorted_measured_by_image_id[measured_image_id][1]
+                if undistorted_measured_column is None or undistorted_measured_row is None:
+                    continue
+                content += "\n"
+                content += ("{:20s}".format(measured_camera_label))
+                content += ("{:12.2f}".format(undistorted_measured_column))
+                content += ("{:12.2f}".format(undistorted_measured_row))
+                distortedMeasuredValue = []
+                distortedMeasuredValue.append(measured_by_image_id[measured_image_id][0])
+                distortedMeasuredValue.append(measured_by_image_id[measured_image_id][1])
+                distortedMeasuredValue.append(measured_by_image_id[measured_image_id][2])
+                distortedMeasuredValue.append(measured_by_image_id[measured_image_id][3])
+
+        # double pointHeight = mDsmHeight;
 
         # ...
 
