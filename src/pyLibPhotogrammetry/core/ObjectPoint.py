@@ -95,6 +95,9 @@ class ObjectPoint:
     def remove_image_points(self):
         self.image_point_by_image_id.clear()
 
+    def set_dem_height(self, dem_height):
+        self.dem_height = dem_height
+
     def set_id(self, id, write_report = False):
         str_error = ''
         if write_report and self.report_file is None:

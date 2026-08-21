@@ -566,7 +566,7 @@ class ObjectPointMetashape(ObjectPoint):
         matchedNames = [] # QVector<QVector<QString> > ;
         focal_in_pixels = None
         exists_several_sensors_in_at_block = False
-        for projected_image_id in projectedImagesId:
+        for projected_image_id in projected_images:
             if projected_image_id in measured_by_image_id:
                 continue
             if not projected_image_id in undistorted_projected_images:
@@ -633,10 +633,11 @@ class ObjectPointMetashape(ObjectPoint):
                     exists_several_sensors_in_at_block = True
                 matchedFind = False
                 qualityValues = []
-                measuredImagesId.append(measured_image_id)
+                if not measured_image_id in measuredImagesId:
+                    measuredImagesId.append(measured_image_id)
                 undistortedMeasuredColumns.append(undistorted_measured_column)
                 undistortedMeasuredRows.append(undistorted_measured_row)
-                projectedImagesDbId.append(projected_image_id)
+                projectedImagesId.append(projected_image_id)
                 undistortedMatchedColumnsValues = []
                 undistortedMatchedRowsValues = []
                 undistortedMatchedColumnsValues.append(undistorted_matched_column)
@@ -658,37 +659,28 @@ class ObjectPointMetashape(ObjectPoint):
                 self.report_file.flush()
             str_error = ("\n- Error: getting values for matching, exists several sensors width different focals")
             return str_error
-        for projected_image_id in projectedImagesId:
-            if projected_image_id in measured_by_image_id:
-                continue
-            if not projected_image_id in undistorted_projected_images:
+        point_height = self.dem_height
+
+
+        for projected_image_id in projected_images:
+            if not projected_image_id in projectedImagesId:
                 continue
             projected_camera = self.at_block.get_camera_from_camera_id(projected_image_id)
-            if projected_camera is None:
-                continue
             projected_camera_label = projected_camera.label
             # con los valores proyectados como aproximados para los matcheados
             undistorted_matched_column = undistorted_projected_images[projected_image_id][0]
             undistorted_matched_row = undistorted_projected_images[projected_image_id][1]
-            if undistorted_matched_column is None or undistorted_matched_row is None:
-                continue
             content += ("\n  - Finding match img ...: {}".format(projected_camera_label))
             content += ("\n    Proj. Und. coor .....: ({:.2f},{:.2f})".format(undistorted_matched_column,
                                                                               undistorted_matched_row))
             content += ("\n      Measured Image    Meas.U.C    Meas.U.R     Method-WindowSize   Match.U.C   Match.U.R")
             content += ("     Match.C     Match.R   Quality  Obj.Pto.Fc  Obj.Pto.Sc  Obj.Pto.Tc")
             content += ("  Std.Fc  Std.Sc  Std.Tc")
-            for measured_image_id in measured_by_image_id:
+            for measured_image_id in measuredImagesId:
                 measured_camera = self.at_block.get_camera_from_camera_id(measured_image_id)
-                if measured_camera is None:
-                    continue
                 measured_camera_label = measured_camera.label
-                if not measured_image_id in undistorted_measured_by_image_id:
-                    continue
                 undistorted_measured_column = undistorted_measured_by_image_id[measured_image_id][0]
                 undistorted_measured_row = undistorted_measured_by_image_id[measured_image_id][1]
-                if undistorted_measured_column is None or undistorted_measured_row is None:
-                    continue
                 content += "\n"
                 content += ("{:20s}".format(measured_camera_label))
                 content += ("{:12.2f}".format(undistorted_measured_column))
@@ -698,8 +690,6 @@ class ObjectPointMetashape(ObjectPoint):
                 distortedMeasuredValue.append(measured_by_image_id[measured_image_id][1])
                 distortedMeasuredValue.append(measured_by_image_id[measured_image_id][2])
                 distortedMeasuredValue.append(measured_by_image_id[measured_image_id][3])
-
-        # double pointHeight = mDsmHeight;
 
         # ...
 

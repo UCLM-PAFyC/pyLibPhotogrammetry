@@ -48,6 +48,7 @@ class ProjectPhotogrammetry(Project):
         self.at_block_by_label = {}
         self.raster_dem_by_file_path = {}
         self.opencv_tools = None
+        self.dialog = None
 
         self.spUnionMinFc = None
         self.spUnionMinSc = None
@@ -2952,6 +2953,7 @@ class ProjectPhotogrammetry(Project):
             return str_error, end_date_time, log
         steps = input_data[defs_processes.DIGITIZING_REPORT_STEPS]
         # self.debugging_digitizing_in_process = True # de momento
+        self.dialog = dialog
         for i in range(len(steps)):
             step = steps[i]
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS in step:
@@ -2959,12 +2961,14 @@ class ProjectPhotogrammetry(Project):
                        format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS, str(i+1), input_file_path))
                 str_error += ("\nfor proccess: {}".format(name))
                 self.debugging_digitizing_in_process = False
+                self.dialog = None
                 return str_error, end_date_time, log
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD in step:
                 str_error = ("Not exists {} attribute in step position: {} in file:\n{}".
                        format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD, str(i+1), input_file_path))
                 str_error += ("\nfor proccess: {}".format(name))
                 self.debugging_digitizing_in_process = False
+                self.dialog = None
                 return str_error, end_date_time, log
             object_fully_qualified_name = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_CLASS]
             object_method_name = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_METHOD]
@@ -2974,12 +2978,14 @@ class ProjectPhotogrammetry(Project):
                 str_error = ("Not exists registered object: {}".format(object_fully_qualified_name))
                 str_error += ("\nfor proccess: {}".format(name))
                 self.debugging_digitizing_in_process = False
+                self.dialog = None
                 return str_error, end_date_time, log
             object = self.object_by_fully_qualified_name[object_fully_qualified_name]
             if object is None:
                 str_error = ("None object: {}".format(object_fully_qualified_name))
                 str_error += ("\nfor proccess: {}".format(process_name))
                 self.debugging_digitizing_in_process = False
+                self.dialog = None
                 return str_error, end_date_time, log
             method = None
             try:
@@ -2988,11 +2994,13 @@ class ProjectPhotogrammetry(Project):
                 str_error = ("For proccess: {}".format(process_name))
                 str_error += ("\nError: {}".format(str(e)))
                 self.debugging_digitizing_in_process = False
+                self.dialog = None
                 return str_error, end_date_time, log
             if method is None:
                 str_error = ("No found method: {} in object: {}".format(object_method_name, object_fully_qualified_name))
                 str_error += ("\nfor proccess: {}".format(process_name))
                 self.debugging_digitizing_in_process = False
+                self.dialog = None
                 return str_error, end_date_time, log
             method_definition_arguments_names = method.__code__.co_varnames[:method.__code__.co_argcount]
             if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS in step:
@@ -3000,6 +3008,7 @@ class ProjectPhotogrammetry(Project):
                        format(processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS, str(i+1), input_file_path))
                 str_error += ("\nfor proccess: {}".format(process_name))
                 self.debugging_digitizing_in_process = False
+                self.dialog = None
                 return str_error, end_date_time, log
             arguments = step[processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS]
             arguments_as_dict = {}
@@ -3010,6 +3019,7 @@ class ProjectPhotogrammetry(Project):
                                   str(j + 1), str(i+1), input_file_path))
                     str_error += ("\nfor proccess: {}".format(process_name))
                     self.debugging_digitizing_in_process = False
+                    self.dialog = None
                     return str_error, end_date_time, log
                 argument_name = arguments[j][processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_NAME]
                 if not argument_name in method_definition_arguments_names:
@@ -3018,6 +3028,7 @@ class ProjectPhotogrammetry(Project):
                                   str(i + 1), input_file_path))
                     str_error += ("\nfor proccess: {}".format(process_name))
                     self.debugging_digitizing_in_process = False
+                    self.dialog = None
                     return str_error, end_date_time, log
                 if not processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE in arguments[j]:
                     str_error = ("In method: {} not exists {} in attribute position: {} in step position: {} in file:\n{}".
@@ -3025,6 +3036,7 @@ class ProjectPhotogrammetry(Project):
                                   str(j + 1), str(i+1), input_file_path))
                     str_error += ("\nfor proccess: {}".format(process_name))
                     self.debugging_digitizing_in_process = False
+                    self.dialog = None
                     return str_error, end_date_time, log
                 argument_value = arguments[j][processes_defs_processes.PROCESS_SRC_ATTRIBUTE_ARGUMENTS_VALUE]
                 arguments_as_dict[argument_name] = argument_value
@@ -3039,6 +3051,7 @@ class ProjectPhotogrammetry(Project):
                 str_error += ("\nfor proccess: {}".format(process_name))
                 str_error += ("\nerror: {}".format(str_error_in_method))
                 self.debugging_digitizing_in_process = False
+                self.dialog = None
                 return str_error, end_date_time, log
             yo = 1
             # # str_error = object.run_library_process(process, self)
@@ -3047,6 +3060,7 @@ class ProjectPhotogrammetry(Project):
             #     Tools.error_msg(str_error)
             #     return
 
+        self.dialog = None
         # self.debugging_digitizing_in_process = False # de momento
         end_date_time = datetime.now()
         return str_error, end_date_time, log
@@ -4777,7 +4791,9 @@ class ProjectPhotogrammetry(Project):
             self.epipolar_geometry_matcher_manager = EpipolarGeometryMatcherManager(self)
         tile_x = floor((fc - self.spUnionMinFc) / (float(tile_size)))
         tile_y = floor((sc - self.spUnionMinSc) / (float(tile_size)))
-        str_error, loaded_tile = self.epipolar_geometry_matcher_manager.load_tile_in_memory(tile_size, tile_x, tile_y)
+        str_error, loaded_tile = self.epipolar_geometry_matcher_manager.load_tile_in_memory(tile_size,
+                                                                                            tile_x, tile_y,
+                                                                                            self.dialog)
         if str_error:
             str_error = ('Loading in memory tile: ({}, {}) for tile size: {}, error:\n{}'.
                          format(str(tile_x), str(tile_y), str(tile_size), str_error))
