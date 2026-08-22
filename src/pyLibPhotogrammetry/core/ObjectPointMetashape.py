@@ -633,8 +633,9 @@ class ObjectPointMetashape(ObjectPoint):
                     exists_several_sensors_in_at_block = True
                 matchedFind = False
                 qualityValues = []
-                if not measured_image_id in measuredImagesId:
-                    measuredImagesId.append(measured_image_id)
+                # if not measured_image_id in measuredImagesId:
+                #     measuredImagesId.append(measured_image_id)
+                measuredImagesId.append(measured_image_id)
                 undistortedMeasuredColumns.append(undistorted_measured_column)
                 undistortedMeasuredRows.append(undistorted_measured_row)
                 projectedImagesId.append(projected_image_id)
@@ -676,7 +677,7 @@ class ObjectPointMetashape(ObjectPoint):
             content += ("\n      Measured Image    Meas.U.C    Meas.U.R     Method-WindowSize   Match.U.C   Match.U.R")
             content += ("     Match.C     Match.R   Quality  Obj.Pto.Fc  Obj.Pto.Sc  Obj.Pto.Tc")
             content += ("  Std.Fc  Std.Sc  Std.Tc")
-            for measured_image_id in measuredImagesId:
+            for measured_image_id in measured_by_image_id:
                 measured_camera = self.at_block.get_camera_from_camera_id(measured_image_id)
                 measured_camera_label = measured_camera.label
                 undistorted_measured_column = undistorted_measured_by_image_id[measured_image_id][0]

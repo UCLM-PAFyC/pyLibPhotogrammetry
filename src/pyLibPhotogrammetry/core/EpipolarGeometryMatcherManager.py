@@ -101,3 +101,33 @@ class EpipolarGeometryMatcherManager():
             self.tile_y = tile_y
             loaded_tile = True
         return str_error, loaded_tile
+
+    def matches_rfa(self,
+                    measuredCamerasId,
+                    undistortedMeasuredColumns,
+                    undistortedMeasuredRows,
+                    matchedCamerasId,
+                    undistortedMatchedColumns,
+                    undistortedMatchedRows,
+                    matchedNames,
+                    measuredCamerasPc,
+                    matchedCamerasPc,
+                    pointHeight,
+                    focalInPixels,
+                    matchedFinds,
+                    qualitiesValues,
+                    point_outside_dem):
+        str_error = ""
+        if not self.project.exists_footprints():
+            str_error = ('Images footprints are not loaded')
+            return str_error, end_date_time, log
+        if not self.project.exists_footprints_undistorted():
+            str_error = ('Images undistorted footprints are not loaded')
+            return str_error, end_date_time, log
+        # matchMethod,
+        # matchMaxRowParallax,
+        # heightSeparationWithinDsm,
+        # heightSepatationOutsideDsm,
+        # matchQualityThreshold,
+
+        return str_error
