@@ -1,6 +1,6 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
-from math import floor, ceil
+from math import floor, ceil, sqrt
 import numpy as np
 import cv2
 
@@ -17,13 +17,38 @@ from ..defs import defs_images as defs_img
 from ..core.ATBlockMetashape import ATBlockMetashape
 from ..core.ATBlockGraphos import ATBlockGraphos
 
+EPIPOLARGEOMETRYMATCHERMANAGER_MATCH_WINDOW_RADIUS_FIRST = 5
+EPIPOLARGEOMETRYMATCHERMANAGER_MATCH_WINDOW_RADIUS_LAST = 9
+
 class EpipolarGeometryMatcherManager():
     def __init__(self, project):
         self.project = project
+        self.at_block = None
         self.tile_size = -1
         self.tile_x = -1
         self.tile_y = -1
         self.load_image_by_id = {}
+        self.measuredCamerasId = []
+        self.undistortedMeasuredColumns = []
+        self.undistortedMeasuredRows = []
+        self.matchedCamerasId = []
+        self.undistortedMatchedColumns = []
+        self.undistortedMatchedRows = []
+        self.matchedNames = []
+        self.measuredCamerasPc = []
+        self.matchedCamerasPc = []
+        self.matchedFinds = []
+        self.qualitiesValues = []
+        self.match_opencv_method = None
+        self.match_maximum_epipolar_row_parallax = None
+        self.maximum_height_separation_within_dsm = None
+        self.maximum_height_separation_outside_dsm = None
+        self.match_pencv_threshold_percentage = None
+        self.point_height_dem = None
+        self.focal_in_pixels = None
+        self.point_outside_dem = None
+        self.match_window_radius_first = EPIPOLARGEOMETRYMATCHERMANAGER_MATCH_WINDOW_RADIUS_FIRST
+        self.match_window_radius_last = EPIPOLARGEOMETRYMATCHERMANAGER_MATCH_WINDOW_RADIUS_LAST
 
     def load_tile_in_memory(self, tile_size,
                             tile_x, tile_y,
@@ -57,6 +82,8 @@ class EpipolarGeometryMatcherManager():
             return str_error, loaded_tile
         at_block_label = next(iter(self.project.at_block_by_label))
         at_block = self.project.at_block_by_label[at_block_label]
+        if self.at_block == None:
+            self.at_block = at_block
         if dialog:
             dialog.processInformationGroupBox.setEnabled(True)
             dialog.processLineEdit.clear()
@@ -102,6 +129,77 @@ class EpipolarGeometryMatcherManager():
             loaded_tile = True
         return str_error, loaded_tile
 
+    def match_image_rfa(self, position):
+        str_error = ""
+        matched_find = False
+        write_matches_images = False
+        measured_camera_id = self.measuredCamerasId[position]
+        undistorted_measured_column = self.undistortedMeasuredColumns[position]
+        undistorted_measured_row = self.undistortedMeasuredRows[position]
+        matched_camera_id = self.matchedCamerasId[position]
+        undistorted_matched_column = self.undistortedMatchedColumns[position][0]
+        self.undistortedMatchedColumns[position].clear()
+        undistorted_matched_row = self.undistortedMatchedRows[position][0]
+        self.undistortedMatchedRows[position].clear()
+        measured_camera = self.at_block.get_camera_from_camera_id(measured_camera_id)
+        matched_camera = self.at_block.get_camera_from_camera_id(matched_camera_id)
+        measured_undistorted_image_file_path = measured_camera.undistort_image_file_path
+        matched_undistorted_image_file_path = matched_camera.undistort_image_file_path
+        mFImgH = self.project.homographyMatrixByImagesId[measured_camera_id][matched_camera_id]
+        mSImgH = self.project.homographyMatrixByImagesId[matched_camera_id][measured_camera_id]
+        mFImgInvH = self.project.inverseHomographyMatrixByImagesId[measured_camera_id][matched_camera_id]
+        mSImgInvH = self.project.inverseHomographyMatrixByImagesId[matched_camera_id][measured_camera_id]
+        first_homography_image_envelope = self.project.spEpipolarEnvelopeByImagesIds[measured_camera_id][matched_camera_id]
+        second_homography_image_envelope = self.project.spEpipolarEnvelopeByImagesIds[matched_camera_id][measured_camera_id]
+        match_window_sizes = []
+        window_radius = self.match_window_radius_first
+        while window_radius <= self.match_window_radius_last:
+            match_window_sizes.append(window_radius * 2 + 1)
+            window_radius = window_radius + 1
+        measuredPcFc = self.measuredCamerasPc[position][0];
+        measuredPcSc = self.measuredCamerasPc[position][1];
+        measuredPcTc = self.measuredCamerasPc[position][2];
+        matchedPcFc = self.matchedCamerasPc[position][0];
+        matchedPcSc = self.matchedCamerasPc[position][1];
+        matchedPcTc = self.matchedCamerasPc[position][2];
+        stereoscopicBase = sqrt((matchedPcFc - measuredPcFc) ** 2.+ (matchedPcSc - measuredPcSc) ** 2.
+                                + (matchedPcTc - measuredPcTc) ** 2.)
+        # Fotogrametria digital, Toni Schenk, pg 281-282
+        incZ = 10.0
+        if self.point_outside_dem:
+            incZ = self.maximum_height_separation_outside_dsm * 2.
+        else:
+            incZ = self.maximum_height_separation_within_dsm * 2.
+        Zu = self.point_height_dem + incZ / 2
+        Zl = self.point_height_dem - incZ / 2
+        Hd = (measuredPcTc + matchedPcTc) / 2.
+        inzZFactor = incZ / ((Hd - Zl) * (Hd - Zu))
+        inzZFactorSb = stereoscopicBase * inzZFactor
+        findWindowSize = ceil(self.focal_in_pixels * inzZFactorSb)
+        # obtengo la ventana en la homografia de la imagen medida
+        xsm = undistorted_measured_column + .5
+        ysm = undistorted_measured_row + .5
+        denm = xsm * mFImgH[2, 0] + ysm * mFImgH[2, 1] + 1. * mFImgH[2, 2]
+        xtm = xsm * mFImgH[0, 0] + ysm * mFImgH[0, 1] + 1. * mFImgH[0, 2]
+        ytm = xsm * mFImgH[1, 0] + ysm * mFImgH[1, 1] + 1. * mFImgH[1, 2]
+        xtm /= denm
+        ytm /= denm
+        xtm = xtm - .5
+        ytm = ytm - .5
+        # obtengo la posicion en la homografia de la aproximacion proyecta
+        xsmt = undistorted_matched_column + .5
+        ysmt = undistorted_matched_row + .5
+        denmt = xsmt * mSImgH[2, 0] + ysmt * mSImgH[2, 1] + 1. * mSImgH[2, 2]
+        xtmt = xsmt * mSImgH[0, 0] + ysmt * mSImgH[0, 1] + 1. * mSImgH[0, 2]
+        ytmt = xsmt * mSImgH[1, 0] + ysmt * mSImgH[1, 1] + 1. * mSImgH[1, 2]
+        xtmt /= denmt
+        ytmt /= denmt
+        xtmt = xtmt - .5
+        ytmt = ytmt - .5
+
+
+        return str_error
+
     def matches_rfa(self,
                     measuredCamerasId,
                     undistortedMeasuredColumns,
@@ -116,18 +214,142 @@ class EpipolarGeometryMatcherManager():
                     focalInPixels,
                     matchedFinds,
                     qualitiesValues,
-                    point_outside_dem):
+                    point_outside_dem,
+                    dialog = None):
         str_error = ""
         if not self.project.exists_footprints():
-            str_error = ('Images footprints are not loaded')
-            return str_error, end_date_time, log
+            str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+            str_error += ('\nImages footprints are not loaded')
+            return str_error
         if not self.project.exists_footprints_undistorted():
-            str_error = ('Images undistorted footprints are not loaded')
-            return str_error, end_date_time, log
-        # matchMethod,
-        # matchMaxRowParallax,
-        # heightSeparationWithinDsm,
-        # heightSepatationOutsideDsm,
-        # matchQualityThreshold,
+            str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+            str_error += ('\nImages undistorted footprints are not loaded')
+            return str_error
+        if (len(measuredCamerasId) != len(undistortedMeasuredColumns)
+                or len(measuredCamerasId) != len(undistortedMeasuredRows)
+                or len(measuredCamerasId) != len(matchedCamerasId)
+                or len(measuredCamerasId) != len(undistortedMatchedColumns)
+                or len(measuredCamerasId) != len(undistortedMatchedRows)
+                or len(measuredCamerasId) != len(matchedNames)
+                or len(measuredCamerasId) != len(measuredCamerasPc)
+                or len(measuredCamerasId) != len(matchedCamerasPc)
+                or len(measuredCamerasId) != len(matchedFinds)
+                or len(measuredCamerasId) != len(qualitiesValues)):
+            str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+            str_error += ('\nInput parameters conteiners must have same size')
+            return str_error
+        positionsToCompute = []
+        for i in range(len(measuredCamerasId)):
+            measured_camera_id = measuredCamerasId[i]
+            matched_camera_id = matchedCamerasId[i]
+            if not measured_camera_id in self.load_image_by_id:
+                continue
+            if not matched_camera_id in self.load_image_by_id:
+                continue
+            if not measured_camera_id in self.project.homographyMatrixByImagesId:
+                continue
+            if not matched_camera_id in self.project.homographyMatrixByImagesId[measured_camera_id]:
+                continue
+            if not matched_camera_id in self.project.homographyMatrixByImagesId:
+                continue
+            if not measured_camera_id in self.project.homographyMatrixByImagesId[matched_camera_id]:
+                continue
+            if not measured_camera_id in self.project.inverseHomographyMatrixByImagesId:
+                continue
+            if not matched_camera_id in self.project.inverseHomographyMatrixByImagesId[measured_camera_id]:
+                continue
+            if not matched_camera_id in self.project.inverseHomographyMatrixByImagesId:
+                continue
+            if not measured_camera_id in self.project.inverseHomographyMatrixByImagesId[matched_camera_id]:
+                continue
+            if not measured_camera_id in self.project.spEpipolarEnvelopeByImagesIds:
+                continue
+            if not matched_camera_id in self.project.spEpipolarEnvelopeByImagesIds[measured_camera_id]:
+                continue
+            if not matched_camera_id in self.project.spEpipolarEnvelopeByImagesIds:
+                continue
+            if not measured_camera_id in self.project.spEpipolarEnvelopeByImagesIds[matched_camera_id]:
+                continue
+            positionsToCompute.append(i)
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD
+                in self.project.digitizing_parameters):
+            str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+            str_error += ('\nParameter: {} not exists'.format(
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD))
+            return str_error
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX
+                in self.project.digitizing_parameters):
+            str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+            str_error += ('\nParameter: {} not exists'.format(
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX))
+            return str_error
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM
+                in self.project.digitizing_parameters):
+            str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+            str_error += ('\nParameter: {} not exists'.format(
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM))
+            return str_error
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM
+                in self.project.digitizing_parameters):
+            str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+            str_error += ('\nParameter: {} not exists'.format(
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM))
+            return str_error
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE
+                in self.project.digitizing_parameters):
+            str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+            str_error += ('\nParameter: {} not exists'.format(
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE))
+            return str_error
+        self.measuredCamerasId = measuredCamerasId
+        self.undistortedMeasuredColumns = undistortedMeasuredColumns
+        self.undistortedMeasuredRows = undistortedMeasuredRows
+        self.matchedCamerasId = matchedCamerasId
+        self.undistortedMatchedColumns = undistortedMatchedColumns
+        self.undistortedMatchedRows = undistortedMatchedRows
+        self.matchedNames = matchedNames
+        self.measuredCamerasPc = measuredCamerasPc
+        self.matchedCamerasPc = matchedCamerasPc
+        self.matchedFinds = matchedFinds
+        self.qualitiesValues = qualitiesValues
+        self.match_opencv_method = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD]
+        self.match_maximum_epipolar_row_parallax = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_MAXIMUM_EPIPOLAR_ROW_PARALLAX]
+        self.maximum_height_separation_within_dsm = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_WITHIN_DSM]
+        self.maximum_height_separation_outside_dsm = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_HEIGHT_SEPARATION_OUTSIDE_DSM]
+        self.match_pencv_threshold_percentage = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_CORRELATION_THRESHOLD_PERCENTAGE]
+        self.point_height_dem = pointHeight
+        self.focal_in_pixels = focalInPixels
+        self.point_outside_dem = point_outside_dem
+        if dialog is not None:
+            dialog.processInformationGroupBox.setEnabled(True)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            dialog.processLineEdit.setText('Computing matches ...')
+            dialog.processLineEdit.adjustSize()
+            dialog.processProgressBar.setMaximum(len(positionsToCompute))
+            dialog.processLineEdit.adjustSize()
+            QApplication.processEvents()
+        cont = 0
+        for i in range(len(positionsToCompute)):
+            cont = cont + 1
+            if dialog is not None:
+                dialog.processProgressBar.setValue(cont)
+                QApplication.processEvents()
+            str_error = self.match_image_rfa(positionsToCompute[i])
+            if str_error:
+                str_error = "EpipolarGeometryMatcherManager.matches_rfa"
+                str_error += ('\nError:\n{}'.format(str_error))
+                return str_error
+        if dialog is not None:
+            dialog.processProgressBar.setValue(len(positionsToCompute))
+            dialog.processInformationGroupBox.setEnabled(False)
+            dialog.processLineEdit.clear()
+            dialog.processProgressBar.reset()
+            QApplication.processEvents()
 
         return str_error

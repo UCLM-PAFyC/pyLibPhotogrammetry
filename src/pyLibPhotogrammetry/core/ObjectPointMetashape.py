@@ -662,6 +662,30 @@ class ObjectPointMetashape(ObjectPoint):
             return str_error
         point_height = self.dem_height
 
+        str_error = self.at_block.project.epipolar_geometry_matcher_manager.matches_rfa(measuredImagesId,
+                                                                                        undistortedMeasuredColumns,
+                                                                                        undistortedMeasuredRows,
+                                                                                        projectedImagesId,
+                                                                                        undistortedMatchedColumns,
+                                                                                        undistortedMatchedRows,
+                                                                                        matchedNames,
+                                                                                        measuredCamerasPc,
+                                                                                        matchedCamerasPc,
+                                                                                        point_height,
+                                                                                        focal_in_pixels,
+                                                                                        matchedFinds,
+                                                                                        qualitiesValues,
+                                                                                        point_outside_dem,
+                                                                                        self.at_block.project.dialog)
+        if str_error:
+            content += ("\n- Error:\n{}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ("\n- Error:\n{}".format(str_error))
+            return str_error
 
         for projected_image_id in projected_images:
             if not projected_image_id in projectedImagesId:

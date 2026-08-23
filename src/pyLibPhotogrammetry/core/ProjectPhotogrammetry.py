@@ -63,8 +63,8 @@ class ProjectPhotogrammetry(Project):
         self.spImageGeometryByImagesIds = {}
         self.spUndistortedImageGeometryByImagesIds = {}
         self.spEpipolarEnvelopeByImagesIds = {}
-        self.homographyMatrixByCamerasId = {}
-        self.inverseHomographyMatrixByCamerasId = {}
+        self.homographyMatrixByImagesId = {}
+        self.inverseHomographyMatrixByImagesId = {}
         self.epipolarFileNameByCamerasId = {}
         self.exists_stereopairs_homographies = False
         # self.process_set_digitizing_parameters = None
@@ -995,18 +995,18 @@ class ProjectPhotogrammetry(Project):
                 self.spEpipolarEnvelopeByImagesIds[second_camera_id] = {}
             self.spEpipolarEnvelopeByImagesIds[second_camera_id][
                 first_camera_id] = secondEpipolarEnvelope  # minColum,minRow,maxColum,maxRow
-            if not first_camera_id in self.homographyMatrixByCamerasId:
-                self.homographyMatrixByCamerasId[first_camera_id] = {}
-            self.homographyMatrixByCamerasId[first_camera_id][second_camera_id] = first_camera_H
-            if not second_camera_id in self.homographyMatrixByCamerasId:
-                self.homographyMatrixByCamerasId[second_camera_id] = {}
-            self.homographyMatrixByCamerasId[second_camera_id][first_camera_id] = second_camera_H
-            if not first_camera_id in self.inverseHomographyMatrixByCamerasId:
-                self.inverseHomographyMatrixByCamerasId[first_camera_id] = {}
-            self.inverseHomographyMatrixByCamerasId[first_camera_id][second_camera_id] = first_camera_invH
-            if not second_camera_id in self.inverseHomographyMatrixByCamerasId:
-                self.inverseHomographyMatrixByCamerasId[second_camera_id] = {}
-            self.inverseHomographyMatrixByCamerasId[second_camera_id][first_camera_id] = second_camera_invH
+            if not first_camera_id in self.homographyMatrixByImagesId:
+                self.homographyMatrixByImagesId[first_camera_id] = {}
+            self.homographyMatrixByImagesId[first_camera_id][second_camera_id] = first_camera_H
+            if not second_camera_id in self.homographyMatrixByImagesId:
+                self.homographyMatrixByImagesId[second_camera_id] = {}
+            self.homographyMatrixByImagesId[second_camera_id][first_camera_id] = second_camera_H
+            if not first_camera_id in self.inverseHomographyMatrixByImagesId:
+                self.inverseHomographyMatrixByImagesId[first_camera_id] = {}
+            self.inverseHomographyMatrixByImagesId[first_camera_id][second_camera_id] = first_camera_invH
+            if not second_camera_id in self.inverseHomographyMatrixByImagesId:
+                self.inverseHomographyMatrixByImagesId[second_camera_id] = {}
+            self.inverseHomographyMatrixByImagesId[second_camera_id][first_camera_id] = second_camera_invH
             if not first_camera_id in self.epipolarFileNameByCamerasId:
                 self.epipolarFileNameByCamerasId[first_camera_id] = {}
             self.epipolarFileNameByCamerasId[first_camera_id][second_camera_id] = firstHomographyImageFileName
@@ -1226,8 +1226,8 @@ class ProjectPhotogrammetry(Project):
         self.spImageGeometryByImagesIds = {}
         self.spUndistortedImageGeometryByImagesIds = {}
         self.spEpipolarEnvelopeByImagesIds = {}
-        self.homographyMatrixByCamerasId = {}
-        self.inverseHomographyMatrixByCamerasId = {}
+        self.homographyMatrixByImagesId = {}
+        self.inverseHomographyMatrixByImagesId = {}
         self.epipolarFileNameByCamerasId = {}
         geometryImagesInStereopairsByImageId = {}
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
@@ -2546,18 +2546,18 @@ class ProjectPhotogrammetry(Project):
                         self.spEpipolarEnvelopeByImagesIds[second_camera.id] = {}
                     self.spEpipolarEnvelopeByImagesIds[second_camera.id][
                         first_camera.id] = secondEpipolarEnvelope  # minColum,minRow,maxColum,maxRow
-                    if not first_camera.id in self.homographyMatrixByCamerasId:
-                        self.homographyMatrixByCamerasId[first_camera.id] = {}
-                    self.homographyMatrixByCamerasId[first_camera.id][second_camera.id] = first_camera_H
-                    if not second_camera.id in self.homographyMatrixByCamerasId:
-                        self.homographyMatrixByCamerasId[second_camera.id] = {}
-                    self.homographyMatrixByCamerasId[second_camera.id][first_camera.id] = second_camera_H
-                    if not first_camera.id in self.inverseHomographyMatrixByCamerasId:
-                        self.inverseHomographyMatrixByCamerasId[first_camera.id] = {}
-                    self.inverseHomographyMatrixByCamerasId[first_camera.id][second_camera.id] = first_camera_invH
-                    if not second_camera.id in self.inverseHomographyMatrixByCamerasId:
-                        self.inverseHomographyMatrixByCamerasId[second_camera.id] = {}
-                    self.inverseHomographyMatrixByCamerasId[second_camera.id][first_camera.id] = second_camera_invH
+                    if not first_camera.id in self.homographyMatrixByImagesId:
+                        self.homographyMatrixByImagesId[first_camera.id] = {}
+                    self.homographyMatrixByImagesId[first_camera.id][second_camera.id] = first_camera_H
+                    if not second_camera.id in self.homographyMatrixByImagesId:
+                        self.homographyMatrixByImagesId[second_camera.id] = {}
+                    self.homographyMatrixByImagesId[second_camera.id][first_camera.id] = second_camera_H
+                    if not first_camera.id in self.inverseHomographyMatrixByImagesId:
+                        self.inverseHomographyMatrixByImagesId[first_camera.id] = {}
+                    self.inverseHomographyMatrixByImagesId[first_camera.id][second_camera.id] = first_camera_invH
+                    if not second_camera.id in self.inverseHomographyMatrixByImagesId:
+                        self.inverseHomographyMatrixByImagesId[second_camera.id] = {}
+                    self.inverseHomographyMatrixByImagesId[second_camera.id][first_camera.id] = second_camera_invH
                     if not first_camera.id in self.epipolarFileNameByCamerasId:
                         self.epipolarFileNameByCamerasId[first_camera.id] = {}
                     self.epipolarFileNameByCamerasId[first_camera.id][second_camera.id] = firstHomographyImageFileName
@@ -4538,11 +4538,11 @@ class ProjectPhotogrammetry(Project):
         if (match_opencv_method.casefold() !=
                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_ALL.casefold()
                 and match_opencv_method.casefold() !=
-                PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_SQDIFF_NORMED
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_SQDIFF_NORMED
                 and match_opencv_method.casefold() !=
-                PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_CCORR_NORMED
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_CCORR_NORMED
                 and match_opencv_method.casefold() !=
-                PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_COEFF_NORMED):
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_COEFF_NORMED):
             str_error = ('Process: {} parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD))
