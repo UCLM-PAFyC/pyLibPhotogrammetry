@@ -149,12 +149,12 @@ class EpipolarGeometryMatcherManager():
         mSImgH = self.project.homographyMatrixByImagesId[matched_camera_id][measured_camera_id]
         mFImgInvH = self.project.inverseHomographyMatrixByImagesId[measured_camera_id][matched_camera_id]
         mSImgInvH = self.project.inverseHomographyMatrixByImagesId[matched_camera_id][measured_camera_id]
-        first_homography_image_envelope = self.project.spEpipolarEnvelopeByImagesIds[measured_camera_id][matched_camera_id]
-        second_homography_image_envelope = self.project.spEpipolarEnvelopeByImagesIds[matched_camera_id][measured_camera_id]
-        match_window_sizes = []
+        firstHomographyImageEnvelope = self.project.spEpipolarEnvelopeByImagesIds[measured_camera_id][matched_camera_id]
+        secondHomographyImageEnvelope = self.project.spEpipolarEnvelopeByImagesIds[matched_camera_id][measured_camera_id]
+        matchWindowSizes = []
         window_radius = self.match_window_radius_first
         while window_radius <= self.match_window_radius_last:
-            match_window_sizes.append(window_radius * 2 + 1)
+            matchWindowSizes.append(window_radius * 2 + 1)
             window_radius = window_radius + 1
         measuredPcFc = self.measuredCamerasPc[position][0];
         measuredPcSc = self.measuredCamerasPc[position][1];
@@ -196,6 +196,131 @@ class EpipolarGeometryMatcherManager():
         ytmt /= denmt
         xtmt = xtmt - .5
         ytmt = ytmt - .5
+        measured_img = self.load_image_by_id[measured_camera_id]
+        measured_img_columns = measured_img.shape[1]
+        measured_img_rows = measured_img.shape[0]
+        matchMethods = []
+        if (self.match_opencv_method.casefold() ==
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_ALL.casefold()):
+            matchMethods.append(
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_CCORR_NORMED)
+            matchMethods.append(
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_COEFF_NORMED)
+            matchMethods.append(
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_SQDIFF_NORMED)
+        else:
+            matchMethods.append(self.match_opencv_method)
+        undistortedMatchedColumns = []
+        undistortedMatchedRows = []
+        qValues = []
+        pointsInCluster = []
+        minDifferences = []
+        meanDifferences = []
+        maxDifferences = []
+        for nws in range(len(matchWindowSizes)):
+            matchWindowSizeFromCenter = floor(float(matchWindowSizes[nws]/2.))
+            minimumMatchWindowSizeFromCenter = matchWindowSizeFromCenter/2
+            findWindowSizeFromCenter = ceil(findWindowSize/2.)
+            if findWindowSizeFromCenter < matchWindowSizeFromCenter:
+                findWindowSizeFromCenter = findWindowSizeFromCenter + 2
+            minimumFindWindowSizeFromCenter = findWindowSizeFromCenter / 2
+            sourceReducedHomographyColumn = floor(xtm) - firstHomographyImageEnvelope[0]
+            sourceReducedHomographyRow = floor(ytm) - firstHomographyImageEnvelope[1]
+            targetReducedHomographyColumn = floor(xtmt) - secondHomographyImageEnvelope[0]
+            targetReducedHomographyRow = floor(ytm) - secondHomographyImageEnvelope[1]
+            if (sourceReducedHomographyColumn < minimumMatchWindowSizeFromCenter
+                    or sourceReducedHomographyRow < minimumMatchWindowSizeFromCenter
+                    or sourceReducedHomographyColumn > (firstHomographyImageEnvelope[2] - minimumMatchWindowSizeFromCenter-1)
+                    or sourceReducedHomographyRow > (firstHomographyImageEnvelope[3]-minimumMatchWindowSizeFromCenter-1)):
+                 continue
+            firstReducedHomographyWindow = []
+            firstReducedHomographyWindow.append(sourceReducedHomographyColumn-matchWindowSizeFromCenter)
+            if firstReducedHomographyWindow[0] < 0:
+                firstReducedHomographyWindow[0] = 0
+            firstReducedHomographyWindow.append(sourceReducedHomographyRow - matchWindowSizeFromCenter)
+            if firstReducedHomographyWindow[1] < 0:
+                firstReducedHomographyWindow[1] = 0
+            firstReducedHomographyWindow.append(sourceReducedHomographyColumn + matchWindowSizeFromCenter)
+            if firstReducedHomographyWindow[2] > (firstHomographyImageEnvelope[2] - 1):
+                firstReducedHomographyWindow[2] = firstHomographyImageEnvelope[2] - 1
+            firstReducedHomographyWindow.append(sourceReducedHomographyRow + matchWindowSizeFromCenter)
+            if firstReducedHomographyWindow[3] > (firstHomographyImageEnvelope[3] - 1):
+                firstReducedHomographyWindow[3] = firstHomographyImageEnvelope[3] - 1
+            if (targetReducedHomographyRow<minimumMatchWindowSizeFromCenter
+                    or targetReducedHomographyRow>(secondHomographyImageEnvelope[2]-minimumMatchWindowSizeFromCenter-1)):
+                continue
+            if (targetReducedHomographyColumn<minimumFindWindowSizeFromCenter
+                    or targetReducedHomographyColumn>(secondHomographyImageEnvelope[2]-minimumFindWindowSizeFromCenter-1)):
+                continue
+            secondReducedHomographyFindArea = []
+            secondReducedHomographyFindArea.append(targetReducedHomographyColumn - findWindowSizeFromCenter)
+            if secondReducedHomographyFindArea[0] < 0:
+                secondReducedHomographyFindArea[0] = 0
+            secondReducedHomographyFindArea.append(targetReducedHomographyRow - matchWindowSizeFromCenter
+                                                   - self.match_maximum_epipolar_row_parallax)
+            if secondReducedHomographyFindArea[1] < 0:
+                secondReducedHomographyFindArea[1] = 0
+            secondReducedHomographyFindArea.append(targetReducedHomographyColumn + findWindowSizeFromCenter)
+            if secondReducedHomographyFindArea[2] > (secondHomographyImageEnvelope[2] - 1):
+                secondReducedHomographyFindArea[2] = secondHomographyImageEnvelope[2] - 1
+            secondReducedHomographyFindArea.append(targetReducedHomographyRow + matchWindowSizeFromCenter
+                                                   + self.match_maximum_epipolar_row_parallax)
+            if secondReducedHomographyFindArea[3] > (secondHomographyImageEnvelope[3] - 1):
+                secondReducedHomographyFindArea[3] = secondHomographyImageEnvelope[3] - 1
+            measuredTemplateMinColumn = firstReducedHomographyWindow[0] + firstHomographyImageEnvelope[0]
+            measuredTemplateMinRow = firstReducedHomographyWindow[1] + firstHomographyImageEnvelope[1]
+            measuredTemplateMaxColumn = firstReducedHomographyWindow[2] + firstHomographyImageEnvelope[0]
+            measuredTemplateMaxRow = firstReducedHomographyWindow[3] + firstHomographyImageEnvelope[1]
+            meauredTemplateColumns = measuredTemplateMaxColumn - measuredTemplateMinColumn + 1 # sourceImg.cols
+            measuredTemplateRows = measuredTemplateMaxRow - measuredTemplateMinRow + 1 # sourceImg.cols
+            if (meauredTemplateColumns < (matchWindowSizeFromCenter * 2 + 1)
+                    or measuredTemplateRows < (matchWindowSizeFromCenter * 2 + 1)):
+                continue
+            templateMatrix = np.zeros((measuredTemplateRows, meauredTemplateColumns), dtype=np.uint8)
+            row = measuredTemplateMinRow
+            while row <= measuredTemplateMaxRow:
+                column = measuredTemplateMinColumn
+                while column <= measuredTemplateMaxColumn:
+                    xt = column + .5
+                    yt = row + .5
+                    targetColumn = floor(xt) - measuredTemplateMinColumn
+                    targetRow = floor(yt) - measuredTemplateMinRow
+                    den = xt * mFImgInvH[2, 0] + yt * mFImgInvH[2, 1] + 1. * mFImgInvH[2, 2]
+                    xs = xt * mFImgInvH[0, 0] + yt * mFImgInvH[0, 1] + 1. * mFImgInvH[0, 2]
+                    ys = xt * mFImgInvH[1, 0] + yt * mFImgInvH[1, 1] + 1. * mFImgInvH[1, 2]
+                    xs /= den
+                    ys /= den
+                    xs = xs - .5
+                    ys = ys - .5
+                    x0 = floor(xs)
+                    x1 = x0 + 1
+                    y0 = floor(ys)
+                    y1 = y0 + 1
+                    if x0 < 0 or x1 > (measured_img_columns - 1) or y0 < 0 or y1 > (measured_img_rows - 1):
+                        templateMatrix[targetRow, targetColumn] = 0
+                        column = column + 1
+                        continue
+                    dx = xs - x0
+                    dy = ys - y0
+                    dx_1 = 1 - dx
+                    dy_1 = 1 - dy
+                    value00 = measured_img[y0, x0]
+                    value01 = measured_img[y0, x1]
+                    value10 = measured_img[y1, x0]
+                    value11 = measured_img[y1, x1]
+                    v0 = dx_1 * value00 + dx * value01
+                    v1 = dx_1 * value10 + dx * value11
+                    v = dy_1 * v0 + dy * v1
+                    dnValue = int(np.round(v))
+                    if dnValue < 0:
+                        dnValue = 0
+                    if dnValue > 255:
+                        dnValue = 255
+                    templateMatrix[targetRow, targetColumn] = dnValue
+                    column = column + 1
+                row = row + 1
+            yo = 1
+
 
 
         return str_error
