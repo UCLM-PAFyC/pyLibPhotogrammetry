@@ -199,6 +199,9 @@ class EpipolarGeometryMatcherManager():
         measured_img = self.load_image_by_id[measured_camera_id]
         measured_img_columns = measured_img.shape[1]
         measured_img_rows = measured_img.shape[0]
+        matched_img = self.load_image_by_id[matched_camera_id]
+        matched_img_columns = matched_img.shape[1]
+        matched_img_rows = matched_img.shape[0]
         matchMethods = []
         if (self.match_opencv_method.casefold() ==
                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_ALL.casefold()):
@@ -319,6 +322,164 @@ class EpipolarGeometryMatcherManager():
                     templateMatrix[targetRow, targetColumn] = dnValue
                     column = column + 1
                 row = row + 1
+            matchedTemplateMinColumn = secondReducedHomographyFindArea[0] + secondHomographyImageEnvelope[0]
+            matchedTemplateMinRow = secondReducedHomographyFindArea[1] + secondHomographyImageEnvelope[1]
+            matchedTemplateMaxColumn = secondReducedHomographyFindArea[2] + secondHomographyImageEnvelope[0]
+            matchedTemplateMaxRow = secondReducedHomographyFindArea[3] + secondHomographyImageEnvelope[1]
+            matchedTemplateColumns = matchedTemplateMaxColumn - matchedTemplateMinColumn + 1 # sourceImg.cols
+            matchedTemplateRows = matchedTemplateMaxRow - matchedTemplateMinRow + 1 # sourceImg.cols
+            if (matchedTemplateRows < (matchWindowSizeFromCenter * 2 + 1)
+                    or matchedTemplateColumns < (findWindowSizeFromCenter * 2 + 1)):
+                continue
+            findMatrix = np.zeros((matchedTemplateRows, matchedTemplateColumns), dtype=np.uint8)
+            row = matchedTemplateMinRow
+            while row <= matchedTemplateMaxRow:
+                column = matchedTemplateMinColumn
+                while column <= matchedTemplateMaxColumn:
+                    xt = column + .5
+                    yt = row + .5
+                    targetColumn = floor(xt) - matchedTemplateMinColumn
+                    targetRow = floor(yt) - matchedTemplateMinRow
+                    den = xt * mSImgInvH[2, 0] + yt * mSImgInvH[2, 1] + 1. * mSImgInvH[2, 2]
+                    xs = xt * mSImgInvH[0, 0] + yt * mSImgInvH[0, 1] + 1. * mSImgInvH[0, 2]
+                    ys = xt * mSImgInvH[1, 0] + yt * mSImgInvH[1, 1] + 1. * mSImgInvH[1, 2]
+                    xs /= den
+                    ys /= den
+                    xs = xs - .5
+                    ys = ys - .5
+                    x0 = floor(xs)
+                    x1 = x0 + 1
+                    y0 = floor(ys)
+                    y1 = y0 + 1
+                    if x0 < 0 or x1 > (matched_img_columns - 1) or y0 < 0 or y1 > (matched_img_rows - 1):
+                        findMatrix[targetRow, targetColumn] = 0
+                        column = column + 1
+                        continue
+                    dx = xs - x0
+                    dy = ys - y0
+                    dx_1 = 1 - dx
+                    dy_1 = 1 - dy
+                    value00 = matched_img[y0, x0]
+                    value01 = matched_img[y0, x1]
+                    value10 = matched_img[y1, x0]
+                    value11 = matched_img[y1, x1]
+                    v0 = dx_1 * value00 + dx * value01
+                    v1 = dx_1 * value10 + dx * value11
+                    v = dy_1 * v0 + dy * v1
+                    dnValue = int(np.round(v))
+                    if dnValue < 0:
+                        dnValue = 0
+                    if dnValue > 255:
+                        dnValue = 255
+                    findMatrix[targetRow, targetColumn] = dnValue
+                    column = column + 1
+                row = row + 1
+            # write_matches_images = True
+            if write_matches_images:
+                templateImageFileName = os.path.dirname(measured_undistorted_image_file_path) + '/'
+                templateImageFileName += os.path.basename(measured_undistorted_image_file_path).split('.')[0]
+                templateImageFileName += '_'
+                templateImageFileName += os.path.basename(matched_undistorted_image_file_path).split('.')[0]
+                templateImageFileName += '_'
+                templateImageFileName += str(matchWindowSizeFromCenter)
+                templateImageFileName += '_template.jpg'
+                cv2.imwrite(templateImageFileName, templateMatrix, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                findImageFileName = os.path.dirname(matched_undistorted_image_file_path) + '/'
+                findImageFileName += os.path.basename(matched_undistorted_image_file_path).split('.')[0]
+                findImageFileName += '_'
+                findImageFileName += os.path.basename(measured_undistorted_image_file_path).split('.')[0]
+                findImageFileName += '_'
+                findImageFileName += str(matchWindowSizeFromCenter)
+                findImageFileName += '_find.jpg'
+                cv2.imwrite(findImageFileName, findMatrix, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            resultColumns = findMatrix.shape[1] - templateMatrix.shape[1] + 1
+            resultRows = findMatrix.shape[0] - templateMatrix.shape[0] + 1
+            for nmm in range(len(matchMethods)):
+                match_method = matchMethods[nmm]
+                match_method_cv = None
+                result = None
+                if (match_method.casefold() ==
+                        defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_CCORR_NORMED.casefold()):
+                    match_method_cv = cv2.TM_CCORR_NORMED
+                elif (match_method.casefold() ==
+                        defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_COEFF_NORMED.casefold()):
+                    match_method_cv = cv2.TM_CCOEFF_NORMED
+                else: # defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_SQDIFF_NORMED
+                    match_method_cv = cv2.TM_SQDIFF_NORMED
+                result = cv2.matchTemplate(findMatrix, templateMatrix, match_method_cv)
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
+                top_left = None
+                quality = None
+                if (match_method.casefold() ==
+                        defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_OPENCV_METHOD_TM_SQDIFF_NORMED.casefold()):
+                    quality = 1. - min_val
+                    matchLoc = min_loc
+                else:
+                    matchLoc = max_loc
+                    quality = max_val
+                # bottom_right = (top_left[0] + w, top_left[1] + h)
+                matchedColumn = matchLoc[0] + float(templateMatrix.shape[1]) / 2.
+                matchedRow = matchLoc[1] + float(templateMatrix.shape[0]) / 2.
+                xtmm = matchedColumn + matchedTemplateMinColumn # +.5;
+                ytmm = matchedRow + matchedTemplateMinRow # +.5;
+                if abs(ytmm - ytm) > self.match_maximum_epipolar_row_parallax:
+                    continue
+                pointX = matchLoc[0]
+                pointY = matchLoc[1]
+                if (pointX > 3. and pointX < (findMatrix.shape[1] - 3 - 1)
+                        and pointY > 3. and pointY < (findMatrix.shape[0] - 3 - 1)):
+                    sz = templateMatrix.shape
+                    # Define the motion model
+                    warp_mode = cv2.MOTION_TRANSLATION
+                    # warp_mode = cv2.MOTION_HOMOGRAPHY
+                    if warp_mode == cv2.MOTION_HOMOGRAPHY:
+                        warp_matrix = np.eye(3, 3, dtype=np.float32)
+                    else:
+                        warp_matrix = np.eye(2, 3, dtype=np.float32)
+                    warp_matrix[0, 2] = pointX
+                    warp_matrix[1, 2] = pointY
+                    # Specify the number of iterations.
+                    number_of_iterations = 200;
+                    # Specify the threshold of the increment in the correlation coefficient between two iterations
+                    termination_eps = 1e-10;
+                    # Define termination criteria
+                    criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations, termination_eps)
+                    # Run the ECC algorithm. The results are stored in warp_matrix.
+                    (cc, warp_matrix) = cv2.findTransformECC(templateMatrix, findMatrix, warp_matrix, warp_mode, criteria)
+                    # if warp_mode == cv2.MOTION_HOMOGRAPHY: # Use warpPerspective for Homography
+                    #     im2_aligned = cv2.warpPerspective(im2, warp_matrix, (sz[1], sz[0]),
+                    #                                       flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+                    # else: # Use warpAffine for Translation, Euclidean and Affine
+                    #     im2_aligned = cv2.warpAffine(im2, warp_matrix, (sz[1], sz[0]),
+                    #                                  flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+                    pointX = warp_matrix[0,2]
+                    pointY = warp_matrix[1,2]
+                    matchedColumn = pointX + float(templateMatrix.shape[1]) / 2.
+                    matchedRow = pointY + float(templateMatrix.shape[0]) / 2.
+                    xtmm = matchedColumn + matchedTemplateMinColumn # +.5;
+                    ytmm = matchedRow + matchedTemplateMinRow # +.5;
+                    if abs(ytmm - ytm) > self.match_maximum_epipolar_row_parallax:
+                        continue
+                denmm = xtmm * mSImgInvH[2, 0] + ytmm * mSImgInvH[2, 1] + 1. * mSImgInvH[2, 2]
+                xsmm = xtmm * mSImgInvH[0, 0] + ytmm * mSImgInvH[0, 1] + 1. * mSImgInvH[0, 2]
+                ysmm = xtmm * mSImgInvH[1, 0] + ytmm * mSImgInvH[1, 1] + 1. * mSImgInvH[1, 2]
+                xsmm /= denmm
+                ysmm /= denmm
+                xsmm = xsmm - .5
+                ysmm = ysmm - .5
+                auxUndistortedMatchedColumn = xsmm
+                auxUndistortedMatchedRow = ysmm
+                self.undistortedMatchedColumns[position].append(auxUndistortedMatchedColumn)
+                self.undistortedMatchedRows[position].append(auxUndistortedMatchedRow)
+                self.qualitiesValues[position].append(quality);
+                if not self.matchedFinds[position]:
+                    self.matchedFinds[position] = True
+                matchedName = match_method
+                matchedName += "-w"
+                matchedName += str(matchWindowSizes[nws])
+                self.matchedNames[position].append(matchedName)
+                yo = 1
             yo = 1
 
 
