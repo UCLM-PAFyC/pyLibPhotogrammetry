@@ -414,6 +414,131 @@ class SensorMetashape(Sensor):
             Z = rotated_coor[2]
         return str_error, X, Y, Z
 
+    def get_distorted(self,
+                      column_nd, row_nd):
+        str_error = ''
+        column = None
+        row = None
+        withinAfterDistortion = False
+        use_distortion = True
+        use_ppa = True
+        if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class\
+                and not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL in self.calibration_by_class:
+            str_error = ('For sensor: {} not found calibration class: {}'.
+                         format(self.label, defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED))
+            return str_error, column, row, withinAfterDistortion
+        calibration = None
+        if defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class:
+            calibration = self.calibration_by_class[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED]
+        else:
+            calibration = self.calibration_by_class[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL]
+        if (calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL):
+            str_error = ('For sensor: {} calibration type: {} is not valid\nmust be {}, {} or {}'.
+                         format(self.label, calibration.type, defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME,
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE,
+                                defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL))
+            return str_error, column, row, withinAfterDistortion
+        columns = calibration.width
+        rows = calibration.height
+        outerToleranceColumns = SENSOR_OUTER_POINT_PERCENTAGE_FOCAL_PLANE_TOLERANCE / 100. * float(columns)
+        outerToleranceRows = SENSOR_OUTER_POINT_PERCENTAGE_FOCAL_PLANE_TOLERANCE / 100. * float(rows)
+        if (columnNd < (-1. * outerToleranceColumns) or columnNd > (columns + outerToleranceColumns)
+                or rowNd < (-1. * outerToleranceRows) or rowNd > (rows + outerToleranceRows)):
+            strError = ("In sensor label: {}}\ndistortion position is outside: ({:.2f},{:.2f})"
+                        .format(self.label), column_nd, row_nd)
+            return str_error, column, row, withinAfterDistortion
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME:
+            f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+            cx = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CX_TAG]
+            cy = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CY_TAG]
+            b1 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_B1_TAG]
+            b2 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_B2_TAG]
+            k1 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_K1_TAG]
+            k2 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_K2_TAG]
+            k3 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_K3_TAG]
+            k4 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_K4_TAG]
+            p1 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P1_TAG]
+            p2 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P2_TAG]
+            p3 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P3_TAG]
+            p4 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P4_TAG]
+            # columnNd = columns * 0.5 + cx + f * x
+            x = (column_nd - columns * 0.5 - cx) / f
+            # rowNd = rows * 0.5 + cy + y * f
+            y = (row_nd - rows * 0.5 - cy) / f
+            r = np.sqrt(x * x + y * y)
+            r2 = r * r
+            r4 = r2 * r2
+            r6 = r2 * r4
+            r8 = r4 * r4
+            x2 = x * x
+            y2 = y * y
+            xd = x * (1.0 + k1 * r2 + k2 * r4 + k3 * r6 + k4 * r8) + (p1 * (r2 + 2.0 * x2) + 2.0 * p2 * x * y) * (
+                        1.0 + p3 * r2 + p4 * r4)
+            yd = y * (1.0 + k1 * r2 + k2 * r4 + k3 * r6 + k4 * r8) + (p2 * (r2 + 2.0 * y2) + 2.0 * p1 * x * y) * (
+                        1.0 + p3 * r2 + p4 * r4)
+            column = columns * 0.5 + cx + f * xd + xd * b1 + yd * b2
+            row = rows * 0.5 + cy + yd * f
+            if not withinAfterUndistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
+                withinAfterUndistortion = True
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE:
+            f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+            cx = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CX_TAG]
+            cy = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CY_TAG]
+            b1 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_B1_TAG]
+            b2 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_B2_TAG]
+            k1 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_K1_TAG]
+            k2 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_K2_TAG]
+            k3 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_K3_TAG]
+            k4 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_K4_TAG]
+            p1 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P1_TAG]
+            p2 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P2_TAG]
+            p3 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P3_TAG]
+            p4 = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_P4_TAG]
+            # x0 = X / Z
+            # y0 = Y / Z
+            # r0 = np.sqrt(x0 * x0 + y0 * y0)
+            # x = x0 * np.arctan(r0) / r0 # x0 * tan - 1 r0 / r0
+            # y = y0 * np.arctan(r0) / r0 # y0 * tan - 1 r0 / r0
+            # columnNd = columns * 0.5 + cx + f * x
+            x = (column_nd - columns * 0.5 - cx) / f
+            # rowNd = rows * 0.5 + cy + y * f
+            y = (row_nd - rows * 0.5 - cy) / f
+            r = np.sqrt(x * x + y * y)
+            r2 = r * r
+            r4 = r2 * r2
+            r6 = r2 * r4
+            r8 = r4 * r4
+            x2 = x * x
+            y2 = y * y
+            xd = x * (1.0 + k1 * r2 + k2 * r4 + k3 * r6 + k4 * r8) + (p1 * (r2 + 2.0 * x2) + 2.0 * p2 * x * y) * (
+                        1.0 + p3 * r2 + p4 * r4)
+            yd = y * (1.0 + k1 * r2 + k2 * r4 + k3 * r6 + k4 * r8) + (p2 * (r2 + 2.0 * y2) + 2.0 * p1 * x * y) * (
+                        1.0 + p3 * r2 + p4 * r4)
+            column = columns * 0.5 + cx + f * xd + xd * b1 + yd * b2
+            row = rows * 0.5 + cy + yd * f
+            if not withinAfterUndistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
+                withinAfterUndistortion = True
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
+            # f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
+            # # column = columns * 0.5 + f * np.arctan(X / Z)
+            # # row = rows * 0.5 + f * np.arctan(Y / np.sqrt(X *X + Z * Z))
+            # column = columns * 0.5 + f * np.arctan2(X, Z)
+            # row = rows * 0.5 + f * np.arctan(Y / np.sqrt(X * X + Z * Z))
+            # # column_2 = columns * 0.5 + f * np.arctan2(Z, X)
+            # # row_2 = rows * 0.5 + f * np.arctan2(np.sqrt(X *X + Z * Z), Y)
+            # if column >= 0 and column < self.width and row >= 0 and row < self.height:
+            #     within = True
+            #     withinAfterUndistortion = True
+            # columnNd = column
+            # rowNd = row
+            column = column_nd
+            row = row_nd
+            if not withinAfterUndistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
+                withinAfterUndistortion = True
+        return str_error, column, row, withinAfterDistortion
+
     def get_focal(self):
         str_error = ''
         focal = None

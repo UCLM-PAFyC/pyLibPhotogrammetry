@@ -288,6 +288,8 @@ class ObjectPointMetashape(ObjectPoint):
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE]
         images_meaurements_accuracy = self.at_block.project.digitizing_parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MEASUREMENTS_ACCURACY]
+        images_matches_accuracy = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IMAGES_MATCHES_ACCURACY]
 
         # 2. get valid measurements (enabled, no ignored, not near sensor limits)
         #    and project in dem
@@ -643,7 +645,7 @@ class ObjectPointMetashape(ObjectPoint):
                 undistortedMatchedRowsValues = []
                 undistortedMatchedColumnsValues.append(undistorted_matched_column)
                 undistortedMatchedColumns.append(undistortedMatchedColumnsValues)
-                undistortedMatchedRowsValues.append(undistorted_measured_row)
+                undistortedMatchedRowsValues.append(undistorted_matched_row)
                 undistortedMatchedRows.append(undistortedMatchedRowsValues)
                 matchedFinds.append(matchedFind)
                 qualitiesValues.append(qualityValues)
@@ -687,6 +689,12 @@ class ObjectPointMetashape(ObjectPoint):
             str_error = ("\n- Error:\n{}".format(str_error))
             return str_error
 
+        measuredImagesDbIdsByMatchedImageDbId = {} # QMap < int, QVector < int > >
+        objectPointValuesByMatchedImageDbIdByMeasuredImageDbId = {} # QMap < int, QMap < int, QVector < QVector < double > > > > : fc, sc, tc, stdFc, stdSc, stdTc
+        distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId = {} # QMap < int, QMap < int, QVector < QVector < double > > > > : column, row, quality, stdMatch, stdMatch
+        undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId = {} # QMap < int, QMap < int, QVector < QVector < double > > > > : column, row, quality, stdMatch, stdMatch
+        matchedNamesByMatchedImageDbIdByMeasuredImageDbId = {} # QMap < int, QMap < int, QVector < QString > > > : column, row, quality, stdMatch, stdMatch
+        posInSolutions = -1
         for projected_image_id in projected_images:
             if not projected_image_id in projectedImagesId:
                 continue
@@ -701,8 +709,10 @@ class ObjectPointMetashape(ObjectPoint):
             content += ("\n      Measured Image    Meas.U.C    Meas.U.R     Method-WindowSize   Match.U.C   Match.U.R")
             content += ("     Match.C     Match.R   Quality  Obj.Pto.Fc  Obj.Pto.Sc  Obj.Pto.Tc")
             content += ("  Std.Fc  Std.Sc  Std.Tc")
+            measured_images_ids = []
             for measured_image_id in measured_by_image_id:
                 measured_camera = self.at_block.get_camera_from_camera_id(measured_image_id)
+                measured_sensor = self.at_block.sensor_by_id[measured_camera.sensor_id]
                 measured_camera_label = measured_camera.label
                 undistorted_measured_column = undistorted_measured_by_image_id[measured_image_id][0]
                 undistorted_measured_row = undistorted_measured_by_image_id[measured_image_id][1]
@@ -715,8 +725,58 @@ class ObjectPointMetashape(ObjectPoint):
                 distortedMeasuredValue.append(measured_by_image_id[measured_image_id][1])
                 distortedMeasuredValue.append(measured_by_image_id[measured_image_id][2])
                 distortedMeasuredValue.append(measured_by_image_id[measured_image_id][3])
+                posInSolutions = posInSolutions + 1
+                if not matchedFinds[posInSolutions]:
+                    content += " Match not found"
+                    continue
+                objectPointsValues = [] # QVector<QVector<double> > : fc,sc,tc,stdFc,stdSc,stdTc
+                distortedMatchedValues = [] # QVector<QVector<double> > : column,row,quality,stdMatch,stdMatch
+                undistortedMatchedValues = [] # QVector<QVector<double> > : column,row,quality,stdMatch,stdMatch
+                auxMatchedNames = []
+                for ns in range(len(undistortedMatchedColumns[posInSolutions])):
+                    matchedName = matchedNames[posInSolutions][ns]
+                    qualityValue = qualitiesValues[posInSolutions][ns]
+                    undistortedMatchedColumn = undistortedMatchedColumns[posInSolutions][ns]
+                    undistortedMatchedRow = undistortedMatchedRows[posInSolutions][ns]
+                    distortedMatchedColumn = None
+                    distortedMatchedRow = None
+                    withinAfterDistortion = False
+                    if ns > 0:
+                       content += "\n"
+                       content += "                                            "
+                    str_error, distortedMatchedColumn, distortedMatchedRow, withinAfterDistortion \
+                        = measured_sensor.get_distorted(undistortedMatchedColumn, undistortedMatchedRow)
+                    if str_error:
+                        content += "Error getting distorted matched"
+                        continue
+                    content += ("{:22s}".format(matchedName))
+                    content += ("{:12.2f}".format(undistorted_measured_column))
+                    content += ("{:12.2f}".format(undistorted_measured_row))
+                    if withinAfterDistortion:
+                        undistortedMatchedValue = []
+                        undistortedMatchedValue.append(undistortedMatchedColumn)
+                        undistortedMatchedValue.append(undistortedMatchedRow)
+                        undistortedMatchedValue.append(qualityValue)
+                        undistortedMatchedValue.append(images_matches_accuracy)
+                        undistortedMatchedValue.append(images_matches_accuracy)
+                        undistortedMatchedValues.append(undistortedMatchedValue)
+                        measured_images_ids.append(measured_image_id)
+                        distortedMatchedValue = []
+                        distortedMatchedValue.append(distortedMatchedColumn)
+                        distortedMatchedValue.append(distortedMatchedRow)
+                        distortedMatchedValue.append(qualityValue)
+                        distortedMatchedValue.append(images_matches_accuracy)
+                        distortedMatchedValue.append(images_matches_accuracy)
+                        distortedMatchedValues.append(distortedMatchedValue)
+                        measuredImageDbIds.append(measuredImageDbId)
+                        content += ("{:12.2f}".format(distortedMatchedColumn))
+                        content += ("{:12.2f}".format(distortedMatchedRow))
+                        content += ("{:10.2f}".format(qualityValue))
 
-        # ...
+
+
+
+                # ...
 
         self.report_text += content
         self.report_text_last_step = content

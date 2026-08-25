@@ -479,11 +479,6 @@ class EpipolarGeometryMatcherManager():
                 matchedName += "-w"
                 matchedName += str(matchWindowSizes[nws])
                 self.matchedNames[position].append(matchedName)
-                yo = 1
-            yo = 1
-
-
-
         return str_error
 
     def matches_rfa(self,
@@ -637,5 +632,17 @@ class EpipolarGeometryMatcherManager():
             dialog.processLineEdit.clear()
             dialog.processProgressBar.reset()
             QApplication.processEvents()
-
+        # for i in range(len(positionsToCompute)):
+        #     position = positionsToCompute[i]
+        #     undistortedMatchedColumns[position].clear()
+        #     undistortedMatchedRows[position].clear()
+        #     qualitiesValues[position].clear()
+        #     matchedNames[position].clear()
+        #     matchedFinds[position] = False
+        #     if self.matchedFinds[position]:
+        #         matchedFinds[position] = True
+        #         undistortedMatchedColumns[position] = self.undistortedMatchedColumns[position]
+        #         undistortedMatchedRows[position] = self.undistortedMatchedRows[position]
+        #         qualitiesValues[position] = self.qualitiesValues[position]
+        #         matchedNames[position] = self.matchedNames[position]
         return str_error
