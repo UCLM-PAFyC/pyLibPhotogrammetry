@@ -295,6 +295,7 @@ class ObjectPointMetashape(ObjectPoint):
         #    and project in dem
         #    check exists valid measurement
         updated_object_point_position = False
+        existsObjectPointCandidate = False # a true si se calcula a partir de medidas
         content = "\n- ObjectPoint.update_from_measured_images"
         image_id_to_process_by_image_label = {}
         measured_by_image_id = {}
@@ -469,6 +470,7 @@ class ObjectPointMetashape(ObjectPoint):
                 tc = position[2]
                 n_iteration += 1
             updated_object_point_position = True
+            existsObjectPointCandidate = True
         if not updated_object_point_position:
             return str_error
         # 4. remove existing locations
@@ -663,7 +665,6 @@ class ObjectPointMetashape(ObjectPoint):
             str_error = ("\n- Error: getting values for matching, exists several sensors width different focals")
             return str_error
         point_height = self.dem_height
-
         str_error = self.at_block.project.epipolar_geometry_matcher_manager.matches_rfa(measuredImagesId,
                                                                                         undistortedMeasuredColumns,
                                                                                         undistortedMeasuredRows,
@@ -688,7 +689,6 @@ class ObjectPointMetashape(ObjectPoint):
                 self.report_file.flush()
             str_error = ("\n- Error:\n{}".format(str_error))
             return str_error
-
         measuredImagesDbIdsByMatchedImageDbId = {} # QMap < int, QVector < int > >
         objectPointValuesByMatchedImageDbIdByMeasuredImageDbId = {} # QMap < int, QMap < int, QVector < QVector < double > > > > : fc, sc, tc, stdFc, stdSc, stdTc
         distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId = {} # QMap < int, QMap < int, QVector < QVector < double > > > > : column, row, quality, stdMatch, stdMatch
@@ -696,6 +696,8 @@ class ObjectPointMetashape(ObjectPoint):
         matchedNamesByMatchedImageDbIdByMeasuredImageDbId = {} # QMap < int, QMap < int, QVector < QString > > > : column, row, quality, stdMatch, stdMatch
         posInSolutions = -1
         for projected_image_id in projected_images:
+            if projected_image_id in measured_by_image_id:
+                continue
             if not projected_image_id in projectedImagesId:
                 continue
             projected_camera = self.at_block.get_camera_from_camera_id(projected_image_id)
@@ -717,7 +719,7 @@ class ObjectPointMetashape(ObjectPoint):
                 undistorted_measured_column = undistorted_measured_by_image_id[measured_image_id][0]
                 undistorted_measured_row = undistorted_measured_by_image_id[measured_image_id][1]
                 content += "\n"
-                content += ("{:20s}".format(measured_camera_label))
+                content += ("{:>20s}".format(measured_camera_label))
                 content += ("{:12.2f}".format(undistorted_measured_column))
                 content += ("{:12.2f}".format(undistorted_measured_row))
                 distortedMeasuredValue = []
@@ -749,34 +751,94 @@ class ObjectPointMetashape(ObjectPoint):
                     if str_error:
                         content += "Error getting distorted matched"
                         continue
-                    content += ("{:22s}".format(matchedName))
+                    content += ("{:>22s}".format(matchedName))
                     content += ("{:12.2f}".format(undistorted_measured_column))
                     content += ("{:12.2f}".format(undistorted_measured_row))
-                    if withinAfterDistortion:
-                        undistortedMatchedValue = []
-                        undistortedMatchedValue.append(undistortedMatchedColumn)
-                        undistortedMatchedValue.append(undistortedMatchedRow)
-                        undistortedMatchedValue.append(qualityValue)
-                        undistortedMatchedValue.append(images_matches_accuracy)
-                        undistortedMatchedValue.append(images_matches_accuracy)
-                        undistortedMatchedValues.append(undistortedMatchedValue)
-                        measured_images_ids.append(measured_image_id)
-                        distortedMatchedValue = []
-                        distortedMatchedValue.append(distortedMatchedColumn)
-                        distortedMatchedValue.append(distortedMatchedRow)
-                        distortedMatchedValue.append(qualityValue)
-                        distortedMatchedValue.append(images_matches_accuracy)
-                        distortedMatchedValue.append(images_matches_accuracy)
-                        distortedMatchedValues.append(distortedMatchedValue)
-                        measuredImageDbIds.append(measuredImageDbId)
-                        content += ("{:12.2f}".format(distortedMatchedColumn))
-                        content += ("{:12.2f}".format(distortedMatchedRow))
-                        content += ("{:10.2f}".format(qualityValue))
+                    if not withinAfterDistortion:
+                        content += "     outside"
+                        content += "     outside"
+                        continue
+                    undistortedMatchedValue = []
+                    undistortedMatchedValue.append(undistortedMatchedColumn)
+                    undistortedMatchedValue.append(undistortedMatchedRow)
+                    undistortedMatchedValue.append(qualityValue)
+                    undistortedMatchedValue.append(images_matches_accuracy)
+                    undistortedMatchedValue.append(images_matches_accuracy)
+                    undistortedMatchedValues.append(undistortedMatchedValue)
+                    measured_images_ids.append(measured_image_id)
+                    distortedMatchedValue = []
+                    distortedMatchedValue.append(distortedMatchedColumn)
+                    distortedMatchedValue.append(distortedMatchedRow)
+                    distortedMatchedValue.append(qualityValue)
+                    distortedMatchedValue.append(images_matches_accuracy)
+                    distortedMatchedValue.append(images_matches_accuracy)
+                    distortedMatchedValues.append(distortedMatchedValue)
+                    measured_images_ids.append(measured_image_id)
+                    content += ("{:12.2f}".format(distortedMatchedColumn))
+                    content += ("{:12.2f}".format(distortedMatchedRow))
+                    content += ("{:10.2f}".format(qualityValue))
+                    pairUseDistortion = True # measured coordinates
+                    pairUsePPA = True
+                    pairComputeBackwardCameraCoordinates = False
+                    pairCamerasBackwardErrorCoordinates = {} # QMap < int, QVector < double > >
+                    pairValuesByImageDbId = {} # QMap < int, QVector < double > >
+                    # pairComputedFc, pairComputedSc, pairComputedTc;
+                    # pairStdComputedFc, pairStdComputedSc, pairStdComputedTc;
+                    pairValuesByImageDbId[measured_image_id] = distortedMeasuredValue
+                    pairValuesByImageDbId[projected_image_id] = distortedMatchedValue
+                    compute_backward_camera_coordinates = True
+                    use_distortion = True
+                    use_ppa = True
+                    image_space_tolerance_none = None
+                    str_error, pair_position, std_pair_position, image_pair_position_backward_error_by_camera_id \
+                        = self.at_block.from_sensors_to_object(pairValuesByImageDbId,
+                                                               self.at_block.project.crs_id,
+                                                               compute_backward_camera_coordinates,
+                                                               use_distortion, use_ppa,
+                                                               image_space_tolerance_none)
+                    if str_error:
+                        content += ("\n- Error: computing position from image measurement: {} and image matched: {}\n{}"
+                                    .format(measured_camera_label, projected_camera_label, str_error))
+                        self.report_text += content
+                        self.report_text_last_step = content
+                        if self.report_file is not None:
+                            self.report_file.write(self.report_text_last_step)
+                            self.report_file.flush()
+                        str_error = ("\n- Error: computing position from image measurement: {} and image matched: {}\n{}"
+                                    .format(measured_camera_label, projected_camera_label, str_error))
+                        return str_error
+                    objectPointValues = []
+                    objectPointValues.append(pair_position[0]);
+                    objectPointValues.append(pair_position[1]);
+                    objectPointValues.append(pair_position[2]);
+                    objectPointValues.append(std_pair_position[0]);
+                    objectPointValues.append(std_pair_position[1]);
+                    objectPointValues.append(std_pair_position[2]);
+                    content += ("{:12.3f}".format(pair_position[0]))
+                    content += ("{:12.3f}".format(pair_position[1]))
+                    content += ("{:12.3f}".format(pair_position[2]))
+                    content += ("{:8.3f}".format(std_pair_position[0]))
+                    content += ("{:8.3f}".format(std_pair_position[1]))
+                    content += ("{:8.3f}".format(std_pair_position[2]))
+                    objectPointsValues.append(objectPointValues) # fc, sc, tc, stdFc, stdSc, stdTc
+                    auxMatchedNames.append(matchedName);
+                yo = 1
+                if not projected_image_id in undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId:
+                    undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[projected_image_id] = {}
+                undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[measured_image_id] = undistortedMatchedValues
+                if not projected_image_id in distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId:
+                    distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[projected_image_id] = {}
+                distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[measured_image_id] = distortedMatchedValues
+                if not projected_image_id in objectPointValuesByMatchedImageDbIdByMeasuredImageDbId:
+                    objectPointValuesByMatchedImageDbIdByMeasuredImageDbId[projected_image_id] = {}
+                objectPointValuesByMatchedImageDbIdByMeasuredImageDbId[measured_image_id] = objectPointsValues
+                if not projected_image_id in matchedNamesByMatchedImageDbIdByMeasuredImageDbId:
+                    matchedNamesByMatchedImageDbIdByMeasuredImageDbId[projected_image_id] = {}
+                matchedNamesByMatchedImageDbIdByMeasuredImageDbId[measured_image_id] = auxMatchedNames
+            if len(measured_images_ids) > 0:
+                measuredImagesDbIdsByMatchedImageDbId[projected_image_id] = measured_images_ids
 
-
-
-
-                # ...
+        
 
         self.report_text += content
         self.report_text_last_step = content

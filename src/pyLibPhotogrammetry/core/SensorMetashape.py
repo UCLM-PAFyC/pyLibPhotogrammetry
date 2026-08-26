@@ -444,8 +444,8 @@ class SensorMetashape(Sensor):
         rows = calibration.height
         outerToleranceColumns = SENSOR_OUTER_POINT_PERCENTAGE_FOCAL_PLANE_TOLERANCE / 100. * float(columns)
         outerToleranceRows = SENSOR_OUTER_POINT_PERCENTAGE_FOCAL_PLANE_TOLERANCE / 100. * float(rows)
-        if (columnNd < (-1. * outerToleranceColumns) or columnNd > (columns + outerToleranceColumns)
-                or rowNd < (-1. * outerToleranceRows) or rowNd > (rows + outerToleranceRows)):
+        if (column_nd < (-1. * outerToleranceColumns) or column_nd > (columns + outerToleranceColumns)
+                or row_nd < (-1. * outerToleranceRows) or row_nd > (rows + outerToleranceRows)):
             strError = ("In sensor label: {}}\ndistortion position is outside: ({:.2f},{:.2f})"
                         .format(self.label), column_nd, row_nd)
             return str_error, column, row, withinAfterDistortion
@@ -480,8 +480,8 @@ class SensorMetashape(Sensor):
                         1.0 + p3 * r2 + p4 * r4)
             column = columns * 0.5 + cx + f * xd + xd * b1 + yd * b2
             row = rows * 0.5 + cy + yd * f
-            if not withinAfterUndistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
-                withinAfterUndistortion = True
+            if not withinAfterDistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
+                withinAfterDistortion = True
         if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE:
             f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
             cx = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_CX_TAG]
@@ -518,8 +518,8 @@ class SensorMetashape(Sensor):
                         1.0 + p3 * r2 + p4 * r4)
             column = columns * 0.5 + cx + f * xd + xd * b1 + yd * b2
             row = rows * 0.5 + cy + yd * f
-            if not withinAfterUndistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
-                withinAfterUndistortion = True
+            if not withinAfterDistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
+                withinAfterDistortion = True
         if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
             # f = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
             # # column = columns * 0.5 + f * np.arctan(X / Z)
@@ -535,8 +535,8 @@ class SensorMetashape(Sensor):
             # rowNd = row
             column = column_nd
             row = row_nd
-            if not withinAfterUndistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
-                withinAfterUndistortion = True
+            if not withinAfterDistortion and column >= 0 and column < self.width and row >= 0 and row < self.height:
+                withinAfterDistortion = True
         return str_error, column, row, withinAfterDistortion
 
     def get_focal(self):
