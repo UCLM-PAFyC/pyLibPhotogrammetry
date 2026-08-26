@@ -127,6 +127,56 @@ class ATBlockMetashape(ATBlock):
         self.project.object_point_id_last = point_id
         return str_error, point_id
 
+    def from_coordinates_object_to_chunk(self,
+                                         crs_id,
+                                         point_coordinates):
+        str_error = ''
+        position_chunk = None
+        if not isinstance(point_coordinates, list):
+            str_error = ('Coordinates must be a list with three values')
+            return str_error, position_chunk
+        if len(point_coordinates) < 3:
+            str_error = ('Coordinates must be a list with three values')
+            return str_error, position_chunk
+        position = None
+        if crs_id.casefold() != self.crs_id.casefold():
+            position = [[point_coordinates[0], point_coordinates[1], point_coordinates[2]]]
+            str_error = self.project.crs_tools.operation(crs_id, self.crs_id, position)
+            if str_error:
+                str_error += ('From AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}, {:.3f}]\nerror:\n{}'.
+                              format(crs_id, self.crs_id,
+                                     point_coordinates[0], point_coordinates[1], point_coordinates[2], str_error))
+                return str_error, position_chunk
+        else:
+            position = [[point_coordinates[0], point_coordinates[1], point_coordinates[2]]]
+        position_ecef = None
+        if self.crs_id != self.crs_ecef_id:
+            position_ecef = position
+            str_error = self.project.crs_tools.operation(self.crs_id, self.crs_ecef_id, position_ecef)
+            if str_error:
+                str_error += ('From AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}, {:.3f}]\nerror:\n{}'.
+                              format(self.crs_id, self.crs_ecef_id,
+                                     position[0][0], position[0][1], position[0][2], str_error))
+                return str_error, position_chunk
+            position_ecef = np.array(position_ecef[0])
+        else:
+            position_ecef = np.array(position.tolist())
+        # position_geo3d = None
+        # if self.at_block.crs_id != self.at_block.crs_geo3d_id:
+        #     position_geo3d = [position.tolist()]
+        #     str_error = self.crs_tools.operation(self.at_block.crs_id, self.at_block.crs_geo3d_id, position_geo3d)
+        #     if str_error:
+        #         str_error += ('From AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}, {:.3f}]\nerror:\n{}'.
+        #                       format(self.at_block.crs_id, self.at_block.crs_geo3d_id,
+        #                              position[0], position[1], position[2], str_error))
+        #         return str_error
+        #     position_geo3d = np.array(position_geo3d[0])
+        # else:
+        #     position_geo3d = np.array(self.position.tolist())
+        position_ecef = np.append(position_ecef, 1.0)
+        position_chunk = np.matmul(self.transform_inv, position_ecef)
+        return str_error, position_chunk
+
     def from_sensors_to_object(self,
                                image_measured_coordinates_by_camera_id,
                                crs_id,

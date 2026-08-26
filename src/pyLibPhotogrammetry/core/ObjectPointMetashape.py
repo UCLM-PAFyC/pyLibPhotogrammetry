@@ -777,9 +777,6 @@ class ObjectPointMetashape(ObjectPoint):
                     content += ("{:12.2f}".format(distortedMatchedColumn))
                     content += ("{:12.2f}".format(distortedMatchedRow))
                     content += ("{:10.2f}".format(qualityValue))
-                    pairUseDistortion = True # measured coordinates
-                    pairUsePPA = True
-                    pairComputeBackwardCameraCoordinates = False
                     pairCamerasBackwardErrorCoordinates = {} # QMap < int, QVector < double > >
                     pairValuesByImageDbId = {} # QMap < int, QVector < double > >
                     # pairComputedFc, pairComputedSc, pairComputedTc;
@@ -787,15 +784,16 @@ class ObjectPointMetashape(ObjectPoint):
                     pairValuesByImageDbId[measured_image_id] = distortedMeasuredValue
                     pairValuesByImageDbId[projected_image_id] = distortedMatchedValue
                     compute_backward_camera_coordinates = True
-                    use_distortion = True
-                    use_ppa = True
-                    image_space_tolerance_none = None
+                    pairUseDistortion = True # measured coordinates
+                    pairUsePPA = True
+                    pairComputeBackwardCameraCoordinates = False
+                    pairImageSpaceTolerance = None
                     str_error, pair_position, std_pair_position, image_pair_position_backward_error_by_camera_id \
                         = self.at_block.from_sensors_to_object(pairValuesByImageDbId,
                                                                self.at_block.project.crs_id,
-                                                               compute_backward_camera_coordinates,
-                                                               use_distortion, use_ppa,
-                                                               image_space_tolerance_none)
+                                                               pairComputeBackwardCameraCoordinates,
+                                                               pairUseDistortion, pairUsePPA,
+                                                               pairImageSpaceTolerance)
                     if str_error:
                         content += ("\n- Error: computing position from image measurement: {} and image matched: {}\n{}"
                                     .format(measured_camera_label, projected_camera_label, str_error))
@@ -822,23 +820,195 @@ class ObjectPointMetashape(ObjectPoint):
                     content += ("{:8.3f}".format(std_pair_position[2]))
                     objectPointsValues.append(objectPointValues) # fc, sc, tc, stdFc, stdSc, stdTc
                     auxMatchedNames.append(matchedName);
-                yo = 1
                 if not projected_image_id in undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId:
                     undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[projected_image_id] = {}
-                undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[measured_image_id] = undistortedMatchedValues
+                undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                    projected_image_id][measured_image_id] = undistortedMatchedValues
                 if not projected_image_id in distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId:
                     distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[projected_image_id] = {}
-                distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[measured_image_id] = distortedMatchedValues
+                distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                    projected_image_id][measured_image_id] = distortedMatchedValues
                 if not projected_image_id in objectPointValuesByMatchedImageDbIdByMeasuredImageDbId:
                     objectPointValuesByMatchedImageDbIdByMeasuredImageDbId[projected_image_id] = {}
-                objectPointValuesByMatchedImageDbIdByMeasuredImageDbId[measured_image_id] = objectPointsValues
+                objectPointValuesByMatchedImageDbIdByMeasuredImageDbId[
+                    projected_image_id][measured_image_id] = objectPointsValues
                 if not projected_image_id in matchedNamesByMatchedImageDbIdByMeasuredImageDbId:
                     matchedNamesByMatchedImageDbIdByMeasuredImageDbId[projected_image_id] = {}
-                matchedNamesByMatchedImageDbIdByMeasuredImageDbId[measured_image_id] = auxMatchedNames
+                matchedNamesByMatchedImageDbIdByMeasuredImageDbId[
+                    projected_image_id][measured_image_id] = auxMatchedNames
             if len(measured_images_ids) > 0:
                 measuredImagesDbIdsByMatchedImageDbId[projected_image_id] = measured_images_ids
+        # algoritmo para quedarme con matches inliers:
+        # 1. Obtener la solucion mas probable en el espacio objeto
+        #    Caso A: Si se ha medido en mas de una imagen se coge el calculado
+        #            con las medidas
+        #    Caso B: Se ha medido solo en una imagen busco la solucion en el espacio objeto
+        #            para la que hay un mayor numero de matches por debajo de 3 std
+        #
+        objectPointFc = fc
+        objectPointSc = sc
+        objectPointTc = tc
+        if not existsObjectPointCandidate:
+            content += "\n  - Initial object point from measure and matches:"
+            content += "\n    For each space position, matches bellow 3 sigma are computed"
+            content += "\n      Measured Image       Matched Image     Method-WindowSize   Inliers"
+            content += "  Dif.Mean   Dif.Min   Dif.Max  Matched Pairs"
+            maximumNumberOfInliers = 0
+            nos = -1
+            imageCoorDifferencesBySolution = [] # QVector < QVector < double > >
+            maxImageCoorDifferenceBySolution = []
+            minImageCoorDifferenceBySolution = []
+            meanImageCoorDifferenceBySolution = []
+            posMaximumNumberOfInliers = -1
+            findCandidateFromMatches = False
+            for matched_image_id in objectPointValuesByMatchedImageDbIdByMeasuredImageDbId:
+                matched_camera = self.at_block.get_camera_from_camera_id(matched_image_id)
+                matched_camera_sensor = self.at_block.sensor_by_id[matched_camera.sensor_id]
+                matched_camera_label = matched_camera.label
+                for measured_image_id in objectPointValuesByMatchedImageDbIdByMeasuredImageDbId[matched_image_id]:
+                    measured_camera = self.at_block.get_camera_from_camera_id(measured_image_id)
+                    measured_camera_sensor = self.at_block.sensor_by_id[measured_camera.sensor_id]
+                    measured_camera_label = measured_camera.label
+                    objectPointValues = objectPointValuesByMatchedImageDbIdByMeasuredImageDbId[
+                        matched_image_id][measured_image_id]
+                    for nps in range(len(objectPointValues)):
+                        matchedName = matchedNamesByMatchedImageDbIdByMeasuredImageDbId[
+                            matched_image_id][measured_image_id][nps]
+                        opFc = objectPointValues[nps][0]
+                        opSc = objectPointValues[nps][1]
+                        opTc = objectPointValues[nps][2]
+                        opXChunk = opFc
+                        opYChunk = opSc
+                        opZChunk = opTc
+                        nos = nos + 1
+                        imageCoorDifferences = []
+                        maxImageCoorDifference = 0.
+                        minImageCoorDifference = 10000.
+                        str_error, position_chunk = self.at_block.from_coordinates_object_to_chunk(
+                            self.at_block.crs_id, [opFc, opSc, opTc])
+                        if str_error:
+                            content += ("\nFor point: ({:.3f, :.3f, :.3f}".format(opFc, opSc, opTc))
+                            content += ("\n- Error: computing chunk position from image measurement: {} and image matched: {}\n{}"
+                                        .format(measured_camera_label, matched_camera_label, str_error))
+                            self.report_text += content
+                            self.report_text_last_step = content
+                            if self.report_file is not None:
+                                self.report_file.write(self.report_text_last_step)
+                                self.report_file.flush()
+                            str_aux_error = ("\nFor point: ({:.3f, :.3f, :.3f}".format(opFc, opSc, opTc))
+                            str_aux_error += ("\n- Error: computing chunk position from image measurement: {} and image matched: {}\n{}"
+                                        .format(measured_camera_label, matched_camera_label, str_error))
+                            return str_aux_error
+                        content += "\n";
+                        content += ("{:>20s}".format(measured_camera_label))
+                        content += ("{:>20s}".format(matched_camera_label))
+                        content += ("{:>22s}".format(matchedName))
+                        inliersPairs = []
+                        for aux_matched_image_id in distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId:
+                            aux_matched_camera = self.at_block.get_camera_from_camera_id(aux_matched_image_id)
+                            aux_matched_camera_sensor = self.at_block.sensor_by_id[aux_matched_camera.sensor_id]
+                            aux_matched_camera_label = aux_matched_camera.label
+                            str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                                = aux_matched_camera.from_chunk_to_sensor(position_chunk)
+                            if str_error:
+                                content += ("\nFor chunk point: ({:.3f, :.3f, :.3f}".format(position_chunk[0],
+                                                                                            position_chunk[1],
+                                                                                            position_chunk[2]))
+                                content += ("\n- Error: computing sensor position from image matched: {}\n{}"
+                                            .format( matched_camera_label, str_error))
+                                self.report_text += content
+                                self.report_text_last_step = content
+                                if self.report_file is not None:
+                                    self.report_file.write(self.report_text_last_step)
+                                    self.report_file.flush()
+                                str_aux_error = ("\nFor chunk point: ({:.3f, :.3f, :.3f}".format(position_chunk[0],
+                                                                                            position_chunk[1],
+                                                                                            position_chunk[2]))
+                                str_aux_error += ("\n- Error: computing sensor position from image matched: {}\n{}"
+                                            .format( matched_camera_label, str_error))
+                                return str_aux_error
+                            for aux_measured_image_id in distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[aux_matched_image_id]:
+                                if (matched_image_id ==aux_matched_image_id
+                                        and measured_image_id == aux_measured_image_id):
+                                    continue
+                                aux_measured_camera = self.at_block.get_camera_from_camera_id(aux_measured_image_id)
+                                aux_measured_camera_sensor = self.at_block.sensor_by_id[aux_measured_camera.sensor_id]
+                                aux_measured_camera_label = aux_measured_camera.label
+                                matchedValues = distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                                    aux_matched_image_id][aux_measured_image_id]
+                                minDifference = 10000.0
+                                inlierPairMinDifference = ""
+                                for nmts in range(len(matchedValues)):
+                                    anotherMatchedName = matchedNamesByMatchedImageDbIdByMeasuredImageDbId[
+                                        aux_matched_image_id][aux_measured_image_id][nmts]
+                                    column = matchedValues[nmts][0]
+                                    row = matchedValues[nmts][1]
+                                    quality = matchedValues[nmts][2]
+                                    stdColumn = matchedValues[nmts][3]
+                                    stdRow = matchedValues[nmts][4]
+                                    std = math.sqrt(stdColumn ** 2. + stdRow ** 2.)
+                                    columnDiff = column - position_image[0]
+                                    rowDiff = row - position_image[1]
+                                    diff = math.sqrt(columnDiff ** 2. + rowDiff ** 2.)
+                                    if diff <= 3. * std:
+                                        if diff < minDifference:
+                                            inlierPair = aux_matched_camera_label
+                                            inlierPair += "_"
+                                            inlierPair += aux_measured_camera_label
+                                            inlierPair += ":"
+                                            inlierPair += anotherMatchedName
+                                            inlierPairMinDifference = inlierPair
+                                            minDifference = diff
+                                if inlierPairMinDifference:
+                                    inliersPairs.append(inlierPairMinDifference)
+                                    if minDifference > maxImageCoorDifference:
+                                        maxImageCoorDifference = minDifference
+                                    if minDifference < minImageCoorDifference:
+                                        minImageCoorDifference = minDifference;
+                                    imageCoorDifferences.append(minDifference)
+                        imageCoorDifferencesBySolution.append(imageCoorDifferences)
+                        meanImageCoorDifference = 0
+                        for nvs in range(len(imageCoorDifferences)):
+                            meanImageCoorDifference += imageCoorDifferences[nvs]
+                        meanImageCoorDifference = meanImageCoorDifference / float(len(imageCoorDifferences))
+                        meanImageCoorDifferenceBySolution.append(meanImageCoorDifference)
+                        maxImageCoorDifferenceBySolution.append(maxImageCoorDifference)
+                        minImageCoorDifferenceBySolution.append(minImageCoorDifference)
+                        content += ("{:10.0f}".format(len(inliersPairs)))
+                        content += ("{:10.2f}".format(meanImageCoorDifference))
+                        content += ("{:10.2f}".format(minImageCoorDifference))
+                        content += ("{:10.2f}".format(maxImageCoorDifference))
+                        for nil in range(len(inliersPairs)):
+                            content += "  "
+                            content += inliersPairs[nil]
+                        if len(inliersPairs) > maximumNumberOfInliers:
+                            maximumNumberOfInliers = len(inliersPairs)
+                            objectPointFc = opFc
+                            objectPointSc = opSc
+                            objectPointTc = opTc
+                            posMaximumNumberOfInliers = nos
+                            findCandidateFromMatches = True
+                        elif len(inliersPairs)>0 and len(inliersPairs) == maximumNumberOfInliers:
+                            if maxImageCoorDifferenceBySolution[nos] < maxImageCoorDifferenceBySolution[posMaximumNumberOfInliers]:
+                                maximumNumberOfInliers = len(inliersPairs)
+                                objectPointFc = opFc
+                                objectPointSc = opSc
+                                objectPointTc = opTc
+                                posMaximumNumberOfInliers = nos
+                                findCandidateFromMatches = True
+            if findCandidateFromMatches:
+                content += ("\n    Candidate ...........: ({:.3f}, {:.3f}, {:.3f})"
+                            .format(objectPointFc, objectPointSc, objectPointTc))
+                content += ("\n      Mean.Img.Coor.Diff.: {:.3f}".
+                            format(meanImageCoorDifferenceBySolution[posMaximumNumberOfInliers]))
+                content += ("\n      Min.Img.Coor.Diff. : {:.3f}".
+                            format(minImageCoorDifferenceBySolution[posMaximumNumberOfInliers]))
+                content += ("\n      Max.Img.Coor.Diff. : {:.3f}".
+                            format(maxImageCoorDifferenceBySolution[posMaximumNumberOfInliers]))
+            else:
+                content += ("\n    Candidate ...........: Not find from matches")
+        yo = 1
 
-        
 
         self.report_text += content
         self.report_text_last_step = content
