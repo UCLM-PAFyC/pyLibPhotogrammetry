@@ -705,8 +705,8 @@ class ObjectPointMetashape(ObjectPoint):
             # con los valores proyectados como aproximados para los matcheados
             undistorted_matched_column = undistorted_projected_images[projected_image_id][0]
             undistorted_matched_row = undistorted_projected_images[projected_image_id][1]
-            content += ("\n  - Finding match img ...: {}".format(projected_camera_label))
-            content += ("\n    Proj. Und. coor .....: ({:.2f},{:.2f})".format(undistorted_matched_column,
+            content += ("\n  - Finding match img ....: {}".format(projected_camera_label))
+            content += ("\n    Proj. Und. coor ......: ({:.2f},{:.2f})".format(undistorted_matched_column,
                                                                               undistorted_matched_row))
             content += ("\n      Measured Image    Meas.U.C    Meas.U.R     Method-WindowSize   Match.U.C   Match.U.R")
             content += ("     Match.C     Match.R   Quality  Obj.Pto.Fc  Obj.Pto.Sc  Obj.Pto.Tc")
