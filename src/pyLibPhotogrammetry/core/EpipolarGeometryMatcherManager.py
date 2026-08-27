@@ -156,12 +156,14 @@ class EpipolarGeometryMatcherManager():
         while window_radius <= self.match_window_radius_last:
             matchWindowSizes.append(window_radius * 2 + 1)
             window_radius = window_radius + 1
-        measuredPcFc = self.measuredCamerasPc[position][0];
-        measuredPcSc = self.measuredCamerasPc[position][1];
-        measuredPcTc = self.measuredCamerasPc[position][2];
-        matchedPcFc = self.matchedCamerasPc[position][0];
-        matchedPcSc = self.matchedCamerasPc[position][1];
-        matchedPcTc = self.matchedCamerasPc[position][2];
+        measured_pc_ecef = measured_camera.get_pc_ecef()
+        matched_pc_ecef = matched_camera.get_pc_ecef()
+        measuredPcFc = measured_pc_ecef[0]
+        measuredPcSc = measured_pc_ecef[1]
+        measuredPcTc = measured_pc_ecef[2]
+        matchedPcFc = matched_pc_ecef[0]
+        matchedPcSc = matched_pc_ecef[1]
+        matchedPcTc = matched_pc_ecef[2]
         stereoscopicBase = sqrt((matchedPcFc - measuredPcFc) ** 2.+ (matchedPcSc - measuredPcSc) ** 2.
                                 + (matchedPcTc - measuredPcTc) ** 2.)
         # Fotogrametria digital, Toni Schenk, pg 281-282
@@ -172,7 +174,7 @@ class EpipolarGeometryMatcherManager():
             incZ = self.maximum_height_separation_within_dsm * 2.
         Zu = self.point_height_dem + incZ / 2
         Zl = self.point_height_dem - incZ / 2
-        Hd = (measuredPcTc + matchedPcTc) / 2.
+        Hd = (self.measuredCamerasPc[position][2] + self.matchedCamerasPc[position][2]) / 2.
         inzZFactor = incZ / ((Hd - Zl) * (Hd - Zu))
         inzZFactorSb = stereoscopicBase * inzZFactor
         findWindowSize = ceil(self.focal_in_pixels * inzZFactorSb)
