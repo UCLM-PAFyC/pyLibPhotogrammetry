@@ -25,6 +25,22 @@ class ObjectPoint:
         self.report_text_last_step = ""
         self.image_point_by_image_id = {}
         self.dem_height = None
+        self.position_std = []
+
+    def add_image_matched_value(self,
+                                  camera,
+                                  matched_values,
+                                  matched_undistorted_values):
+        camera_id = camera.id
+        image_point = None
+        if camera_id in self.image_point_by_image_id:
+            image_point = self.image_point_by_image_id[camera_id]
+        else:
+            image_point = ImagePoint(camera, self)
+            self.image_point_by_image_id[camera_id] = image_point
+        image_point.set_matched_values(matched_values)
+        image_point.set_matched_undistorted_values(matched_undistorted_values)
+        return
 
     def add_image_measured_value(self,
                                   camera,
@@ -155,6 +171,9 @@ class ObjectPoint:
         else:
             self.position_chunk = None # to do
         return str_error
+
+    def set_position_std(self, position_std):
+        self.position_std = position_std
 
 
 

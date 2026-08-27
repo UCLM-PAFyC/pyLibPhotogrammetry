@@ -1103,7 +1103,7 @@ class ObjectPointMetashape(ObjectPoint):
         # Pueden haber varios matches en una misma imagen
         numberOfEnabledCameras = numberOfInliersMatches + len(measured_by_image_id)
         number_of_equations = numberOfEnabledCameras * 2
-        A = np.zeros((numberOfEnabledCameras * 2,3))
+        A = np.zeros((numberOfEnabledCameras * 2, 3))
         b = np.zeros((numberOfEnabledCameras * 2, 1))
         nI = 0
         for measured_image_id in measured_by_image_id:
@@ -1177,8 +1177,8 @@ class ObjectPointMetashape(ObjectPoint):
                     use_distortion = True
                     use_ppa = True
                     str_error, pointDirectionChunkX, pointDirectionChunkY, pointDirectionChunkZ \
-                        = matched_camera.from_sensor_to_chunk_coordinates_direction(columnM, rowM, use_distortion,
-                                                                                     use_ppa)
+                        = matched_camera.from_sensor_to_chunk_coordinates_direction(
+                        matchedColumn, matchedRow, use_distortion, use_ppa)
                     if str_error:
                         content += ("\n- Error: computing direction from image matched: {}\n{}"
                                     .format(matched_camera_label, str_error))
@@ -1220,7 +1220,11 @@ class ObjectPointMetashape(ObjectPoint):
         chunk_coor[0] = x[0][0]
         chunk_coor[1] = x[1][0]
         chunk_coor[2] = x[2][0]
-        chunk_coor[3] = 1
+        chunk_coor[3] = 1.
+        opXChunk = chunk_coor[0]
+        opYChunk = chunk_coor[1]
+        opZChunk = chunk_coor[2]
+        computed_chunk = [opXChunk, opYChunk, opZChunk, 1.]
         ecef_coordinates = np.dot(self.at_block.transform, chunk_coor)
         pc_crs = [[ecef_coordinates[0], ecef_coordinates[1], ecef_coordinates[2]]]
         str_error = self.crs_tools.operation(self.at_block.crs_ecef_id, self.at_block.crs_id, pc_crs)
@@ -1244,12 +1248,205 @@ class ObjectPointMetashape(ObjectPoint):
         stdComputedFc = stdComputedFc * self.at_block.transform_scale
         stdComputedSc = stdComputedSc * self.at_block.transform_scale
         stdComputedTc = stdComputedTc * self.at_block.transform_scale
-        content += ("\n- Solution ........: ({:.3f}, {:.3f}, {:.3f})".format(computedFc, computedSc, computedTc))
+        content += ("\n- Solution .........: ({:.3f}, {:.3f}, {:.3f})".format(computedFc, computedSc, computedTc))
         content += ("  POINT({:.3f} {:.3f} {:.3f})".format(computedFc, computedSc, computedTc))
-        content += ("\n  Standar deviation: ({:.3f}, {:.3f}, {:.3f})".
+        content += ("\n  Standard deviation: ({:.3f}, {:.3f}, {:.3f})".
                     format(stdComputedFc, stdComputedSc, stdComputedTc))
-
-
+        content += "\n  - Residuals:"
+        content += "\n      Measured Image       Matched Image     Method-WindowSize    Column       Row  Diff.Col  Diff.Row   Diff.2d"
+        for measured_image_id in measured_by_image_id:
+            measured_camera = self.at_block.get_camera_from_camera_id(measured_image_id)
+            measured_camera_sensor = self.at_block.sensor_by_id[measured_camera.sensor_id]
+            measured_camera_label = measured_camera.label
+            columnM = measured_by_image_id[measured_image_id][0]
+            rowM = measured_by_image_id[measured_image_id][1]
+            stdColumn = measured_by_image_id[measured_image_id][2]
+            stdRow = measured_by_image_id[measured_image_id][3]
+            str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                = measured_camera.from_chunk_to_sensor(computed_chunk)
+            if str_error:
+                content += ("\nFor computed chunk point: ({:.3f, :.3f, :.3f}".format(computed_chunk[0],
+                                                                            computed_chunk[1],
+                                                                            computed_chunk[2]))
+                content += ("\n- Error: computing sensor position from image measured: {}\n{}"
+                            .format(measured_camera_label, str_error))
+                self.report_text += content
+                self.report_text_last_step = content
+                if self.report_file is not None:
+                    self.report_file.write(self.report_text_last_step)
+                    self.report_file.flush()
+                str_aux_error = ("\nFor chunk point: ({:.3f, :.3f, :.3f}".format(computed_chunk[0],
+                                                                                 computed_chunk[1],
+                                                                                 computed_chunk[2]))
+                str_aux_error += ("\n- Error: computing sensor position from image measured: {}\n{}"
+                                  .format(measured_camera_label, str_error))
+                return str_aux_error
+            diffColumn = columnM - position_image[0]
+            diffRow = rowM - position_image[1]
+            diff2d = math.sqrt(diffColumn ** 2. + diffRow ** 2.)
+            content +="\n";
+            content += ("{:>20s}".format(measured_camera_label))
+            content += ("               -----")
+            content += ("                 -----")
+            content += ("{:10.2f}".format(columnM))
+            content += ("{:10.2f}".format(rowM))
+            content += ("{:10.2f}".format(diffColumn))
+            content += ("{:10.2f}".format(diffRow))
+            content += ("{:10.2f}".format(diff2d))
+            content += ("  POINT({:.2f} {:.2f})".format(columnM, -1.0 * rowM))
+            # asignar valores
+            values = []
+            values.append(columnM)
+            values.append(rowM)
+            values.append(stdColumn)
+            values.append(stdRow)
+            values.append(diffColumn)
+            values.append(diffRow)
+            values.append(diff2d)
+            undistortedColumnM = undistorted_measured_by_image_id[measured_image_id][0]
+            undistortedRowM = undistorted_measured_by_image_id[measured_image_id][1]
+            undistortedValues = []
+            undistortedValues.append(undistortedColumnM)
+            undistortedValues.append(undistortedRowM)
+            undistortedValues.append(stdColumn)
+            undistortedValues.append(stdRow)
+            undistortedValues.append(diffColumn)
+            undistortedValues.append(diffRow)
+            undistortedValues.append(diff2d)
+            self.add_image_measured_value(measured_camera, values, undistortedValues)
+        for matched_image_id in distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId:
+            matched_camera = self.at_block.get_camera_from_camera_id(matched_image_id)
+            matched_camera_sensor = self.at_block.sensor_by_id[matched_camera.sensor_id]
+            matched_camera_label = matched_camera.label
+            str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                = matched_camera.from_chunk_to_sensor(computed_chunk)
+            if str_error:
+                content += ("\nFor computed chunk point: ({:.3f, :.3f, :.3f}".format(computed_chunk[0],
+                                                                            computed_chunk[1],
+                                                                            computed_chunk[2]))
+                content += ("\n- Error: computing sensor position from image matched: {}\n{}"
+                            .format(matched_camera_label, str_error))
+                self.report_text += content
+                self.report_text_last_step = content
+                if self.report_file is not None:
+                    self.report_file.write(self.report_text_last_step)
+                    self.report_file.flush()
+                str_aux_error = ("\nFor chunk point: ({:.3f, :.3f, :.3f}".format(computed_chunk[0],
+                                                                                 computed_chunk[1],
+                                                                                 computed_chunk[2]))
+                str_aux_error += ("\n- Error: computing sensor position from image matched: {}\n{}"
+                                  .format(matched_camera_label, str_error))
+                return str_aux_error
+            measuredImageDbIdMinDiff2d = -1
+            minDiff2d = 100000.
+            posMinDiffByPair = {} # QMap < int, QMap < int, int > >
+            existsInlier = False
+            for measured_image_id in distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[matched_image_id]:
+                measured_camera = self.at_block.get_camera_from_camera_id(measured_image_id)
+                measured_camera_sensor = self.at_block.sensor_by_id[measured_camera.sensor_id]
+                measured_camera_label = measured_camera.label
+                matchedValues = distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                    matched_image_id][measured_image_id]
+                minDiff2dInMatches = 10000.
+                posMinDiff = -1
+                for ns in range(len(matchedValues)):
+                    matchedName = matchedNamesByMatchedImageDbIdByMeasuredImageDbId[
+                        matched_image_id][measured_image_id][ns]
+                    matchedColumn = matchedValues[ns][0]
+                    matchedRow = matchedValues[ns][1]
+                    matchedQuality = matchedValues[ns][2]
+                    matchedStdColumn = matchedValues[ns][3]
+                    matchedStdRow = matchedValues[ns][4]
+                    matchedStd = math.sqrt(matchedStdColumn ** 2. + matchedStdRow ** 2.)
+                    diffColumn = position_image[0] - matchedColumn
+                    diffRow = position_image[1] - matchedRow
+                    diff2d = math.sqrt(diffColumn ** 2. + diffRow ** 2.0)
+                    if diff2d < minDiff2dInMatches:
+                        posMinDiff = ns
+                        minDiff2dInMatches = diff2d
+                    content += "\n"
+                    content += ("{:>20s}".format(measured_camera_label))
+                    content += ("{:>20s}".format(matched_camera_label))
+                    content += ("{:>22s}".format(matchedName))
+                    content += ("{:10.2f}".format(matchedColumn))
+                    content += ("{:10.2f}".format(matchedRow))
+                    content += ("{:10.2f}".format(diffColumn))
+                    content += ("{:10.2f}".format(diffRow))
+                    content += ("{:10.2f}".format(diff2d))
+                    content += ("  POINT({:.2f} {:.2f})".format(matchedColumn, -1.0 * matchedRow))
+                    if inliersMatchedImageDbIdByMeasuredImageDbId[matched_image_id][measured_image_id][ns]:
+                        content += "  Inlier"
+                        existsInlier = True
+                    else:
+                        content += "  Outlier"
+                if not matched_image_id in posMinDiffByPair:
+                    posMinDiffByPair[matched_image_id] = {}
+                posMinDiffByPair[matched_image_id][measured_image_id] = posMinDiff
+                if minDiff2dInMatches < minDiff2d:
+                    measuredImageDbIdMinDiff2d = measured_image_id
+                    minDiff2d = minDiff2dInMatches
+            if not existsInlier:
+                continue
+            posMinDiff = posMinDiffByPair[matched_image_id][measuredImageDbIdMinDiff2d]
+            matchedColumn = distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                matched_image_id][measuredImageDbIdMinDiff2d][posMinDiff][0]
+            matchedRow = distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                matched_image_id][measuredImageDbIdMinDiff2d][posMinDiff][1]
+            matchedQuality = distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                matched_image_id][measuredImageDbIdMinDiff2d][posMinDiff][2]
+            matchedStdColumn = distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                matched_image_id][measuredImageDbIdMinDiff2d][posMinDiff][3]
+            matchedStdRow = distortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                matched_image_id][measuredImageDbIdMinDiff2d][posMinDiff][4]
+            diffColumn = position_image[0] - matchedColumn
+            diffRow = position_image[1] - matchedRow
+            diff2d = math.sqrt(diffColumn ** 2. + diffRow ** 2.0)
+            values = []
+            values.append(matchedColumn)
+            values.append(matchedRow)
+            values.append(matchedStdColumn)
+            values.append(matchedStdRow)
+            values.append(diffColumn)
+            values.append(diffRow)
+            values.append(diff2d)
+            undistortedMatchedColumn = undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                matched_image_id][measuredImageDbIdMinDiff2d][posMinDiff][0]
+            undistortedmatchedRow=undistortedMatchedValuesByMatchedImageDbIdByMeasuredImageDbId[
+                matched_image_id][measuredImageDbIdMinDiff2d][posMinDiff][1]
+            undistortedValues = []
+            undistortedValues.append(undistortedMatchedColumn)
+            undistortedValues.append(undistortedmatchedRow)
+            undistortedValues.append(matchedStdColumn)
+            undistortedValues.append(matchedStdRow)
+            undistortedValues.append(diffColumn)
+            undistortedValues.append(diffRow)
+            undistortedValues.append(diff2d)
+            self.add_image_matched_value(matched_camera, values, undistortedValues)
+        # Set final position
+        str_error = self.set_position([computedFc, computedSc, computedTc], self.at_block.crs_id)
+        content += self.report_text_last_step
+        if str_error:
+            content += ("\n- Error: setting final position:\n{}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('Error setting final position:\n{}'.format(str_error))
+            return str_error
+        self.set_position_std([stdComputedFc, stdComputedSc, stdComputedTc])
+        # Set final projected images
+        str_error = self.set_projected_images(ignore_hided_points_in_images, ignored_images)
+        content += self.report_text_last_step
+        if str_error:
+            content += ("\n- Error: setting final projected images:\n{}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('Error setting final projected images:\n{}'.format(str_error))
+            return str_error
         self.report_text += content
         self.report_text_last_step = content
         if self.report_file is not None:

@@ -18,6 +18,12 @@ class ImagePoint:
     def set_frame_id(self, frame_id):
         self.frame_id = frame_id
 
+    def set_matched_values(self, matched_values):
+        self.values[defs_img.IMAGE_POINT_MATCHED] = matched_values
+
+    def set_matched_undistorted_values(self, matched_undistorted_values):
+        self.undistorted_values[defs_img.IMAGE_POINT_MATCHED] = matched_undistorted_values
+
     def set_measured_values(self, measured_values):
         self.values[defs_img.IMAGE_POINT_MEASURED] = measured_values
 
