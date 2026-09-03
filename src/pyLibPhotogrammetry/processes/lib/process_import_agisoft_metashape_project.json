@@ -1,0 +1,83 @@
+{
+    "name": "Import Agisoft Metashape Project",
+    "contributions": {
+        "methodology": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ],
+        "software": [
+            "David Hernández López, david.hernandez@uclm.es"
+        ]
+    },
+    "src": {
+        "class": "pyLibPhotogrammetry.core.ProjectPhotogrammetry",
+        "method": "process_import_agisoft_metashape_project"
+    },
+    "description": "A process to import a Agisoft Metashape project",
+    "doc": "",
+    "parameters": [
+        {
+            "label": "Agisoft Metashape XML project file",
+            "argparser": "",
+            "description": "Input Agisoft Metashape XML project file",
+            "mandatory": true,
+            "output": false,
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/metashape/markers_ccrs.xml",
+            "type": "file",
+            "file_mode": "read",
+            "domain": [
+                ".xml"
+            ],
+            "output_format": "{:s}"
+        },
+        {
+            "label": "Project CRS",
+            "argparser": "",
+            "description": "A valid CRS identifier (EPSG:25830+5782, EPSG:25830, ...) for replace the internal Project CRS in XML. Empty for no use",
+            "mandatory": false,
+            "output": false,
+            "value": "EPSG:25830+5782",
+            "type": "string",
+            "output_format": "{:>s}"
+        },
+        {
+            "label": "Cameras CRS",
+            "argparser": "",
+            "description": "A valid CRS identifier ( EPSG:4326, EPSG:4258+5782, ...) for replace the internal Cameras CRS in XML. Empty for no use",
+            "mandatory": false,
+            "output": false,
+            "value": "EPSG:4258+5782",
+            "type": "string",
+            "output_format": "{:>s}"
+        },
+        {
+            "label": "Markers CRS",
+            "argparser": "",
+            "description": "A valid CRS identifier (EPSG:25830+5782, EPSG:25830, ...) for replace the internal Markers CRS in XML. Empty for no use",
+            "mandatory": false,
+            "output": false,
+            "value": "EPSG:25830+5782",
+            "type": "string",
+            "output_format": "{:>s}"
+        },
+        {
+            "label": "Images path",
+            "argparser": "",
+            "description": "Input images path, used recursively.",
+            "mandatory": true,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/metashape/images",
+            "type": "path",
+            "output_format": "{:s}"
+        },
+        {
+            "label": "Undistorted images path",
+            "argparser": "",
+            "description": "Undistorted input images path, used recursively. Undistortion must conserve the calibrated focal distance and principal point. Empty for no use",
+            "mandatory": false,
+            "output": true,
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/metashape/images_undistorted",
+            "type": "path",
+            "output_format": "{:s}"
+        }
+    ]
+}
