@@ -4246,6 +4246,105 @@ class ProjectPhotogrammetry(Project):
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
+    def process_import_agisoft_metashape_project(self,
+                                                 process,
+                                                 dialog = None):
+        str_error = ''
+        end_date_time = None
+        log = None
+        name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        if bool(self.at_block_by_label):
+            str_error = ('Process: {} is only valid for empty projects'.format(name))
+            return str_error, end_date_time, log
+        parameters_manager = process[processes_defs_processes.PROCESS_FIELD_PARAMETERS]
+        if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_XML_PROJECT_FILE_LABEL
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_XML_PROJECT_FILE_LABEL))
+            return str_error, end_date_time, log
+        parameter_xml_file = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_XML_PROJECT_FILE_LABEL]
+        xml_file_path = str(parameter_xml_file)
+        if not xml_file_path or xml_file_path.casefold() == 'none'.casefold():
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_XML_PROJECT_FILE_LABEL))
+            return str_error, end_date_time, log
+        if not os.path.exists(xml_file_path):
+            str_error = ('Process {} has a not existing parameter: {}\nFile:\n{}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_XML_PROJECT_FILE_LABEL,
+                                xml_file_path))
+            return str_error, end_date_time, log
+        if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_PROJECT_CRS_FILE_LABEL
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_PROJECT_CRS_FILE_LABEL))
+            return str_error, end_date_time, log
+        parameter_project_crs = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_PROJECT_CRS_FILE_LABEL]
+        project_crs = str(parameter_project_crs).strip()
+        if not project_crs or project_crs.casefold() == 'none'.casefold():
+            project_crs = None
+        if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_CAMERAS_CRS_FILE_LABEL
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_CAMERAS_CRS_FILE_LABEL))
+            return str_error, end_date_time, log
+        parameter_cameras_crs = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_CAMERAS_CRS_FILE_LABEL]
+        cameras_crs = str(parameter_cameras_crs).strip()
+        if not cameras_crs or cameras_crs.casefold() == 'none'.casefold():
+            cameras_crs = None
+        if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_MARKERS_CRS_FILE_LABEL
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_MARKERS_CRS_FILE_LABEL))
+            return str_error, end_date_time, log
+        parameter_markers_crs = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_MARKERS_CRS_FILE_LABEL]
+        markers_crs = str(parameter_markers_crs).strip()
+        if not markers_crs or cameras_crs.casefold() == 'none'.casefold():
+            markers_crs = None
+        parameter_images_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_PATH_LABEL]
+        images_path = str(parameter_images_path)
+        if not images_path or images_path.casefold() == 'none'.casefold():
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_PATH_LABEL))
+            return str_error, end_date_time, log
+        if not os.path.exists(images_path):
+            str_error = ('Process {} has a not existing parameter: {}\nFile:\n{}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_PATH_LABEL,
+                                images_path))
+            return str_error, end_date_time, log
+        parameter_undistorted_images_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL]
+        undistorted_images_path = str(parameter_undistorted_images_path)
+        if not undistorted_images_path or undistorted_images_path.casefold() == 'none'.casefold():
+            str_error = ('Process {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL))
+            return str_error, end_date_time, log
+        else:
+            if not os.path.exists(undistorted_images_path):
+                str_error = ('Process {} has a not existing parameter: {}\nFile:\n{}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL,
+                                    undistorted_images_path))
+                return str_error, end_date_time, log
+
+
+
+        end_date_time = datetime.now()
+        return str_error, end_date_time, log
+
     def process_set_digitizing_parameters(self,
                                           process,
                                           dialog=None):
