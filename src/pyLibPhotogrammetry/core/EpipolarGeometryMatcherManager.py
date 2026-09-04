@@ -73,8 +73,8 @@ class EpipolarGeometryMatcherManager():
                 or not tile_y in self.project.imagesTileRamMBsBySize[tile_size][tile_x]):
             return str_error, loaded_tile
         images_to_load = self.project.imagesTilesImagesIdBySize[tile_size][tile_x][tile_y]
-        for image_loaded_id in self.load_image_by_id:
-            if not image_loaded_id in images_to_load:
+        for image_loaded_id in list(self.load_image_by_id):
+            if image_loaded_id not in images_to_load:
                 self.load_image_by_id.pop(image_loaded_id)
         if len(self.project.at_block_by_label) != 1:
             str_error = "EpipolarGeometryMatcherManager.load_tile_in_memory"
