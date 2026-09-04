@@ -232,7 +232,7 @@ class EpipolarGeometryMatcherManager():
             sourceReducedHomographyColumn = floor(xtm) - firstHomographyImageEnvelope[0]
             sourceReducedHomographyRow = floor(ytm) - firstHomographyImageEnvelope[1]
             targetReducedHomographyColumn = floor(xtmt) - secondHomographyImageEnvelope[0]
-            targetReducedHomographyRow = floor(ytm) - secondHomographyImageEnvelope[1]
+            targetReducedHomographyRow = floor(ytmt) - secondHomographyImageEnvelope[1]
             if (sourceReducedHomographyColumn < minimumMatchWindowSizeFromCenter
                     or sourceReducedHomographyRow < minimumMatchWindowSizeFromCenter
                     or sourceReducedHomographyColumn > (firstHomographyImageEnvelope[2] - minimumMatchWindowSizeFromCenter-1)
@@ -252,7 +252,7 @@ class EpipolarGeometryMatcherManager():
             if firstReducedHomographyWindow[3] > (firstHomographyImageEnvelope[3] - 1):
                 firstReducedHomographyWindow[3] = firstHomographyImageEnvelope[3] - 1
             if (targetReducedHomographyRow<minimumMatchWindowSizeFromCenter
-                    or targetReducedHomographyRow>(secondHomographyImageEnvelope[2]-minimumMatchWindowSizeFromCenter-1)):
+                    or targetReducedHomographyRow>(secondHomographyImageEnvelope[3]-minimumMatchWindowSizeFromCenter-1)):
                 continue
             if (targetReducedHomographyColumn<minimumFindWindowSizeFromCenter
                     or targetReducedHomographyColumn>(secondHomographyImageEnvelope[2]-minimumFindWindowSizeFromCenter-1)):
