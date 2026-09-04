@@ -968,9 +968,11 @@ class ObjectPointMetashape(ObjectPoint):
                                     imageCoorDifferences.append(minDifference)
                         imageCoorDifferencesBySolution.append(imageCoorDifferences)
                         meanImageCoorDifference = 0
-                        for nvs in range(len(imageCoorDifferences)):
-                            meanImageCoorDifference += imageCoorDifferences[nvs]
-                        meanImageCoorDifference = meanImageCoorDifference / float(len(imageCoorDifferences))
+                        if len(imageCoorDifferences):
+                            sum(imageCoorDifferences)/len(imageCoorDifferences)
+                        # for nvs in range(len(imageCoorDifferences)):
+                        #     meanImageCoorDifference += imageCoorDifferences[nvs]
+                        # meanImageCoorDifference = meanImageCoorDifference / float(len(imageCoorDifferences))
                         meanImageCoorDifferenceBySolution.append(meanImageCoorDifference)
                         maxImageCoorDifferenceBySolution.append(maxImageCoorDifference)
                         minImageCoorDifferenceBySolution.append(minImageCoorDifference)
@@ -990,7 +992,7 @@ class ObjectPointMetashape(ObjectPoint):
                             findCandidateFromMatches = True
                         elif len(inliersPairs)>0 and len(inliersPairs) == maximumNumberOfInliers:
                             if maxImageCoorDifferenceBySolution[nos] < maxImageCoorDifferenceBySolution[posMaximumNumberOfInliers]:
-                                maximumNumberOfInliers = len(inliersPairs)
+                                maximumNuimageCoorDifferencesmberOfInliers = len(inliersPairs)
                                 objectPointFc = opFc
                                 objectPointSc = opSc
                                 objectPointTc = opTc
