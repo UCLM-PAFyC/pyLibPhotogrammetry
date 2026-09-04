@@ -35,7 +35,7 @@
             "description": "A valid CRS identifier (EPSG:25830+5782, EPSG:25830, ...) for replace the internal Project CRS in XML. Empty for no use",
             "mandatory": false,
             "output": false,
-            "value": "EPSG:25830+5782",
+            "value": "25830+5782",
             "type": "string",
             "output_format": "{:>s}"
         },

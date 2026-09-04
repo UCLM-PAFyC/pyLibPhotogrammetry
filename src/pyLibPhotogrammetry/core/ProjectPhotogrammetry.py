@@ -402,14 +402,18 @@ class ProjectPhotogrammetry(Project):
 
     def import_from_json_content(self,
                                  file_path,
-                                 value_as_dict):
+                                 value_as_dict,
+                                 project_crs_id = None,
+                                 images_crs_id = None,
+                                 gcps_crs = None):
         str_error = ''
         self.is_graphos_model = False
         self.is_metashape_model = True
         at_blocks = []
         at_block_tag = ''
         if not defs_gr.GRAPHOS_DOCUMENT_TAG in value_as_dict:
-            str_aux_error, at_blocks = self.import_metashape_markers(file_path, value_as_dict)
+            str_aux_error, at_blocks = self.import_metashape_markers(file_path, value_as_dict,
+                                                                     project_crs_id, images_crs_id, gcps_crs)
             at_block_tag = defs_msm.METASHAPE_MARKERS_XML_CHUNK_ATTRIBUTE_LABEL
         else:
             str_aux_error, at_blocks = self.import_graphos(file_path, value_as_dict)
@@ -605,7 +609,10 @@ class ProjectPhotogrammetry(Project):
 
     def import_metashape_markers(self,
                                  file_path,
-                                 value_as_dict):
+                                 value_as_dict,
+                                 project_crs_id = None,
+                                 images_crs_id = None,
+                                 gcps_crs_id = None):
         str_error = ''
         at_blocks = []
         # value_as_string = str(value_as_dict)
@@ -632,7 +639,7 @@ class ProjectPhotogrammetry(Project):
 
         # several blocks???
         at_block = ATBlockMetashape(file_path, self)
-        str_error = at_block.set_from_xml(chunk_element)
+        str_error = at_block.set_from_xml(chunk_element, project_crs_id, images_crs_id, gcps_crs_id)
         at_blocks.append(at_block)
         if str_error:
             return str_error, at_blocks
@@ -4248,11 +4255,14 @@ class ProjectPhotogrammetry(Project):
 
     def process_import_agisoft_metashape_project(self,
                                                  process,
-                                                 dialog = None):
+                                                 dialog):
         str_error = ''
         end_date_time = None
         log = None
         name = process[processes_defs_processes.PROCESS_FIELD_NAME]
+        if dialog is None:
+            str_error = ('Process: {} needs gui object'.format(name))
+            return str_error, end_date_time, log
         if bool(self.at_block_by_label):
             str_error = ('Process: {} is only valid for empty projects'.format(name))
             return str_error, end_date_time, log
@@ -4285,9 +4295,17 @@ class ProjectPhotogrammetry(Project):
             return str_error, end_date_time, log
         parameter_project_crs = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_PROJECT_CRS_FILE_LABEL]
-        project_crs = str(parameter_project_crs).strip()
-        if not project_crs or project_crs.casefold() == 'none'.casefold():
-            project_crs = None
+        project_crs_id = str(parameter_project_crs).strip()
+        if not project_crs_id or project_crs_id.casefold() == 'none'.casefold():
+            project_crs_id = None
+        else:
+            str_error, project_crs = self.crs_tools.get_crs_from_id(project_crs_id)
+            if str_error:
+                str_error = ('Process: {} invalid value for parameter: {}\nError:\n{}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_PROJECT_CRS_FILE_LABEL,
+                                    str_error))
+                return str_error, end_date_time, log
         if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_CAMERAS_CRS_FILE_LABEL
                 in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
@@ -4296,9 +4314,17 @@ class ProjectPhotogrammetry(Project):
             return str_error, end_date_time, log
         parameter_cameras_crs = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_CAMERAS_CRS_FILE_LABEL]
-        cameras_crs = str(parameter_cameras_crs).strip()
-        if not cameras_crs or cameras_crs.casefold() == 'none'.casefold():
-            cameras_crs = None
+        images_crs_id = str(parameter_cameras_crs).strip()
+        if not images_crs_id or images_crs_id.casefold() == 'none'.casefold():
+            images_crs_id = None
+        else:
+            str_error, images_crs = self.crs_tools.get_crs_from_id(images_crs_id)
+            if str_error:
+                str_error = ('Process: {} invalid value for parameter: {}\nError:\n{}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_CAMERAS_CRS_FILE_LABEL,
+                                    str_error))
+                return str_error, end_date_time, log
         if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_MARKERS_CRS_FILE_LABEL
                 in parameters_manager.parameters):
             str_error = ('Process: {} does not have parameter: {}'.
@@ -4307,9 +4333,17 @@ class ProjectPhotogrammetry(Project):
             return str_error, end_date_time, log
         parameter_markers_crs = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_MARKERS_CRS_FILE_LABEL]
-        markers_crs = str(parameter_markers_crs).strip()
-        if not markers_crs or cameras_crs.casefold() == 'none'.casefold():
-            markers_crs = None
+        gcps_crs_id = str(parameter_markers_crs).strip()
+        if not gcps_crs_id or gcps_crs_id.casefold() == 'none'.casefold():
+            gcps_crs_id = None
+        else:
+            str_error, gcps_crs = self.crs_tools.get_crs_from_id(gcps_crs_id)
+            if str_error:
+                str_error = ('Process: {} invalid value for parameter: {}\nError:\n{}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_MARKERS_CRS_FILE_LABEL,
+                                    str_error))
+                return str_error, end_date_time, log
         parameter_images_path = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_PATH_LABEL]
         images_path = str(parameter_images_path)
@@ -4339,7 +4373,19 @@ class ProjectPhotogrammetry(Project):
                                     defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL,
                                     undistorted_images_path))
                 return str_error, end_date_time, log
-
+        with open(xml_file_path, 'r', encoding='utf-8') as xml_file:
+            value_as_xml = xml_file.read()
+        try:
+            value_as_dict = xmltodict.parse(value_as_xml)
+        except xmltodict.expat.ExpatError as e:
+            str_error = ('Parsing Agisoft Metashape XML file: {}\nError:\n{}'.format(xml_file_path, str(e)))
+            return str_error
+        str_error = self.import_from_json_content(xml_file_path, value_as_dict,
+                                                  project_crs_id, images_crs_id, gcps_crs_id)
+        if str_error:
+            str_error = ('Importing from Agisoft Metashape XML file: {}\nError:\n{}'.format(xml_file_path,
+                                                                                            str_aux_error))
+            return str_error
 
 
         end_date_time = datetime.now()
