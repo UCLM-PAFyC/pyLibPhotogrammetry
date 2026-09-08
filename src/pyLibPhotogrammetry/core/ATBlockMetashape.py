@@ -586,6 +586,7 @@ class ATBlockMetashape(ATBlock):
         self.transform_inv = np.dot(v.transpose(),np.dot(np.diag(s**-1),u.transpose()))
 
         # reference
+        crs_id = None
         if not project_crs_id is None:
             str_error, crs_epsg_code, vertical_crs_epsg_code \
                 = self.project.crs_tools.get_crs_epsg_codes_from_id(project_crs_id)
@@ -609,7 +610,7 @@ class ATBlockMetashape(ATBlock):
                 str_error = ('Reading element: {} in chunk in metashape markers XML file:\n{}\nError:\n{}'.
                              format(defs_msm.METASHAPE_MARKERS_XML_REFERENCE_TAG, self.file_path, str_error))
                 return str_error
-        if not crs_id:
+        if crs_id is None or not crs_id:
             str_error = ('Reading element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
                          format(defs_msm.METASHAPE_MARKERS_XML_REFERENCE_TAG, self.file_path))
             return str_error
@@ -639,7 +640,15 @@ class ATBlockMetashape(ATBlock):
         self.crs_geo3d_id = crs_geo3d_id
 
         # camera_reference
-        if defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG in xml_element:
+        if not images_crs_id is None:
+            str_error, camera_crs_epsg_code, camera_vertical_crs_epsg_code \
+                = self.project.crs_tools.get_crs_epsg_codes_from_id(images_crs_id)
+            if str_error:
+                str_error = ('Getting EPSG codes from CRS id: {}\nError:\n{}'.
+                             format(images_crs_id, str_error))
+                return str_error
+            camera_crs_id = images_crs_id
+        elif defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG in xml_element:
             camera_reference_wkt = xml_element[defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG]
             str_error, camera_crs_id, camera_crs_epsg_code, camera_vertical_crs_epsg_code = self.project.crs_tools.get_crs_from_wkt(
                 camera_reference_wkt)
@@ -647,42 +656,49 @@ class ATBlockMetashape(ATBlock):
                 str_error = ('Reading element: {} in chunk in metashape markers XML file:\n{}\nError:\n{}'.
                              format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path, str_error))
                 return str_error
-            if not crs_id:
+            if not camera_crs_id:
                 str_error = ('Reading element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
                              format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
                 return str_error
-            camera_crs_geo2d_id = self.project.crs_tools.get_crs_geo2d_for_crs(camera_crs_id)
-            if camera_crs_geo2d_id is None:
-                str_error = (
-                    'Getting CRS geographic 2D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
-                    format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
-                return str_error
-            camera_crs_ecef_ids = self.project.crs_tools.get_crs_ecef_ids_for_crs_geo2d_id(camera_crs_geo2d_id)
-            if camera_crs_ecef_ids is None:
-                str_error = (
-                    'Getting CRS ECEF from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
-                    format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
-                return str_error
-            camera_crs_ecef_id = camera_crs_ecef_ids[0]
-            camera_crs_geo3d_ids = self.project.crs_tools.get_crs_geo3d_ids_for_crs_geo2d_id(camera_crs_geo2d_id)
-            if camera_crs_geo3d_ids is None:
-                str_error = (
-                    'Getting CRS geographic 3D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
-                    format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
-                return str_error
-            camera_crs_geo3d_id = camera_crs_geo3d_ids[0]
-            self.camera_crs_id = camera_crs_id
-            self.camera_crs_geo2d_id = camera_crs_geo2d_id
-            self.camera_crs_ecef_id = camera_crs_ecef_id
-            self.camera_crs_geo3d_id = camera_crs_geo3d_id
         else:
-            self.camera_crs_id = self.crs_id
-            self.camera_crs_geo2d_id = self.crs_geo2d_id
-            self.camera_crs_ecef_id = self.crs_ecef_id
-            self.camera_crs_geo3d_id = self.crs_geo3d_id
+            camera_crs_id = self.crs_id
+            # camera_crs_geo2d_id = self.crs_geo2d_id
+            # camera_crs_ecef_id = self.crs_ecef_id
+            # camera_crs_geo3d_id = self.crs_geo3d_id
+        camera_crs_geo2d_id = self.project.crs_tools.get_crs_geo2d_for_crs(camera_crs_id)
+        if camera_crs_geo2d_id is None:
+            str_error = (
+                'Getting CRS geographic 2D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
+                format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
+            return str_error
+        camera_crs_ecef_ids = self.project.crs_tools.get_crs_ecef_ids_for_crs_geo2d_id(camera_crs_geo2d_id)
+        if camera_crs_ecef_ids is None:
+            str_error = (
+                'Getting CRS ECEF from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
+                format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
+            return str_error
+        camera_crs_ecef_id = camera_crs_ecef_ids[0]
+        camera_crs_geo3d_ids = self.project.crs_tools.get_crs_geo3d_ids_for_crs_geo2d_id(camera_crs_geo2d_id)
+        if camera_crs_geo3d_ids is None:
+            str_error = (
+                'Getting CRS geographic 3D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
+                format(defs_msm.METASHAPE_MARKERS_XML_CAMERAS_REFERENCE_TAG, self.file_path))
+            return str_error
+        camera_crs_geo3d_id = camera_crs_geo3d_ids[0]
+        self.camera_crs_id = camera_crs_id
+        self.camera_crs_geo2d_id = camera_crs_geo2d_id
+        self.camera_crs_ecef_id = camera_crs_ecef_id
+        self.camera_crs_geo3d_id = camera_crs_geo3d_id
 
         # gcps_reference
-        if defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG in xml_element:
+        if not gcps_crs_id is None:
+            str_error, gcps_crs_epsg_code, gcps_vertical_crs_epsg_code \
+                = self.project.crs_tools.get_crs_epsg_codes_from_id(gcps_crs_id)
+            if str_error:
+                str_error = ('Getting EPSG codes from CRS id: {}\nError:\n{}'.
+                             format(camera_crs_id, str_error))
+                return str_error
+        elif defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG in xml_element:
             gcps_reference_wkt = xml_element[defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG]
             str_error, gcps_crs_id, gcps_crs_epsg_code, gcps_vertical_crs_epsg_code = self.project.crs_tools.get_crs_from_wkt(
                 gcps_reference_wkt)
@@ -690,39 +706,39 @@ class ATBlockMetashape(ATBlock):
                 str_error = ('Reading element: {} in chunk in metashape markers XML file:\n{}\nError:\n{}'.
                              format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path, str_error))
                 return str_error
-            if not crs_id:
+            if not gcps_crs_id:
                 str_error = ('Reading element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
                              format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
                 return str_error
-            gcps_crs_geo2d_id = self.project.crs_tools.get_crs_geo2d_for_crs(gcps_crs_id)
-            if gcps_crs_geo2d_id is None:
-                str_error = (
-                    'Getting CRS geographic 2D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
-                    format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
-                return str_error
-            gcps_crs_ecef_ids = self.project.crs_tools.get_crs_ecef_ids_for_crs_geo2d_id(gcps_crs_geo2d_id)
-            if gcps_crs_ecef_ids is None:
-                str_error = (
-                    'Getting CRS ECEF from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
-                    format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
-                return str_error
-            gcps_crs_ecef_id = gcps_crs_ecef_ids[0]
-            gcps_crs_geo3d_ids = self.project.crs_tools.get_crs_geo3d_ids_for_crs_geo2d_id(gcps_crs_geo2d_id)
-            if gcps_crs_geo3d_ids is None:
-                str_error = (
-                    'Getting CRS geographic 3D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
-                    format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
-                return str_error
-            gcps_crs_geo3d_id = gcps_crs_geo3d_ids[0]
-            self.gcps_crs_id = gcps_crs_id
-            self.gcps_crs_geo2d_id = gcps_crs_geo2d_id
-            self.gcps_crs_ecef_id = gcps_crs_ecef_id
-            self.gcps_crs_geo3d_id = gcps_crs_geo3d_id
         else:
-            self.gcps_crs_id = self.crs_id
-            self.gcps_crs_geo2d_id = self.crs_geo2d_id
-            self.gcps_crs_ecef_id = self.crs_ecef_id
-            self.gcps_crs_geo3d_id = self.crs_geo3d_id
+            gcps_crs_id = self.crs_id
+            # gcps_crs_geo2d_id = self.crs_geo2d_id
+            # gcps_crs_ecef_id = self.crs_ecef_id
+            # gcps_crs_geo3d_id = self.crs_geo3d_id
+        gcps_crs_geo2d_id = self.project.crs_tools.get_crs_geo2d_for_crs(gcps_crs_id)
+        if gcps_crs_geo2d_id is None:
+            str_error = (
+                'Getting CRS geographic 2D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
+                format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
+            return str_error
+        gcps_crs_ecef_ids = self.project.crs_tools.get_crs_ecef_ids_for_crs_geo2d_id(gcps_crs_geo2d_id)
+        if gcps_crs_ecef_ids is None:
+            str_error = (
+                'Getting CRS ECEF from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
+                format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
+            return str_error
+        gcps_crs_ecef_id = gcps_crs_ecef_ids[0]
+        gcps_crs_geo3d_ids = self.project.crs_tools.get_crs_geo3d_ids_for_crs_geo2d_id(gcps_crs_geo2d_id)
+        if gcps_crs_geo3d_ids is None:
+            str_error = (
+                'Getting CRS geographic 3D from element: {} in chunk in metashape markers XML file:\n{}\nCRS is not valid'.
+                format(defs_msm.METASHAPE_MARKERS_XML_MARKERS_REFERENCE_TAG, self.file_path))
+            return str_error
+        gcps_crs_geo3d_id = gcps_crs_geo3d_ids[0]
+        self.gcps_crs_id = gcps_crs_id
+        self.gcps_crs_geo2d_id = gcps_crs_geo2d_id
+        self.gcps_crs_ecef_id = gcps_crs_ecef_id
+        self.gcps_crs_geo3d_id = gcps_crs_geo3d_id
 
         # METASHAPE_MARKERS_XML_SENSORS_TAG
         if not defs_msm.METASHAPE_MARKERS_XML_SENSORS_TAG in xml_element:

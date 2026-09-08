@@ -38,6 +38,33 @@ from ..core.IExifTool import IExifTool
 from ..core.computations import *
 from ..core.EpipolarGeometryMatcherManager import EpipolarGeometryMatcherManager
 
+def add_files_from_directory(dir,
+                             file_extensions,
+                             files,
+                             add_from_sub_dir = False):
+    fileInfoList = dir.entryInfoList()
+    insertFile = False
+    for fileInfo in fileInfoList:
+        if fileInfo.isFile():
+            fileName = fileInfo.absoluteFilePath()
+            if fileName in files:
+                continue
+            fileExtension = fileInfo.suffix().lower()
+            if not fileExtension in file_extensions:
+                continue
+            filePath = fileInfo.absolutePath()
+            path = filePath
+            files.append(fileName)
+            if not insertFile:
+                insertFile = True
+        if fileInfo.isDir() and add_from_sub_dir:
+            if fileInfo.baseName():  # para quitar el . y el ..
+                subDir = QDir(fileInfo.absoluteFilePath())
+                insertFileFromSubDir = add_files_from_directory(subDir, file_extensions, files, add_from_sub_dir)
+                if not insertFile and insertFileFromSubDir:
+                    insertFile = True
+    return insertFile
+
 class ProjectPhotogrammetry(Project):
     def __init__(self, qgis_iface, settings, crs_tools):
         super().__init__(qgis_iface, settings, crs_tools)
@@ -4344,6 +4371,13 @@ class ProjectPhotogrammetry(Project):
                                     defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_PARAMETER_MARKERS_CRS_FILE_LABEL,
                                     str_error))
                 return str_error, end_date_time, log
+        # images path
+        if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_PATH_LABEL
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_PATH_LABEL))
+            return str_error, end_date_time, log
         parameter_images_path = parameters_manager.parameters[
             defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_PATH_LABEL]
         images_path = str(parameter_images_path)
@@ -4358,14 +4392,47 @@ class ProjectPhotogrammetry(Project):
                                 defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_PATH_LABEL,
                                 images_path))
             return str_error, end_date_time, log
-        parameter_undistorted_images_path = parameters_manager.parameters[
-            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL]
-        undistorted_images_path = str(parameter_undistorted_images_path)
-        if not undistorted_images_path or undistorted_images_path.casefold() == 'none'.casefold():
+        # images format
+        if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_FORMAT_LABEL
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_FORMAT_LABEL))
+            return str_error, end_date_time, log
+        parameter_images_format = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_FORMAT_LABEL]
+        images_format = str(parameter_images_format)
+        if not images_format or images_format.casefold() == 'none'.casefold():
             str_error = ('Process {} has a empty parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_IMAGES_FORMAT_LABEL))
+            return str_error, end_date_time, log
+        images_dir = QDir(images_path)
+        images_extensions = [images_format]
+        images_files = []
+        inserted_files = add_files_from_directory(images_dir, images_extensions, images_files, True)
+        if len(images_files) == 0:
+            str_error = ('There are no image files ({}) in path:\n{}'.
+                         format(images_format,
+                                images_path))
+            return str_error, end_date_time, log
+        # undistorted images path
+        if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL))
             return str_error, end_date_time, log
+        parameter_undistorted_images_path = parameters_manager.parameters[
+            defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL]
+        undistorted_images_path = str(parameter_undistorted_images_path)
+        # if not undistorted_images_path or undistorted_images_path.casefold() == 'none'.casefold():
+        #     str_error = ('Process {} has a empty parameter: {}'.
+        #                  format(name,
+        #                         defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL))
+        #     return str_error, end_date_time, log
+        if undistorted_images_path.casefold() == 'none'.casefold():
+            undistorted_images_path = None
         else:
             if not os.path.exists(undistorted_images_path):
                 str_error = ('Process {} has a not existing parameter: {}\nFile:\n{}'.
@@ -4373,21 +4440,186 @@ class ProjectPhotogrammetry(Project):
                                     defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_PATH_LABEL,
                                     undistorted_images_path))
                 return str_error, end_date_time, log
+        # undistorted images format
+        if not (defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_FORMAT_LABEL
+                in parameters_manager.parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_FORMAT_LABEL))
+            return str_error, end_date_time, log
+        undistorted_images_format = None
+        undistorted_images_files = []
+        if not undistorted_images_path is None:
+            parameter_undistorted_images_format = parameters_manager.parameters[
+                defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_FORMAT_LABEL]
+            undistorted_images_format = str(parameter_undistorted_images_format)
+            if not undistorted_images_format or undistorted_images_format.casefold() == 'none'.casefold():
+                str_error = ('Process {} has a empty parameter: {}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_IMPORT_AGISOFT_METASHAPE_PROJECT_UNDISTORTED_IMAGES_FORMAT_LABEL))
+                return str_error, end_date_time, log
+            undistorted_images_dir = QDir(undistorted_images_path)
+            undistorted_images_extensions = [undistorted_images_format]
+            undistorted_images_files = []
+            inserted_files = add_files_from_directory(undistorted_images_dir, undistorted_images_extensions,
+                                                      undistorted_images_files, True)
+            if len(undistorted_images_files) == 0:
+                str_error = ('There are no undistorted image files ({}) in path:\n{}'.
+                             format(undistorted_images_format,
+                                    images_path))
+                return str_error, end_date_time, log
+        # use xml file
         with open(xml_file_path, 'r', encoding='utf-8') as xml_file:
             value_as_xml = xml_file.read()
         try:
-            value_as_dict = xmltodict.parse(value_as_xml)
+            xml_value_as_dict = xmltodict.parse(value_as_xml)
         except xmltodict.expat.ExpatError as e:
-            str_error = ('Parsing Agisoft Metashape XML file: {}\nError:\n{}'.format(xml_file_path, str(e)))
+            str_error = ('Parsing Agisoft Metashape XML file: {}\nError:\n{}'.format(xml_value_as_dict, str(e)))
             return str_error
-        str_error = self.import_from_json_content(xml_file_path, value_as_dict,
+        str_error = self.import_from_json_content(xml_file_path, xml_value_as_dict,
                                                   project_crs_id, images_crs_id, gcps_crs_id)
         if str_error:
             str_error = ('Importing from Agisoft Metashape XML file: {}\nError:\n{}'.format(xml_file_path,
                                                                                             str_aux_error))
+            return str_error, end_date_time, log
+        # store in db metashape markers xml
+        crss_values_as_dict = {}
+        crss_values_as_dict[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_PROJECT_CRS_TAG] = project_crs_id
+        crss_values_as_dict[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_IMAGES_CRS_TAG] = images_crs_id
+        crss_values_as_dict[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_GCPS_CRS_TAG] = gcps_crs_id
+        value_as_dict = {}
+        value_as_dict[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_CRSS_TAG] = crss_values_as_dict
+        value_as_dict[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_XML_FILE_TAG] = xml_value_as_dict
+        value_as_json = json.dumps(value_as_dict, indent=4)
+        features = []
+        feature = []
+        field = {}
+        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_NAME
+        field[defs_gdal.FIELD_TYPE_TAG] \
+            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_NAME]
+        field[defs_gdal.FIELD_VALUE_TAG] = defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME
+        feature.append(field)
+        field = {}
+        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_CONTENT
+        field[defs_gdal.FIELD_TYPE_TAG] \
+            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_CONTENT]
+        field[defs_gdal.FIELD_VALUE_TAG] = value_as_json
+        feature.append(field)
+        field = {}
+        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_REMARKS
+        field[defs_gdal.FIELD_TYPE_TAG] \
+            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_REMARKS]
+        field[defs_gdal.FIELD_VALUE_TAG] = os.path.normpath(xml_file_path)
+        feature.append(field)
+        geometry_value = None
+        field = {}
+        field[defs_gdal.FIELD_NAME_TAG] = defs_project.MANAGEMENT_FIELD_GEOMETRY
+        field[defs_gdal.FIELD_TYPE_TAG] \
+            = defs_project.fields_by_layer[defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_GEOMETRY]
+        field[defs_gdal.FIELD_VALUE_TAG] = defs_project.fields_by_layer[
+            defs_project.MANAGEMENT_LAYER_NAME][defs_project.MANAGEMENT_FIELD_GEOMETRY]
+        feature.append(field)
+        features.append(feature)
+        features_by_layer = {}
+        features_by_layer[defs_project.MANAGEMENT_LAYER_NAME] = features
+        str_error = GDALTools.write_features(self.file_path, features_by_layer)
+        if str_error:
             return str_error
-
-
+        # store in db images at_block
+        features = []
+        for at_block_label in self.at_block_by_label:
+            at_block = self.at_block_by_label[at_block_label]
+            for camera_id in at_block.camera_by_id:
+                camera = at_block.camera_by_id[camera_id]
+                feature = []
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_FIELD_LABEL
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_project.fields_by_layer[defs_project.IMAGES_TABLE_NAME][
+                    defs_project.IMAGES_FIELD_LABEL]
+                field[defs_gdal.FIELD_VALUE_TAG] = camera.label
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_FIELD_CHUNK_LABEL
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_project.fields_by_layer[defs_project.IMAGES_TABLE_NAME][
+                    defs_project.IMAGES_FIELD_CHUNK_LABEL]
+                field[defs_gdal.FIELD_VALUE_TAG] = at_block_label
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_FIELD_CAMERA_ID
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_project.fields_by_layer[defs_project.IMAGES_TABLE_NAME][
+                    defs_project.IMAGES_FIELD_CAMERA_ID]
+                field[defs_gdal.FIELD_VALUE_TAG] = camera.id
+                feature.append(field)
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_FIELD_ENABLED
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_project.fields_by_layer[defs_project.IMAGES_TABLE_NAME][
+                    defs_project.IMAGES_FIELD_ENABLED]
+                image_enabled = 1
+                if not camera.enabled:
+                    image_enabled = 0
+                field[defs_gdal.FIELD_VALUE_TAG] = image_enabled
+                feature.append(field)
+                pc_wkb = None
+                camera_pc = camera.get_pc()
+                if isinstance(camera_pc, np.ndarray):
+                # if camera_pc != None:
+                # if camera.exists_orientation:
+                    pc = [[camera_pc[0], camera_pc[1], camera_pc[2]]]
+                    if at_block.crs_id != self.crs_id:
+                        str_error = self.crs_tools.operation(at_block.crs_id, self.crs_id,
+                                                             pc)
+                        if str_error:
+                            str_error = (
+                                'Recovering PC in camera: {} from metashape markers XML file:\n{}\nError in CRSs operation:\n{}'.
+                                format(camera.label, file_path, str_error))
+                            return str_error, end_date_time, log
+                    fc = pc[0][0]
+                    sc = pc[0][1]
+                    tc = pc[0][2]
+                    point_geometry = ogr.Geometry(ogr.wkbPoint)
+                    point_geometry.AddPoint(fc, sc, tc)
+                    pc_wkb = point_geometry.ExportToWkb()
+                else:
+                    pc_wkb = defs_gdal.geometry_type_by_name['none']
+                field = {}
+                field[defs_gdal.FIELD_NAME_TAG] = defs_project.IMAGES_FIELD_PC_GEOM
+                field[defs_gdal.FIELD_TYPE_TAG] \
+                    = defs_project.fields_by_layer[defs_project.IMAGES_TABLE_NAME][
+                    defs_project.IMAGES_FIELD_PC_GEOM]
+                field[defs_gdal.FIELD_VALUE_TAG] = pc_wkb
+                feature.append(field)
+                features.append(feature)
+                # features_by_layer = {}
+                # features_by_layer[defs_project.IMAGES_TABLE_NAME] = features
+                # str_error = GDALTools.write_features(self.file_path, features_by_layer)
+                # if str_error:
+                #     return str_error
+        features_by_layer = {}
+        features_by_layer[defs_project.IMAGES_TABLE_NAME] = features
+        str_error = GDALTools.write_features(self.file_path, features_by_layer)
+        if str_error:
+            return str_error, end_date_time, log
+        # update fid
+        str_error = self.load_images_data_from_db(self.file_path)
+        if str_error:
+            return str_error, end_date_time, log
+        # images files, images_path
+        str_error = self.add_image_files(images_files, self.dialog)
+        if str_error:
+            str_error += ('Adding image files to project:\n{}\nError:\n{}'.
+                         format(self.file_path, str_error))
+            return str_error, end_date_time, log
+        # undistorted images files, undistorted_images_path
+        if len(undistorted_images_files) > 0:
+            str_error = self.add_undistort_image_files(undistorted_images_files, self.dialog)
+            if str_error:
+                str_error += ('Adding undistorted image files to project:\n{}\nError:\n{}'.
+                              format(self.file_path, str_error))
+                return str_error, end_date_time, log
         end_date_time = datetime.now()
         return str_error, end_date_time, log
 
