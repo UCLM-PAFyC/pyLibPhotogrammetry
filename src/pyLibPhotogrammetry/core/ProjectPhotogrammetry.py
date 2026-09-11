@@ -1175,8 +1175,32 @@ class ProjectPhotogrammetry(Project):
             json_content = json.loads(json_content)
             # str_error = self.load_from_db_metashape_markers(xml_file_path,
             #                                                 json_content)
+            project_crs_id = None
+            images_crs_id = None
+            gcps_crs_id = None
+            if defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_CRSS_TAG in json_content:
+                if not defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_XML_FILE_TAG in json_content:
+                    str_error = ('Getting {} from management from gpgk:\n{}\nError: Invalid format'.
+                                 format(defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME,
+                                        file_path))
+                    return str_error
+                crss = json_content[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_CRSS_TAG]
+                if (not defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_PROJECT_CRS_TAG in crss
+                        or not defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_IMAGES_CRS_TAG in crss
+                        or not defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_GCPS_CRS_TAG in crss):
+                    str_error = ('Getting {} from management from gpgk:\n{}\nError: Invalid format'.
+                                 format(defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_FIELD_NAME,
+                                        file_path))
+                    return str_error
+                project_crs_id = crss[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_PROJECT_CRS_TAG]
+                images_crs_id = crss[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_IMAGES_CRS_TAG]
+                gcps_crs_id = crss[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_GCPS_CRS_TAG]
+                json_content = json_content[defs_project.METASHAPE_MARKERS_XML_FILE_MANAGEMENT_JSON_XML_FILE_TAG]
             str_error = self.import_from_json_content(xml_file_path,
-                                                      json_content)
+                                                      json_content,
+                                                      project_crs_id,
+                                                      images_crs_id,
+                                                      gcps_crs_id)
             if str_error:
                 str_error = ('\nSetting from project file:\n{}\nerror:\n{}'.format(file_path, str_error))
                 return str_error
