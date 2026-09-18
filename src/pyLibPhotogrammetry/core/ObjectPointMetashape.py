@@ -15,6 +15,64 @@ class ObjectPointMetashape(ObjectPoint):
         super().__init__(at_block)
         self.position_chunk = None
 
+    def set_from_measured_image(self,
+                                image_id,
+                                point_coordinates,
+                                minimum_distance,
+                                maximum_distance,
+                                write_report = False):
+        str_error = ''
+        if not isinstance(image_id, str):
+            str_error = ('Image id must be a string')
+            return str_error
+        if not isinstance(minimum_distance, float):
+            str_error = ('Minimum distance must be a float')
+            return str_error
+        if not isinstance(maximum_distance, float):
+            str_error = ('Maximum distance must be a float')
+            return str_error
+        if not isinstance(point_coordinates, list):
+            str_error = ('Point image space coordinates must be a list with two values')
+            return str_error
+        if len(point_coordinates) != 2:
+            str_error = ('Point image space coordinates must be a list with two values')
+            return str_error
+        str_error, at_block_crs_is_geographic = self.at_block.project.crs_tools.is_geographic(self.at_block.crs_id)
+        if str_error:
+            str_error = ('For AT Block: {}, getting is geographic CRS: {}\nError:\n{}'
+                         .format(self.at_block.label, self.at_block.crs_id, str_error))
+            return str_error
+        crs2d_precision = 4
+        if at_block_crs_is_geographic:
+            crs2d_precision = 9
+        # 1. get parameters
+        only_enabled_images = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
+        ignored_sensor_percentage = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE]
+        if only_enabled_images:
+            str_error = self.at_block.project.update_enabled_images_from_db()
+            if str_error:
+                str_error = ('Updating enabled images from file: {}\nError:\n{}'
+                             .format(self.file_path, str_error))
+                return str_error
+        minimum_overlap_percentage = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE]
+
+        content = "\n- ObjectPoint.set_from_measured_image"
+        content += "\n  - Id ...................: " + str(self.id)
+        content += "\n  - Image id .............: " + image_id
+        content += ("\n    - Coordinates ........: ({:.3f}, {:.3f})".format(point_coordinates[0],
+                                                                                    point_coordinates[1]))
+        self.report_text += content
+        self.report_text_last_step = content
+        if write_report and self.report_file is not None:
+            self.report_file.write(self.report_text_last_step)
+            self.report_file.flush()
+
+
+        return str_error
+
     def set_from_xml(self,
                      xml_element):
         str_error = ''

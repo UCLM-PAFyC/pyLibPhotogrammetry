@@ -38,6 +38,40 @@ class ATBlockMetashape(ATBlock):
         self.sensors_to_object_outliers_camera_ids_before_lsa = []
         self.sensors_to_object_outliers_camera_ids = []
 
+    def add_object_point_from_image_space(self,
+                                          image_id,
+                                          point_coordinates,
+                                          minimum_distance,
+                                          maximum_distance):
+        str_error = ''
+        point_id = None
+        self.project.point_id = self.project.point_id + 1
+        point_id = self.project.point_id
+        if point_id in self.project.object_point_by_id:
+            str_error = ('Adding object point, exists previous object point: {}'
+                         .format(str(point_id)))
+            return str_error, None
+        object_point = ObjectPointMetashape(self)
+        str_error = object_point.set_id(point_id,
+                            self.project.digitizing_parameters[
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]
+                            )
+        if str_error:
+            str_error = ('Adding object point, error:\n{}'
+                         .format(str_error))
+            return str_error, None
+        str_error = object_point.set_position([fc, sc, tc], crs_id, True)
+        if str_error:
+            str_error = ('Adding object point, error:\n{}'
+                         .format(str_error))
+            return str_error, None
+        if dem_height is None:
+            dem_height = tc
+        object_point.set_dem_height(dem_height)
+        self.project.object_point_by_id[point_id] = object_point
+        self.project.object_point_id_last = point_id
+        return str_error, point_id
+
     def add_object_point_from_object_space(self,
                                            point_coordinates,
                                            crs_id,
