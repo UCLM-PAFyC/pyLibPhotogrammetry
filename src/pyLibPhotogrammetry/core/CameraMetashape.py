@@ -2,6 +2,7 @@
 # David Hernandez Lopez, david.hernandez@uclm.es
 
 import numpy as np
+import math
 
 from ..defs import defs_metashape_markers as defs_msm
 from ..defs import defs_images
@@ -264,42 +265,55 @@ class CameraMetashape(Camera):
     def from_sensor_to_chunk_coordinates_segment(self,
                                                  column,
                                                  row,
-                                                 minimun_distance,
+                                                 minimum_distance,
                                                  maximum_distance,
                                                  use_distortion,
                                                  use_ppa):
         str_error = ''
-        chunk_coordinates_min = None
-        chunk_coordinates_max = None
-        x_cam_min = y_cam_min = z_cam_min = None
-        x_cam_max = y_cam_max = z_cam_max = None
+        position_chunk_minimum_distance = position_chunk_maximum_distance = None
+        chunk_coordinates_diru = None # unit vector in direction
+        x_cam_dir = y_cam_dir = z_cam_dir = None
         sensor = self.at_block.sensor_by_id[self.sensor_id]
-        str_error, x_cam_min, y_cam_min, z_cam_min = sensor.from_sensor_to_camera_coordinates_direction(column, row,
-                                                                                            use_distortion, use_ppa,
-                                                                                            minimun_distance)
+        str_error, x_cam_dir, y_cam_dir, z_cam_dir = sensor.from_sensor_to_camera_coordinates_direction(column, row,
+                                                                                            use_distortion, use_ppa)
         if str_error:
-            return str_error, chunk_coordinates_min, chunk_coordinates_max
-        str_error, x_cam_max, y_cam_max, z_cam_max = sensor.from_sensor_to_camera_coordinates_direction(column, row,
-                                                                                            use_distortion, use_ppa,
-                                                                                            maximun_distance)
-        if str_error:
-            return str_error, chunk_coordinates_min, chunk_coordinates_max
+            return str_error, position_chunk_minimum_distance, position_chunk_maximum_distance
         transform = self.get_transform()
-        camera_coor_min = np.zeros(4)
-        camera_coor_min[0] = x_cam_min
-        camera_coor_min[1] = y_cam_min
-        camera_coor_min[2] = z_cam_min
-        camera_coor_min[3] = 1
+        camera_coor_dir = np.zeros(4)
+        camera_coor_dir[0] = x_cam_dir
+        camera_coor_dir[1] = y_cam_dir
+        camera_coor_dir[2] = z_cam_dir
+        camera_coor_dir[3] = 1
         # chunk_coordinates = self.transform * camera_coor
-        chunk_coordinates_min = np.dot(transform, camera_coor_min)
-        camera_coor_max = np.zeros(4)
-        camera_coor_max[0] = x_cam_max
-        camera_coor_max[1] = y_cam_max
-        camera_coor_max[2] = z_cam_max
-        camera_coor_max[3] = 1
-        # chunk_coordinates = self.transform * camera_coor
-        chunk_coordinates_max = np.dot(transform, camera_coor_max)
-        return str_error, chunk_coordinates_min, chunk_coordinates_max
+        chunk_coordinates_dir = np.dot(transform, camera_coor_dir)
+        pto_direction_ecef_dir = np.matmul(self.at_block.transform, camera_coor_dir)
+        vector_ecef_x = pto_direction_ecef_dir[0] - self.pc_ecef[0]
+        vector_ecef_y = pto_direction_ecef_dir[1] - self.pc_ecef[1]
+        vector_ecef_z = pto_direction_ecef_dir[2] - self.pc_ecef[2]
+        vector_ecef_length = math.sqrt(vector_ecef_x ** 2 + vector_ecef_y ** 2 + vector_ecef_z ** 2)
+        x_ecef_minimum_distance = self.pc_ecef[0] + vector_ecef_x / vector_ecef_length * minimum_distance
+        y_ecef_minimum_distance = self.pc_ecef[1] + vector_ecef_y / vector_ecef_length * minimum_distance
+        z_ecef_minimum_distance = self.pc_ecef[2] + vector_ecef_z / vector_ecef_length * minimum_distance
+        x_ecef_maximum_distance = self.pc_ecef[0] + vector_ecef_x / vector_ecef_length * maximum_distance
+        y_ecef_maximum_distance = self.pc_ecef[1] + vector_ecef_y / vector_ecef_length * maximum_distance
+        z_ecef_maximum_distance = self.pc_ecef[2] + vector_ecef_z / vector_ecef_length * maximum_distance
+        position_ecef_minimum_distance = np.zeros(4)
+        position_ecef_minimum_distance[0] = x_ecef_minimum_distance
+        position_ecef_minimum_distance[1] = y_ecef_minimum_distance
+        position_ecef_minimum_distance[2] = z_ecef_minimum_distance
+        position_ecef_minimum_distance[3] = 1.0
+        position_chunk_minimum_distance = np.matmul(self.at_block.transform_inv, position_ecef_minimum_distance)
+        position_ecef_maximum_distance = np.zeros(4)
+        position_ecef_maximum_distance[0] = x_ecef_maximum_distance
+        position_ecef_maximum_distance[1] = y_ecef_maximum_distance
+        position_ecef_maximum_distance[2] = z_ecef_maximum_distance
+        position_ecef_maximum_distance[3] = 1.0
+        position_chunk_maximum_distance = np.matmul(self.at_block.transform_inv, position_ecef_maximum_distance)
+        chunk_distance = math.sqrt((position_chunk_maximum_distance[0] - position_chunk_minimum_distance[0]) ** 2.
+                                   + (position_chunk_maximum_distance[1] - position_chunk_minimum_distance[1]) ** 2.
+                                   + (position_chunk_maximum_distance[2] - position_chunk_minimum_distance[2]) ** 2.)
+        diff_chunk_distance = (maximum_distance - minimum_distance) / self.at_block.transform_scale - chunk_distance
+        return str_error, position_chunk_minimum_distance, position_chunk_maximum_distance
 
     def from_sensor_to_dem(self,
                            column, row,

@@ -22,7 +22,7 @@ class ObjectPointMetashape(ObjectPoint):
                                 maximum_distance,
                                 write_report = False):
         str_error = ''
-        if not isinstance(image_id, str):
+        if not isinstance(image_label, str):
             str_error = ('Image id must be a string')
             return str_error
         if not isinstance(minimum_distance, float):

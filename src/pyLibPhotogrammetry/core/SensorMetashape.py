@@ -240,17 +240,15 @@ class SensorMetashape(Sensor):
                                                     column,
                                                     row,
                                                     use_distortion = True,
-                                                    use_ppa = True,
-                                                    Z = 1.0):
+                                                    use_ppa = True):
         str_error = ''
         X = None
         Y = None
-        # Z = None
+        Z = None
         if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class\
                 and not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL in self.calibration_by_class:
             str_error = ('For sensor: {} not found calibration class: {}'.
                          format(self.label, defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED))
-            Z = None
             return str_error, X, Y, Z
         calibration = None
         if defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class:
@@ -264,7 +262,6 @@ class SensorMetashape(Sensor):
                          format(self.label, calibration.type, defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME,
                                 defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE,
                                 defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL))
-            Z = None
             return str_error, X, Y, Z
         columns = calibration.width
         rows = calibration.height
