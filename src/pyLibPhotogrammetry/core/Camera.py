@@ -41,6 +41,19 @@ class Camera:
             return enabled
         return self.enabled
 
+    def get_gsd_from_object_space_distance(self, object_space_distance):
+        str_error = ''
+        gsd = None
+        if self.sensor_id is None:
+            str_error = 'sensor_id is None'
+            return str_error
+        if not self.sensor_id in self.at_block.sensor_by_id:
+            str_error = ('Not exists sensor_id: {}'.format(self.sensor_id))
+            return str_error
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        gsd = sensor.pixel_size / sensor.focal_length * object_space_distance
+        return str_error, gsd
+
     def get_pc(self):
         if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
             master_camera = self.at_block.camera_by_id[self.master_id]

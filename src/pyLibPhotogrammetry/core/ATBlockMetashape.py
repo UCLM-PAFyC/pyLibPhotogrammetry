@@ -42,7 +42,8 @@ class ATBlockMetashape(ATBlock):
                                           image_label,
                                           point_coordinates,
                                           minimum_distance,
-                                          maximum_distance):
+                                          maximum_distance,
+                                          maximum_gsd):
         str_error = ''
         point_id = None
         self.project.point_id = self.project.point_id + 1
@@ -61,7 +62,9 @@ class ATBlockMetashape(ATBlock):
                          .format(str_error))
             return str_error, None
         str_error = object_point.set_from_measured_image(image_label, point_coordinates,
-                                                         minimum_distance, maximum_distance, True)
+                                                         minimum_distance, maximum_distance,
+                                                         maximum_gsd,
+                                                         True)
         if str_error:
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))

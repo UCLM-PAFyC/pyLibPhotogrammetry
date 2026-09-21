@@ -20,6 +20,7 @@ class ObjectPointMetashape(ObjectPoint):
                                 point_coordinates,
                                 minimum_distance,
                                 maximum_distance,
+                                maximum_gsd,
                                 write_report = False):
         str_error = ''
         if not isinstance(image_label, str):
@@ -30,6 +31,9 @@ class ObjectPointMetashape(ObjectPoint):
             return str_error
         if not isinstance(maximum_distance, float):
             str_error = ('Maximum distance must be a float')
+            return str_error
+        if not isinstance(maximum_gsd, float):
+            str_error = ('Maximum GSD must be a float')
             return str_error
         if not isinstance(point_coordinates, list):
             str_error = ('Point image space coordinates must be a list with two values')
@@ -112,7 +116,7 @@ class ObjectPointMetashape(ObjectPoint):
             return str_error
         use_distortion = False
         use_ppa = False
-        str_error, chunk_coor_min, chunk_coor_max = camera.from_sensor_to_chunk_coordinates_segment(column, row,
+        str_error, position_chunk_min, position_chunk_max = camera.from_sensor_to_chunk_coordinates_segment(column, row,
                                                                                                     minimum_distance,
                                                                                                     maximum_distance,
                                                                                                     use_distortion,
@@ -126,8 +130,8 @@ class ObjectPointMetashape(ObjectPoint):
                 self.report_file.flush()
             return str_error
         chunk_points = []
-        chunk_points.append(chunk_coor_min)
-        chunk_points.append(chunk_coor_max)
+        chunk_points.append(position_chunk_min)
+        chunk_points.append(position_chunk_max)
         cameras_to_process = []
         for aux_camera_id in self.at_block.camera_by_id:
             # if camera_id in ignored_images:
@@ -140,15 +144,48 @@ class ObjectPointMetashape(ObjectPoint):
         for i in range(len(cameras_to_process)):
             aux_camera = cameras_to_process[i]
             aux_camera_id = aux_camera.id
-            # str_error, pto_dem = camera.from_sensor_to_chunk_coordinates_segment(column, row,
-            #                                                                      minimum_distance,
-            #                                                                      maximum_distance,
-            #                                                                      use_distortion,
-            #                                                                      use_ppa)
-            # if str_error:
-            #     content += ("\n    Error projecting to dem: {}".format(str_error))
-            #     continue
-            yo = 1
+            # check if both chunk points get a valid GSD
+            is_valid_image = True
+            exists_invalid_gsd = False
+            positions_image = []
+            gsds = []
+            for j in range(len(chunk_points)):
+                pc_chunk = aux_camera.get_pc_chunk()
+                chunk_distance = math.sqrt((chunk_points[j][0] - pc_chunk[0]) ** 2
+                                           + (chunk_points[j][1] - pc_chunk[1]) ** 2
+                                           + (chunk_points[j][2] - pc_chunk[2]) ** 2)
+                object_space_distance = chunk_distance * self.at_block.transform_scale
+                str_error, gsd = aux_camera.get_gsd_from_object_space_distance(object_space_distance)
+                if str_error:
+                    is_valid_image = False
+                    content += ("\n    Getting GSD for position: {} for image: {}, error: {}"
+                                .format(str(j+1), aux_camera.label, str_error))
+                    break
+                gsds.append(gsd)
+                if gsd > maximum_gsd:
+                    exists_invalid_gsd = True
+                (str_error, within, withinAfterUndistortion,
+                 position_image, position_undistorted_image) = aux_camera.from_chunk_to_sensor(chunk_points[j])
+                if str_error:
+                    is_valid_image = False
+                    content += ("\n    Getting sensor position for position: {} for image: {}, error: {}"
+                                .format(str(j+1), aux_camera.label, str_error))
+                    break
+                positions_image.append(position_image)
+            if not is_valid_image:
+                continue
+            content += "\n    - Image ..............: " + aux_camera.label
+            for j in range(len(positions_image)):
+                if j == 0:
+                    content += "\n      Minimum distance ...: "
+                else:
+                    content += "\n      Maximum distance ...: "
+                content += ("({:.3f}, {:.3f}), GSD: {:3.f} m".
+                            format(positions_image[j][0], positions_image[j][1], gsds[j]))
+                if gsd > maximum_gsd:
+                    content += " *** Invalid GSD"
+            if exists_invalid_gsd:
+                continue
 
         self.report_text += content
         self.report_text_last_step = content

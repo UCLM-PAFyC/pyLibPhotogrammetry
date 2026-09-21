@@ -212,7 +212,8 @@ class ProjectPhotogrammetry(Project):
                                           image_id,
                                           point_coordinates,
                                           minimum_distance,
-                                          maximum_distance):
+                                          maximum_distance,
+                                          maximum_gsd):
         str_error = ''
         saved_args = {**locals()}
         point_id = None
@@ -227,6 +228,9 @@ class ProjectPhotogrammetry(Project):
             return str_error, point_id
         if not isinstance(maximum_distance, float):
             str_error = ('Maximum distance must be a float')
+            return str_error, point_id
+        if not isinstance(maximum_gsd, float):
+            str_error = ('Maximum GSD must be a float')
             return str_error, point_id
         if not isinstance(point_coordinates, list):
             str_error = ('Point image space coordinates must be a list with two values')
@@ -258,7 +262,8 @@ class ProjectPhotogrammetry(Project):
                 return str_error, point_id
         # self.process_set_digitizing_parameters = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
         str_error, point_id = at_block.add_object_point_from_image_space(image_id, point_coordinates,
-                                                                         minimum_distance, maximum_distance)
+                                                                         minimum_distance, maximum_distance,
+                                                                         maximum_gsd)
                                                                           # self.digitizing_parameters)
         if str_error:
             return str_error, point_id
