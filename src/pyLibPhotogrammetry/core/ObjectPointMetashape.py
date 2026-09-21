@@ -16,7 +16,7 @@ class ObjectPointMetashape(ObjectPoint):
         self.position_chunk = None
 
     def set_from_measured_image(self,
-                                image_id,
+                                image_label,
                                 point_coordinates,
                                 minimum_distance,
                                 maximum_distance,
@@ -61,9 +61,95 @@ class ObjectPointMetashape(ObjectPoint):
 
         content = "\n- ObjectPoint.set_from_measured_image"
         content += "\n  - Id ...................: " + str(self.id)
-        content += "\n  - Image id .............: " + image_id
-        content += ("\n    - Coordinates ........: ({:.3f}, {:.3f})".format(point_coordinates[0],
-                                                                                    point_coordinates[1]))
+        column = point_coordinates[0]
+        row = point_coordinates[1]
+        content += "\n  - Image.................: " + image_label
+        content += ("\n    Coordinates ..........: ({:.3f}, {:.3f})".format(column, row))
+        camera = self.at_block.get_camera_from_image_label(image_label)
+        if camera is None:
+            content += "\n    Not exists image"
+            self.report_text += content
+            self.report_text_last_step = content
+            if write_report and self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            return str_error
+        image_id = camera.id
+        # if image_id in ignored_images:
+        #     content += "\n    Ignored image"
+        #     self.report_text += content
+        #     self.report_text_last_step = content
+        #     if write_report and self.report_file is not None:
+        #         self.report_file.write(self.report_text_last_step)
+        #         self.report_file.flush()
+        #     return str_error
+        camera_enabled = camera.get_enabled()  # multisensor ...
+        if not camera_enabled:
+            content += "\n    Disabled image"
+            self.report_text += content
+            self.report_text_last_step = content
+            if write_report and self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            return str_error
+        sensor = self.at_block.sensor_by_id[camera.sensor_id]
+        columns = sensor.width
+        rows = sensor.height
+        number_of_columns_to_ignore = math.floor(float(columns * ignored_sensor_percentage / 100.))
+        number_of_rows_to_ignore = math.floor(float(rows * ignored_sensor_percentage / 100.))
+        min_column = number_of_columns_to_ignore
+        max_column = columns - number_of_columns_to_ignore
+        min_row = number_of_rows_to_ignore
+        max_row = rows - number_of_rows_to_ignore
+        inside_valid_area = True
+        if column < min_column or column > max_column or row < min_row or row > max_row:
+            content += "\n    Outside valid sensor area"
+            self.report_text += content
+            self.report_text_last_step = content
+            if write_report and self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            return str_error
+        use_distortion = False
+        use_ppa = False
+        str_error, chunk_coor_min, chunk_coor_max = camera.from_sensor_to_chunk_coordinates_segment(column, row,
+                                                                                                    minimum_distance,
+                                                                                                    maximum_distance,
+                                                                                                    use_distortion,
+                                                                                                    use_ppa)
+        if str_error:
+            content += ("\n    Error getting segment in object space: {}".format(str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if write_report and self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            return str_error
+        chunk_points = []
+        chunk_points.append(chunk_coor_min)
+        chunk_points.append(chunk_coor_max)
+        cameras_to_process = []
+        for aux_camera_id in self.at_block.camera_by_id:
+            # if camera_id in ignored_images:
+            #     continue
+            aux_camera = self.at_block.camera_by_id[aux_camera_id]
+            aux_camera_enabled = aux_camera.get_enabled()  # multisensor ...
+            if aux_camera_enabled:
+                if aux_camera.is_usefull():
+                    cameras_to_process.append(aux_camera)
+        for i in range(len(cameras_to_process)):
+            aux_camera = cameras_to_process[i]
+            aux_camera_id = aux_camera.id
+            # str_error, pto_dem = camera.from_sensor_to_chunk_coordinates_segment(column, row,
+            #                                                                      minimum_distance,
+            #                                                                      maximum_distance,
+            #                                                                      use_distortion,
+            #                                                                      use_ppa)
+            # if str_error:
+            #     content += ("\n    Error projecting to dem: {}".format(str_error))
+            #     continue
+            yo = 1
+
         self.report_text += content
         self.report_text_last_step = content
         if write_report and self.report_file is not None:

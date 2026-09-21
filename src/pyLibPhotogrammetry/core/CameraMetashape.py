@@ -261,6 +261,46 @@ class CameraMetashape(Camera):
         dz = chunk_coordinates[2]
         return str_error, dx, dy, dz
 
+    def from_sensor_to_chunk_coordinates_segment(self,
+                                                 column,
+                                                 row,
+                                                 minimun_distance,
+                                                 maximum_distance,
+                                                 use_distortion,
+                                                 use_ppa):
+        str_error = ''
+        chunk_coordinates_min = None
+        chunk_coordinates_max = None
+        x_cam_min = y_cam_min = z_cam_min = None
+        x_cam_max = y_cam_max = z_cam_max = None
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        str_error, x_cam_min, y_cam_min, z_cam_min = sensor.from_sensor_to_camera_coordinates_direction(column, row,
+                                                                                            use_distortion, use_ppa,
+                                                                                            minimun_distance)
+        if str_error:
+            return str_error, chunk_coordinates_min, chunk_coordinates_max
+        str_error, x_cam_max, y_cam_max, z_cam_max = sensor.from_sensor_to_camera_coordinates_direction(column, row,
+                                                                                            use_distortion, use_ppa,
+                                                                                            maximun_distance)
+        if str_error:
+            return str_error, chunk_coordinates_min, chunk_coordinates_max
+        transform = self.get_transform()
+        camera_coor_min = np.zeros(4)
+        camera_coor_min[0] = x_cam_min
+        camera_coor_min[1] = y_cam_min
+        camera_coor_min[2] = z_cam_min
+        camera_coor_min[3] = 1
+        # chunk_coordinates = self.transform * camera_coor
+        chunk_coordinates_min = np.dot(transform, camera_coor_min)
+        camera_coor_max = np.zeros(4)
+        camera_coor_max[0] = x_cam_max
+        camera_coor_max[1] = y_cam_max
+        camera_coor_max[2] = z_cam_max
+        camera_coor_max[3] = 1
+        # chunk_coordinates = self.transform * camera_coor
+        chunk_coordinates_max = np.dot(transform, camera_coor_max)
+        return str_error, chunk_coordinates_min, chunk_coordinates_max
+
     def from_sensor_to_dem(self,
                            column, row,
                            raster_dem):

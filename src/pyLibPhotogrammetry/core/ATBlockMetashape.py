@@ -39,7 +39,7 @@ class ATBlockMetashape(ATBlock):
         self.sensors_to_object_outliers_camera_ids = []
 
     def add_object_point_from_image_space(self,
-                                          image_id,
+                                          image_label,
                                           point_coordinates,
                                           minimum_distance,
                                           maximum_distance):
@@ -60,7 +60,8 @@ class ATBlockMetashape(ATBlock):
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))
             return str_error, None
-        str_error = object_point.set_position([fc, sc, tc], crs_id, True)
+        str_error = object_point.set_from_measured_image(image_label, point_coordinates,
+                                                         minimum_distance, maximum_distance, True)
         if str_error:
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))
