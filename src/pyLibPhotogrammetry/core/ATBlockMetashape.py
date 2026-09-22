@@ -69,9 +69,9 @@ class ATBlockMetashape(ATBlock):
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))
             return str_error, None
-        if dem_height is None:
-            dem_height = tc
-        object_point.set_dem_height(dem_height)
+        # if dem_height is None:
+        #     dem_height = tc
+        # object_point.set_dem_height(dem_height)
         self.project.object_point_by_id[point_id] = object_point
         self.project.object_point_id_last = point_id
         return str_error, point_id

@@ -185,7 +185,7 @@ class ObjectPointMetashape(ObjectPoint):
                     content += "\n      Minimum distance ...: "
                 else:
                     content += "\n      Maximum distance ...: "
-                content += ("({:.3f}, {:.3f}), GSD: {:3.f} m".
+                content += ("({:.3f}, {:.3f}), GSD: {:.3f} m".
                             format(positions_image[j][0], positions_image[j][1], gsds[j]))
                 if gsd > maximum_gsd:
                     content += " *** Invalid GSD"

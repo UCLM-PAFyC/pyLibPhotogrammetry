@@ -273,22 +273,18 @@ class CameraMetashape(Camera):
                                                  use_ppa):
         str_error = ''
         position_chunk_minimum_distance = position_chunk_maximum_distance = None
-        chunk_coordinates_diru = None # unit vector in direction
-        x_cam_dir = y_cam_dir = z_cam_dir = None
+        chunk_x_dir = chunk_y_dir= chunk_z_dir = None
         sensor = self.at_block.sensor_by_id[self.sensor_id]
-        str_error, x_cam_dir, y_cam_dir, z_cam_dir = sensor.from_sensor_to_camera_coordinates_direction(column, row,
+        str_error, chunk_x_dir, chunk_y_dir, chunk_z_dir = self.from_sensor_to_chunk_coordinates_direction(column, row,
                                                                                             use_distortion, use_ppa)
         if str_error:
             return str_error, position_chunk_minimum_distance, position_chunk_maximum_distance
-        transform = self.get_transform()
-        camera_coor_dir = np.zeros(4)
-        camera_coor_dir[0] = x_cam_dir
-        camera_coor_dir[1] = y_cam_dir
-        camera_coor_dir[2] = z_cam_dir
-        camera_coor_dir[3] = 1
-        # chunk_coordinates = self.transform * camera_coor
-        chunk_coordinates_dir = np.dot(transform, camera_coor_dir)
-        pto_direction_ecef_dir = np.matmul(self.at_block.transform, camera_coor_dir)
+        chunk_coordinates_dir = np.zeros(4)
+        chunk_coordinates_dir[0] = chunk_x_dir
+        chunk_coordinates_dir[1] = chunk_y_dir
+        chunk_coordinates_dir[2] = chunk_z_dir
+        chunk_coordinates_dir[3] = 1.
+        pto_direction_ecef_dir = np.matmul(self.at_block.transform, chunk_coordinates_dir)
         vector_ecef_x = pto_direction_ecef_dir[0] - self.pc_ecef[0]
         vector_ecef_y = pto_direction_ecef_dir[1] - self.pc_ecef[1]
         vector_ecef_z = pto_direction_ecef_dir[2] - self.pc_ecef[2]
@@ -314,7 +310,7 @@ class CameraMetashape(Camera):
         chunk_distance = math.sqrt((position_chunk_maximum_distance[0] - position_chunk_minimum_distance[0]) ** 2.
                                    + (position_chunk_maximum_distance[1] - position_chunk_minimum_distance[1]) ** 2.
                                    + (position_chunk_maximum_distance[2] - position_chunk_minimum_distance[2]) ** 2.)
-        diff_chunk_distance = (maximum_distance - minimum_distance) / self.at_block.transform_scale - chunk_distance
+        # diff_chunk_distance = (maximum_distance - minimum_distance) / self.at_block.transform_scale - chunk_distance
         return str_error, position_chunk_minimum_distance, position_chunk_maximum_distance
 
     def from_sensor_to_dem(self,
