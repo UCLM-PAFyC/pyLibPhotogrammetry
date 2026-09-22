@@ -51,7 +51,12 @@ class Camera:
             str_error = ('Not exists sensor_id: {}'.format(self.sensor_id))
             return str_error
         sensor = self.at_block.sensor_by_id[self.sensor_id]
-        gsd = sensor.pixel_size / sensor.focal_length * object_space_distance
+        str_error, focal_in_pixels = sensor.get_focal()
+        if str_error:
+            str_error = ('Getting focal in pixels for sensor_id: {}\nError:\n{}'.format(self.sensor_id, str_error))
+            return str_error
+        # gsd = sensor.pixel_size / sensor.focal_length * object_space_distance
+        gsd = object_space_distance / focal_in_pixels
         return str_error, gsd
 
     def get_pc(self):

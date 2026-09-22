@@ -44,7 +44,8 @@ class SensorMetashape(Sensor):
         self.vignetting = {} # self.vignetting[i][j] = value
 
     def from_camera_to_sensor(self,
-                              position_camera):
+                              position_camera,
+                              try_recover_position_from_distortion = True):
         str_error = ''
         within = False
         withinAfterUndistortion = False
@@ -150,12 +151,12 @@ class SensorMetashape(Sensor):
             if not self.geometry.Contains(point):
                 within = False
             withinAfterUndistortion = within
-            if not within:
+            if try_recover_position_from_distortion and not within:
                 column = columnNd
                 row = rowNd
                 if column < (-1. * outer_tolerance_columns) or column > (columns + outer_tolerance_columns) or row < (
                     -1. * outer_tolerance_rows) or row > (rows + outer_tolerance_rows):
-                    return str_error
+                    return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
             r = np.sqrt(x * x + y * y)
             r2 = r * r
             r4 = r2 * r2
@@ -198,12 +199,12 @@ class SensorMetashape(Sensor):
             if not self.geometri.Contains(point):
                 within = False
             withinAfterUndistortion = within
-            if not within:
+            if try_recover_position_from_distortion and not within:
                 column = columnNd
                 row = rowNd
                 if column < (-1. * outer_tolerance_columns) or column > (columns + outer_tolerance_columns) or row < (
                     -1. * outer_tolerance_rows) or row > (rows + outer_tolerance_rows):
-                    return str_error
+                    return str_error, within, withinAfterUndistortion, position_image, position_undistorted_image
             r = np.sqrt(x * x + y * y)
             r2 = r * r
             r4 = r2 * r2

@@ -116,6 +116,7 @@ class ObjectPointMetashape(ObjectPoint):
             return str_error
         use_distortion = False
         use_ppa = False
+        try_recover_position_from_distortion = False
         str_error, position_chunk_min, position_chunk_max = camera.from_sensor_to_chunk_coordinates_segment(column, row,
                                                                                                     minimum_distance,
                                                                                                     maximum_distance,
@@ -142,15 +143,18 @@ class ObjectPointMetashape(ObjectPoint):
                 if aux_camera.is_usefull():
                     cameras_to_process.append(aux_camera)
         for i in range(len(cameras_to_process)):
+            # debug
             aux_camera = cameras_to_process[i]
+            if aux_camera.label.casefold() != "dsc05748".casefold():
+                continue
             aux_camera_id = aux_camera.id
+            pc_chunk = aux_camera.get_pc_chunk()
             # check if both chunk points get a valid GSD
             is_valid_image = True
             exists_invalid_gsd = False
             positions_image = []
             gsds = []
             for j in range(len(chunk_points)):
-                pc_chunk = aux_camera.get_pc_chunk()
                 chunk_distance = math.sqrt((chunk_points[j][0] - pc_chunk[0]) ** 2
                                            + (chunk_points[j][1] - pc_chunk[1]) ** 2
                                            + (chunk_points[j][2] - pc_chunk[2]) ** 2)
@@ -165,7 +169,8 @@ class ObjectPointMetashape(ObjectPoint):
                 if gsd > maximum_gsd:
                     exists_invalid_gsd = True
                 (str_error, within, withinAfterUndistortion,
-                 position_image, position_undistorted_image) = aux_camera.from_chunk_to_sensor(chunk_points[j])
+                 position_image, position_undistorted_image) = aux_camera.from_chunk_to_sensor(chunk_points[j],
+                                                                                               try_recover_position_from_distortion)
                 if str_error:
                     is_valid_image = False
                     content += ("\n    Getting sensor position for position: {} for image: {}, error: {}"

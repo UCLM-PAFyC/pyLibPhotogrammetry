@@ -209,7 +209,8 @@ class CameraMetashape(Camera):
         return str_error, footprint_wkt, undistorted_footprint_wkt
 
     def from_chunk_to_sensor(self,
-                             position_chunk):
+                             position_chunk,
+                             try_recover_position_from_distortion = True):
         str_error = ''
         within = False
         withinAfterUndistortion = False
@@ -228,8 +229,9 @@ class CameraMetashape(Camera):
         transform_inv = self.get_transform_inv()
         position_chunk_from_cp = position_chunk - pc_chunk
         position_camera = np.dot(transform_inv, position_chunk_from_cp)
-        str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
-            = sensor.from_camera_to_sensor(position_camera)
+        (str_error, within, withinAfterUndistortion,
+         position_image, position_undistorted_image) = sensor.from_camera_to_sensor(position_camera,
+                                                                                    try_recover_position_from_distortion)
         if str_error:
             str_error = ('For operation with sensor: {} in camera: {} in block: {} in metashape markers XML file:\n{}\nError:\n{}'.
                          format(sensor.label, self.label, self.at_block.label, self.at_block.file_path, str_error))

@@ -16,7 +16,7 @@ class Sensor:
         self.pixel_size = None
         self.pixel_height = None
         self.pixel_width = None
-        self.focal_length = None
+        self.focal_length = None # initial in mm
         self.band_names = []
         self.master_id = defs_msm.METASHAPE_MARKERS_XML_SENSOR_NO_MASTER_ID
         self.rotation = None
