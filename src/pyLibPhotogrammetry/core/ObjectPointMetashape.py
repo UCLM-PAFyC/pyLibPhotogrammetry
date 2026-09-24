@@ -149,6 +149,11 @@ class ObjectPointMetashape(ObjectPoint):
                 continue
             aux_camera_id = aux_camera.id
             pc_chunk = aux_camera.get_pc_chunk()
+            str_error, aux_sensor = aux_camera.get_sensor()
+            if str_error:
+                is_valid_image = False
+                content += ("\n    Getting sensor for image: {}, error: {}".format(aux_camera.label, str_error))
+                continue
             # check if both chunk points get a valid GSD
             is_valid_image = True
             exists_invalid_gsd = False
@@ -191,7 +196,26 @@ class ObjectPointMetashape(ObjectPoint):
                     content += " *** Invalid GSD"
             if exists_invalid_gsd:
                 continue
-
+            str_error, first_pto, second_pto = aux_sensor.get_epipolar_line_from_segment(positions_image[0],
+                                                                                         positions_image[1])
+            if str_error:
+                content += ("\n    Getting epipolar line from segment for image: {}, error: {}".format(aux_camera.label, str_error))
+                continue
+            if first_pto == None or second_pto == None:
+                content += ("\n    Getting epipolar line from segment for image: {}, result is None".format(aux_camera.label))
+                continue
+            content += ("\n      Epipolar line ......: LINESTRING({:.3f}, {:.3f}) - ({:.3f}, {:.3f})"
+                        .format(first_pto[0], -1.* first_pto[1], second_pto[0], -1.* second_pto[1]))
+            if not image_label in self.self.image_epipolar_line_by_image_measured_id:
+                self.image_epipolar_line_by_image_measured_id[image_id] = {}
+            if not aux_camera_id in self.image_epipolar_line_by_image_measured_id[image_id]:
+                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id] = []
+                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append = [0., 0.] # first_pto
+                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append = [0., 0.] # second_pto
+            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][0] = first_pto[0]
+            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][1] = first_pto[1]
+            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][0] = second_pto[0]
+            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][1] = second_pto[1]
         self.report_text += content
         self.report_text_last_step = content
         if write_report and self.report_file is not None:

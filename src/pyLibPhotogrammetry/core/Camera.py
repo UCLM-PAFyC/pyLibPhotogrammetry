@@ -66,6 +66,18 @@ class Camera:
             return pc
         return self.pc
 
+    def get_sensor(self):
+        str_error = ''
+        sensor = None
+        if self.sensor_id is None:
+            str_error = 'sensor_id is None'
+            return str_error, sensor
+        if not self.sensor_id in self.at_block.sensor_by_id:
+            str_error = ('Not exists sensor_id: {}'.format(self.sensor_id))
+            return str_error, sensor
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        return str_error, sensor
+
     def set_gsd_from_footprint_area(self, footprint_area):
         str_error = ''
         if not self.gsd is None:
