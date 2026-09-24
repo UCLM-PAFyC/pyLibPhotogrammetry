@@ -114,8 +114,8 @@ class ObjectPointMetashape(ObjectPoint):
                 self.report_file.write(self.report_text_last_step)
                 self.report_file.flush()
             return str_error
-        use_distortion = False
-        use_ppa = False
+        use_distortion = True
+        use_ppa = True
         try_recover_position_from_distortion = False
         str_error, position_chunk_min, position_chunk_max = camera.from_sensor_to_chunk_coordinates_segment(column, row,
                                                                                                     minimum_distance,
@@ -133,6 +133,40 @@ class ObjectPointMetashape(ObjectPoint):
         chunk_points = []
         chunk_points.append(position_chunk_min)
         chunk_points.append(position_chunk_max)
+
+        # debug
+        # positions_image = []
+        # gsds = []
+        # pc_chunk = camera.get_pc_chunk()
+        # for j in range(len(chunk_points)):
+        #     chunk_distance = math.sqrt((chunk_points[j][0] - pc_chunk[0]) ** 2
+        #                                + (chunk_points[j][1] - pc_chunk[1]) ** 2
+        #                                + (chunk_points[j][2] - pc_chunk[2]) ** 2)
+        #     object_space_distance = chunk_distance * self.at_block.transform_scale
+        #     str_error, gsd = camera.get_gsd_from_object_space_distance(object_space_distance)
+        #     if str_error:
+        #         is_valid_image = False
+        #         content += ("\n    Getting GSD for position: {} for image: {}, error: {}"
+        #                     .format(str(j + 1), camera.label, str_error))
+        #         break
+        #     gsds.append(gsd)
+        #     if gsd > maximum_gsd:
+        #         exists_invalid_gsd = True
+        #     (str_error, within, withinAfterUndistortion,
+        #      position_image, position_undistorted_image) = camera.from_chunk_to_sensor(chunk_points[j],
+        #                                                                                    try_recover_position_from_distortion)
+        #     if str_error:
+        #         is_valid_image = False
+        #         content += ("\n    Getting sensor position for position: {} for image: {}, error: {}"
+        #                     .format(str(j + 1), camera.label, str_error))
+        #         break
+        #     positions_image.append(position_image)
+        # str_wkt = ("LINESTRING({:.3f}, {:.3f}) - ({:.3f}, {:.3f})"
+        #            .format(positions_image[0][0], -1. * positions_image[0][1],
+        #                         positions_image[1][0], -1. * positions_image[1][1]))
+        # debug
+
+
         cameras_to_process = []
         for aux_camera_id in self.at_block.camera_by_id:
             # if camera_id in ignored_images:
@@ -148,7 +182,7 @@ class ObjectPointMetashape(ObjectPoint):
             if aux_camera.label.casefold() != "dsc05748".casefold():
                 continue
             aux_camera_id = aux_camera.id
-            pc_chunk = aux_camera.get_pc_chunk()
+            aux_pc_chunk = aux_camera.get_pc_chunk()
             str_error, aux_sensor = aux_camera.get_sensor()
             if str_error:
                 is_valid_image = False
@@ -160,9 +194,9 @@ class ObjectPointMetashape(ObjectPoint):
             positions_image = []
             gsds = []
             for j in range(len(chunk_points)):
-                chunk_distance = math.sqrt((chunk_points[j][0] - pc_chunk[0]) ** 2
-                                           + (chunk_points[j][1] - pc_chunk[1]) ** 2
-                                           + (chunk_points[j][2] - pc_chunk[2]) ** 2)
+                chunk_distance = math.sqrt((chunk_points[j][0] - aux_pc_chunk[0]) ** 2
+                                           + (chunk_points[j][1] - aux_pc_chunk[1]) ** 2
+                                           + (chunk_points[j][2] - aux_pc_chunk[2]) ** 2)
                 object_space_distance = chunk_distance * self.at_block.transform_scale
                 str_error, gsd = aux_camera.get_gsd_from_object_space_distance(object_space_distance)
                 if str_error:

@@ -44,13 +44,44 @@ class Sensor:
         self.calibration_covariance_values =None
         self.geometry = None
         self.pinhole_camera_model = None # K
+        self.geometry_pixels = None
 
     def get_epipolar_line_from_segment(self, first_segment_pto, second_segment_pto):
         str_error = ''
         first_pto = second_pto = None
-        if self.geometry is None:
-            str_error = 'Sensor geometry is not computed'
-            return str_error, first_pto, second_pto
+        if self.geometry_pixels is None:
+            columns = self.width
+            rows = self.height
+            wkt_geometry = "POLYGON(("
+            wkt_geometry += ('{:6f}'.format(0))
+            wkt_geometry += " "
+            wkt_geometry += ('{:6f}'.format(0))
+            wkt_geometry += ","
+            wkt_geometry += ('{:6f}'.format(columns - 1))
+            wkt_geometry += " "
+            wkt_geometry += ('{:6f}'.format(0))
+            wkt_geometry += ","
+            wkt_geometry += ('{:6f}'.format(columns - 1))
+            wkt_geometry += " "
+            wkt_geometry += ('{:6f}'.format(rows - 1))
+            wkt_geometry += ","
+            wkt_geometry += ('{:6f}'.format(0))
+            wkt_geometry += " "
+            wkt_geometry += ('{:6f}'.format(rows - 1))
+            wkt_geometry += ","
+            wkt_geometry += ('{:6f}'.format(0))
+            wkt_geometry += " "
+            wkt_geometry += ('{:6f}'.format(0))
+            wkt_geometry += "))"
+            try:
+                self.geometry_pixels = ogr.CreateGeometryFromWkt(wkt_geometry)
+            except Exception as e:
+                # str_error = 'GDAL Error: ' + e.args[0]
+                # str_error = ('Setting geometry in sensor: {}\nGDAL error:\n{}}'.
+                #              format(self.label, e.args[0]))
+                str_error = ('Error setting geometry pixels in sensor: {} from WKT'.
+                             format(self.label))
+                return str_error, first_pto, second_pto
         wkt_geometry = "LINESTRING("
         wkt_geometry += ('{:.3f} {:.3f}'.format(first_segment_pto[0], first_segment_pto[1]))
         wkt_geometry += (',{:.3f} {:.3f})'.format(second_segment_pto[0], second_segment_pto[1]))
@@ -63,17 +94,25 @@ class Sensor:
             #              format(self.label, e.args[0]))
             str_error = ('Error setting geometry in sensor: {} from WKT'.
                          format(self.label))
-            return str_error
-        if self.geometry.Contains(segment_geometry):
+            return str_error, first_pto, second_pto
+        if self.geometry_pixels.Contains(segment_geometry):
             first_pto = []
             first_pto.append(first_segment_pto[0])
             first_pto.append(first_segment_pto[1])
             second_pto = []
             second_pto.append(second_segment_pto[0])
             second_pto.append(second_segment_pto[1])
-        elif self.geometry.Intersects(segment_geometry):
-            segment_geometry_intersection = self.geometry.Intersection(segment_geometry)
-            is_valid_intersection_geometry = False
+        elif self.geometry_pixels.Intersects(segment_geometry):
+            segment_geometry_intersection = None
+            try:
+                segment_geometry_intersection = self.geometry_pixels.Intersection(segment_geometry)
+            except Exception as e:
+                # str_error = 'GDAL Error: ' + e.args[0]
+                # str_error = ('Setting geometry in sensor: {}\nGDAL error:\n{}}'.
+                #              format(self.label, e.args[0]))
+                str_error = ('Error intersecting segment in sensor: {} from WKT'.
+                             format(self.label))
+                return str_error, first_pto, second_pto
             if segment_geometry_intersection == ogr.wkbLineString:
                 first_pto = []
                 first_pto.append(segment_geometry_intersection.getX(0))
