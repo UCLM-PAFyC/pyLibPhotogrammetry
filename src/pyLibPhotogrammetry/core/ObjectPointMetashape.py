@@ -41,6 +41,7 @@ class ObjectPointMetashape(ObjectPoint):
         if len(point_coordinates) != 2:
             str_error = ('Point image space coordinates must be a list with two values')
             return str_error
+        minimum_gsd = minimum_distance
         str_error, at_block_crs_is_geographic = self.at_block.project.crs_tools.is_geographic(self.at_block.crs_id)
         if str_error:
             str_error = ('For AT Block: {}, getting is geographic CRS: {}\nError:\n{}'
@@ -117,135 +118,127 @@ class ObjectPointMetashape(ObjectPoint):
         use_distortion = True
         use_ppa = True
         try_recover_position_from_distortion = False
-        str_error, position_chunk_min, position_chunk_max = camera.from_sensor_to_chunk_coordinates_segment(column, row,
-                                                                                                    minimum_distance,
-                                                                                                    maximum_distance,
-                                                                                                    use_distortion,
-                                                                                                    use_ppa)
+        str_error, pc_axis_chunk_x, pc_axis_chunk_y, pc_axis_chunk_z \
+            = camera.from_sensor_to_chunk_coordinates_direction(column, row, use_distortion, use_ppa)
         if str_error:
-            content += ("\n    Error getting segment in object space: {}".format(str_error))
+            content += ("\n    Error getting chunk direction: {}".format(str_error))
             self.report_text += content
             self.report_text_last_step = content
             if write_report and self.report_file is not None:
                 self.report_file.write(self.report_text_last_step)
                 self.report_file.flush()
             return str_error
-        chunk_points = []
-        chunk_points.append(position_chunk_min)
-        chunk_points.append(position_chunk_max)
-
-        # debug
-        # positions_image = []
-        # gsds = []
-        # pc_chunk = camera.get_pc_chunk()
-        # for j in range(len(chunk_points)):
-        #     chunk_distance = math.sqrt((chunk_points[j][0] - pc_chunk[0]) ** 2
-        #                                + (chunk_points[j][1] - pc_chunk[1]) ** 2
-        #                                + (chunk_points[j][2] - pc_chunk[2]) ** 2)
-        #     object_space_distance = chunk_distance * self.at_block.transform_scale
-        #     str_error, gsd = camera.get_gsd_from_object_space_distance(object_space_distance)
-        #     if str_error:
-        #         is_valid_image = False
-        #         content += ("\n    Getting GSD for position: {} for image: {}, error: {}"
-        #                     .format(str(j + 1), camera.label, str_error))
-        #         break
-        #     gsds.append(gsd)
-        #     if gsd > maximum_gsd:
-        #         exists_invalid_gsd = True
-        #     (str_error, within, withinAfterUndistortion,
-        #      position_image, position_undistorted_image) = camera.from_chunk_to_sensor(chunk_points[j],
-        #                                                                                    try_recover_position_from_distortion)
-        #     if str_error:
-        #         is_valid_image = False
-        #         content += ("\n    Getting sensor position for position: {} for image: {}, error: {}"
-        #                     .format(str(j + 1), camera.label, str_error))
-        #         break
-        #     positions_image.append(position_image)
-        # str_wkt = ("LINESTRING({:.3f}, {:.3f}) - ({:.3f}, {:.3f})"
-        #            .format(positions_image[0][0], -1. * positions_image[0][1],
-        #                         positions_image[1][0], -1. * positions_image[1][1]))
-        # debug
-
-
-        cameras_to_process = []
+        pc_chunk = camera.get_pc_chunk()
+        pc_axis_chunk_dx = pc_axis_chunk_x - pc_chunk[0]
+        pc_axis_chunk_dy = pc_axis_chunk_y - pc_chunk[1]
+        pc_axis_chunk_dz = pc_axis_chunk_z - pc_chunk[2]
+        pc_axis_chunk_length = math.sqrt(pc_axis_chunk_dx ** 2. + pc_axis_chunk_dy ** 2. + pc_axis_chunk_dz ** 2.)
+        pc_axis_chunk_unit = []
+        pc_axis_chunk_unit.append(pc_axis_chunk_dx / pc_axis_chunk_length)
+        pc_axis_chunk_unit.append(pc_axis_chunk_dy / pc_axis_chunk_length)
+        pc_axis_chunk_unit.append(pc_axis_chunk_dz / pc_axis_chunk_length)
         for aux_camera_id in self.at_block.camera_by_id:
+            if aux_camera_id == camera.id:
+                continue
             # if camera_id in ignored_images:
             #     continue
             aux_camera = self.at_block.camera_by_id[aux_camera_id]
             aux_camera_enabled = aux_camera.get_enabled()  # multisensor ...
-            if aux_camera_enabled:
-                if aux_camera.is_usefull():
-                    cameras_to_process.append(aux_camera)
-        for i in range(len(cameras_to_process)):
-            # debug
-            aux_camera = cameras_to_process[i]
-            if aux_camera.label.casefold() != "dsc05748".casefold():
+            if not aux_camera_enabled:
                 continue
-            aux_camera_id = aux_camera.id
-            aux_pc_chunk = aux_camera.get_pc_chunk()
-            str_error, aux_sensor = aux_camera.get_sensor()
-            if str_error:
-                is_valid_image = False
-                content += ("\n    Getting sensor for image: {}, error: {}".format(aux_camera.label, str_error))
-                continue
-            # check if both chunk points get a valid GSD
-            is_valid_image = True
-            exists_invalid_gsd = False
-            positions_image = []
-            gsds = []
-            for j in range(len(chunk_points)):
-                chunk_distance = math.sqrt((chunk_points[j][0] - aux_pc_chunk[0]) ** 2
-                                           + (chunk_points[j][1] - aux_pc_chunk[1]) ** 2
-                                           + (chunk_points[j][2] - aux_pc_chunk[2]) ** 2)
-                object_space_distance = chunk_distance * self.at_block.transform_scale
-                str_error, gsd = aux_camera.get_gsd_from_object_space_distance(object_space_distance)
-                if str_error:
-                    is_valid_image = False
-                    content += ("\n    Getting GSD for position: {} for image: {}, error: {}"
-                                .format(str(j+1), aux_camera.label, str_error))
-                    break
-                gsds.append(gsd)
-                if gsd > maximum_gsd:
-                    exists_invalid_gsd = True
-                (str_error, within, withinAfterUndistortion,
-                 position_image, position_undistorted_image) = aux_camera.from_chunk_to_sensor(chunk_points[j],
-                                                                                               try_recover_position_from_distortion)
-                if str_error:
-                    is_valid_image = False
-                    content += ("\n    Getting sensor position for position: {} for image: {}, error: {}"
-                                .format(str(j+1), aux_camera.label, str_error))
-                    break
-                positions_image.append(position_image)
-            if not is_valid_image:
+            if aux_camera.label.casefold() != 'dsc05748':
                 continue
             content += "\n    - Image ..............: " + aux_camera.label
-            for j in range(len(positions_image)):
-                if j == 0:
-                    content += "\n      Minimum distance ...: "
-                else:
-                    content += "\n      Maximum distance ...: "
-                content += ("({:.3f}, {:.3f}), GSD: {:.3f} m".
-                            format(positions_image[j][0], positions_image[j][1], gsds[j]))
-                if gsd > maximum_gsd:
-                    content += " *** Invalid GSD"
-            if exists_invalid_gsd:
+            aux_pc_chunk = aux_camera.get_pc_chunk()
+            base_chunk = []
+            base_chunk.append(aux_pc_chunk[0] - pc_chunk[0])
+            base_chunk.append(aux_pc_chunk[1] - pc_chunk[1])
+            base_chunk.append(aux_pc_chunk[2] - pc_chunk[2])
+            b_chunk_length = math.sqrt(base_chunk[0] ** 2. + base_chunk[1] ** 2. + base_chunk[2] ** 2.)
+            b_chunk_length_object_space = b_chunk_length * self.at_block.transform_scale
+            ang_dgsd = math.acos((base_chunk[0] * pc_axis_chunk_dx + base_chunk[1] * pc_axis_chunk_dy
+                                  + base_chunk[2] * pc_axis_chunk_dz) / (pc_axis_chunk_length * b_chunk_length))
+            ang_dgsd_deg = ang_dgsd * 180. / math.pi
+            # minimum GSD
+            str_error, distance_min_gsd = aux_camera.get_object_space_distance_from_gsd(minimum_gsd)
+            if str_error:
+                is_valid_image = False
+                content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
+                            .format(str(j + 1), aux_camera.label, mainimum_gsd, str_error))
                 continue
+            # object_space_distance = chunk_distance * self.at_block.transform_scale
+            distance_min_gsd_chunk = distance_min_gsd / self.at_block.transform_scale
+            ang_base_min_gsd = math.asin(b_chunk_length / distance_min_gsd_chunk * math.sin(ang_dgsd))
+            ang_base_min_gsd_deg = ang_base_min_gsd * 180. / math.pi
+            ang_dis_min_gsd = math.pi - ang_dgsd - ang_base_min_gsd
+            ang_dis_min_gsd_deg = ang_dis_min_gsd * 180. / math.pi
+            dis_min_gsd_chunk = math.sin(ang_dis_min_gsd) * distance_min_gsd_chunk / math.sin(ang_dgsd)
+            pto_chunk_min_gsd = np.zeros(4)
+            pto_chunk_min_gsd[0] = pc_chunk[0] + dis_min_gsd_chunk * pc_axis_chunk_unit[0]
+            pto_chunk_min_gsd[1] = pc_chunk[1] + dis_min_gsd_chunk * pc_axis_chunk_unit[1]
+            pto_chunk_min_gsd[2] = pc_chunk[2] + dis_min_gsd_chunk * pc_axis_chunk_unit[2]
+            pto_chunk_min_gsd[3] = 1.0
+            # maximum GSD
+            str_error, distance_max_gsd = aux_camera.get_object_space_distance_from_gsd(maximum_gsd)
+            if str_error:
+                is_valid_image = False
+                content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
+                            .format(str(j + 1), aux_camera.label, maximum_gsd, str_error))
+                continue
+            # object_space_distance = chunk_distance * self.at_block.transform_scale
+            distance_max_gsd_chunk = distance_max_gsd / self.at_block.transform_scale
+            ang_base_max_gsd = math.asin(b_chunk_length / distance_max_gsd_chunk * math.sin(ang_dgsd))
+            ang_base_max_gsd_deg = ang_base_max_gsd * 180. / math.pi
+            ang_dis_max_gsd = math.pi - ang_dgsd - ang_base_max_gsd
+            ang_dis_max_gsd_deg = ang_dis_max_gsd * 180. / math.pi
+            dis_max_gsd_chunk = math.sin(ang_dis_max_gsd) * distance_max_gsd_chunk / math.sin(ang_dgsd)
+            pto_chunk_max_gsd = np.zeros(4)
+            pto_chunk_max_gsd[0] = pc_chunk[0] + dis_max_gsd_chunk * pc_axis_chunk_unit[0]
+            pto_chunk_max_gsd[1] = pc_chunk[1] + dis_max_gsd_chunk * pc_axis_chunk_unit[1]
+            pto_chunk_max_gsd[2] = pc_chunk[2] + dis_max_gsd_chunk * pc_axis_chunk_unit[2]
+            pto_chunk_max_gsd[3] = 1.0
+            # to sensor
+            positions_image = []
+            (str_error, within, withinAfterUndistortion,
+             position_image_min_gsd, position_undistorted_image) \
+                = aux_camera.from_chunk_to_sensor(pto_chunk_min_gsd[j], try_recover_position_from_distortion)
+            if str_error:
+                is_valid_image = False
+                content += ("\n    Getting sensor position for position minimum GSD for image: {}, error: {}"
+                            .format(aux_camera.label, str_error))
+                break
+            positions_image.append(position_image_min_gsd)
+            (str_error, within, withinAfterUndistortion,
+             position_image_max_gsd, position_undistorted_image) \
+                = aux_camera.from_chunk_to_sensor(pto_chunk_max_gsd[j], try_recover_position_from_distortion)
+            if str_error:
+                is_valid_image = False
+                content += ("\n    Getting sensor position for position maximum GSD for image: {}, error: {}"
+                            .format(aux_camera.label, str_error))
+                break
+            positions_image.append(position_image_max_gsd)
+            content += ("      Minimum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
+                        format(positions_image[j][0], positions_image[j][1], minimum_gsd))
+            content += ("      Maximum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
+                        format(positions_image[j][0], positions_image[j][1], maximum_gsd))
             str_error, first_pto, second_pto = aux_sensor.get_epipolar_line_from_segment(positions_image[0],
                                                                                          positions_image[1])
             if str_error:
-                content += ("\n    Getting epipolar line from segment for image: {}, error: {}".format(aux_camera.label, str_error))
+                content += ("\n    Getting epipolar line from segment for image: {}, error: {}".format(aux_camera.label,
+                                                                                                       str_error))
                 continue
             if first_pto == None or second_pto == None:
-                content += ("\n    Getting epipolar line from segment for image: {}, result is None".format(aux_camera.label))
+                content += (
+                    "\n    Getting epipolar line from segment for image: {}, result is None".format(aux_camera.label))
                 continue
             content += ("\n      Epipolar line ......: LINESTRING({:.3f}, {:.3f}) - ({:.3f}, {:.3f})"
-                        .format(first_pto[0], -1.* first_pto[1], second_pto[0], -1.* second_pto[1]))
+                        .format(first_pto[0], -1. * first_pto[1], second_pto[0], -1. * second_pto[1]))
             if not image_label in self.self.image_epipolar_line_by_image_measured_id:
                 self.image_epipolar_line_by_image_measured_id[image_id] = {}
             if not aux_camera_id in self.image_epipolar_line_by_image_measured_id[image_id]:
                 self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id] = []
-                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append = [0., 0.] # first_pto
-                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append = [0., 0.] # second_pto
+                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append = [0., 0.]  # first_pto
+                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append = [0., 0.]  # second_pto
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][0] = first_pto[0]
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][1] = first_pto[1]
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][0] = second_pto[0]
@@ -255,8 +248,6 @@ class ObjectPointMetashape(ObjectPoint):
         if write_report and self.report_file is not None:
             self.report_file.write(self.report_text_last_step)
             self.report_file.flush()
-
-
         return str_error
 
     def set_from_xml(self,

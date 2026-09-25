@@ -53,11 +53,31 @@ class Camera:
         sensor = self.at_block.sensor_by_id[self.sensor_id]
         str_error, focal_in_pixels = sensor.get_focal()
         if str_error:
-            str_error = ('Getting focal in pixels for sensor_id: {}\nError:\n{}'.format(self.sensor_id, str_error))
+            str_error = ('Getting focal in pixels for sensor_id: {}\nError:\n{}'.
+                         format(self.sensor_id, str_error))
             return str_error
         # gsd = sensor.pixel_size / sensor.focal_length * object_space_distance
         gsd = object_space_distance / focal_in_pixels
         return str_error, gsd
+
+    def get_object_space_distance_from_gsd(self, gsd):
+        str_error = ''
+        object_space_distance = None
+        if self.sensor_id is None:
+            str_error = 'sensor_id is None'
+            return str_error
+        if not self.sensor_id in self.at_block.sensor_by_id:
+            str_error = ('Not exists sensor_id: {}'.format(self.sensor_id))
+            return str_error
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        str_error, focal_in_pixels = sensor.get_focal()
+        if str_error:
+            str_error = ('Getting focal in pixels for sensor_id: {}\nError:\n{}'.
+                         format(self.sensor_id, str_error))
+            return str_error
+        # gsd = sensor.pixel_size / sensor.focal_length * object_space_distance
+        object_space_distance = gsd * focal_in_pixels
+        return str_error, object_space_distance
 
     def get_pc(self):
         if self.master_id != defs_msm.METASHAPE_MARKERS_XML_CAMERA_NO_MASTER_ID:
