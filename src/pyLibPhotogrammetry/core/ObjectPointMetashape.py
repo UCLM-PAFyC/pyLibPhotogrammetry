@@ -148,6 +148,11 @@ class ObjectPointMetashape(ObjectPoint):
                 continue
             if aux_camera.label.casefold() != 'dsc05748':
                 continue
+            str_error, aux_sensor = aux_camera.get_sensor()
+            if str_error:
+                is_valid_image = False
+                content += ("\n    Getting sensor for image: {}, error: {}".format(aux_camera.label, str_error))
+                continue
             content += "\n    - Image ..............: " + aux_camera.label
             aux_pc_chunk = aux_camera.get_pc_chunk()
             base_chunk = []
@@ -201,7 +206,7 @@ class ObjectPointMetashape(ObjectPoint):
             positions_image = []
             (str_error, within, withinAfterUndistortion,
              position_image_min_gsd, position_undistorted_image) \
-                = aux_camera.from_chunk_to_sensor(pto_chunk_min_gsd[j], try_recover_position_from_distortion)
+                = aux_camera.from_chunk_to_sensor(pto_chunk_min_gsd, try_recover_position_from_distortion)
             if str_error:
                 is_valid_image = False
                 content += ("\n    Getting sensor position for position minimum GSD for image: {}, error: {}"
@@ -210,7 +215,7 @@ class ObjectPointMetashape(ObjectPoint):
             positions_image.append(position_image_min_gsd)
             (str_error, within, withinAfterUndistortion,
              position_image_max_gsd, position_undistorted_image) \
-                = aux_camera.from_chunk_to_sensor(pto_chunk_max_gsd[j], try_recover_position_from_distortion)
+                = aux_camera.from_chunk_to_sensor(pto_chunk_max_gsd, try_recover_position_from_distortion)
             if str_error:
                 is_valid_image = False
                 content += ("\n    Getting sensor position for position maximum GSD for image: {}, error: {}"
@@ -218,9 +223,9 @@ class ObjectPointMetashape(ObjectPoint):
                 break
             positions_image.append(position_image_max_gsd)
             content += ("      Minimum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
-                        format(positions_image[j][0], positions_image[j][1], minimum_gsd))
+                        format(positions_image[0][0], positions_image[0][1], minimum_gsd))
             content += ("      Maximum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
-                        format(positions_image[j][0], positions_image[j][1], maximum_gsd))
+                        format(positions_image[1][0], positions_image[1][1], maximum_gsd))
             str_error, first_pto, second_pto = aux_sensor.get_epipolar_line_from_segment(positions_image[0],
                                                                                          positions_image[1])
             if str_error:
