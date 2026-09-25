@@ -102,10 +102,10 @@ class Sensor:
             second_pto = []
             second_pto.append(second_segment_pto[0])
             second_pto.append(second_segment_pto[1])
-        elif self.geometry_pixels.Intersects(segment_geometry):
+        elif segment_geometry.Intersects(self.geometry_pixels):
             segment_geometry_intersection = None
             try:
-                segment_geometry_intersection = self.geometry_pixels.Intersection(segment_geometry)
+                segment_geometry_intersection = segment_geometry.Intersection(self.geometry_pixels)
             except Exception as e:
                 # str_error = 'GDAL Error: ' + e.args[0]
                 # str_error = ('Setting geometry in sensor: {}\nGDAL error:\n{}}'.
@@ -113,13 +113,26 @@ class Sensor:
                 str_error = ('Error intersecting segment in sensor: {} from WKT'.
                              format(self.label))
                 return str_error, first_pto, second_pto
-            if segment_geometry_intersection == ogr.wkbLineString:
-                first_pto = []
-                first_pto.append(segment_geometry_intersection.getX(0))
-                first_pto.append(segment_geometry_intersection.getY(0))
-                second_pto = []
-                second_pto.append(segment_geometry_intersection.getX(1))
-                second_pto.append(segment_geometry_intersection.getY(2))
+            segment_geometry_intersection_name = None
+            # wkt = segment_geometry_intersection.ExportToWkt()
+            try:
+                segment_geometry_intersection_name = segment_geometry_intersection.GetGeometryName()
+            except Exception as e:
+                # str_error = 'GDAL Error: ' + e.args[0]
+                # str_error = ('Setting geometry in sensor: {}\nGDAL error:\n{}}'.
+                #              format(self.label, e.args[0]))
+                str_error = ('Error getting name of type of intersection segment in sensor: {}'.
+                             format(self.label))
+                return str_error, first_pto, second_pto
+            # if segment_geometry_intersection.type == ogr.wkbLineString:
+            if segment_geometry_intersection_name.casefold() == "LINESTRING".casefold():
+                first_pto = segment_geometry_intersection.GetPoint(0)
+                second_pto = segment_geometry_intersection.GetPoint(1)
+                # first_pto.append(segment_geometry_intersection.getX(0))
+                # first_pto.append(segment_geometry_intersection.getY(0))
+                # second_pto = []
+                # second_pto.append(segment_geometry_intersection.getX(1))
+                # second_pto.append(segment_geometry_intersection.getY(1))
         return str_error, first_pto, second_pto
 
 

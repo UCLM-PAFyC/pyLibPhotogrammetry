@@ -173,6 +173,7 @@ class ObjectPointMetashape(ObjectPoint):
                 continue
             # object_space_distance = chunk_distance * self.at_block.transform_scale
             distance_min_gsd_chunk = distance_min_gsd / self.at_block.transform_scale
+            # distance_min_gsd_chunk = 80. / self.at_block.transform_scale
             ang_base_min_gsd = math.asin(b_chunk_length / distance_min_gsd_chunk * math.sin(ang_dgsd))
             ang_base_min_gsd_deg = ang_base_min_gsd * 180. / math.pi
             ang_dis_min_gsd = math.pi - ang_dgsd - ang_base_min_gsd
@@ -192,6 +193,7 @@ class ObjectPointMetashape(ObjectPoint):
                 continue
             # object_space_distance = chunk_distance * self.at_block.transform_scale
             distance_max_gsd_chunk = distance_max_gsd / self.at_block.transform_scale
+            # distance_max_gsd_chunk = 110. / self.at_block.transform_scale
             ang_base_max_gsd = math.asin(b_chunk_length / distance_max_gsd_chunk * math.sin(ang_dgsd))
             ang_base_max_gsd_deg = ang_base_max_gsd * 180. / math.pi
             ang_dis_max_gsd = math.pi - ang_dgsd - ang_base_max_gsd
@@ -236,7 +238,7 @@ class ObjectPointMetashape(ObjectPoint):
                 content += (
                     "\n    Getting epipolar line from segment for image: {}, result is None".format(aux_camera.label))
                 continue
-            content += ("\n      Epipolar line ......: LINESTRING({:.3f}, {:.3f}) - ({:.3f}, {:.3f})"
+            content += ("\n      Epipolar line ......: LINESTRING({:.3f}, {:.3f},{:.3f}, {:.3f})"
                         .format(first_pto[0], -1. * first_pto[1], second_pto[0], -1. * second_pto[1]))
             if not image_label in self.self.image_epipolar_line_by_image_measured_id:
                 self.image_epipolar_line_by_image_measured_id[image_id] = {}
