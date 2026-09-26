@@ -248,6 +248,8 @@ class ObjectPointMetashape(ObjectPoint):
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][1] = first_pto[1]
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][0] = second_pto[0]
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][1] = second_pto[1]
+        self.epipolar_line_minimum_gsd = minimum_gsd
+        self.epipolar_line_maximum_gsd = maximum_gsd
         self.report_text += content
         self.report_text_last_step = content
         if write_report and self.report_file is not None:

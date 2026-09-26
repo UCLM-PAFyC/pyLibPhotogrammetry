@@ -5677,6 +5677,15 @@ class ProjectPhotogrammetry(Project):
                                                              ignored_images)
         if str_error:
             return str_error, point_id
+        if object_point.epipolar_line_minimum_gsd is not None and object_point.epipolar_line_minimum_gsd is not None:
+            for image_label in measured_images:
+                str_error = object_point.set_epipolar_lines_from_measured_image(image_label,
+                                                                                measured_images[image_label],
+                                                                                object_point.epipolar_line_minimum_gsd,
+                                                                                object_point.epipolar_line_maximum_gsd,
+                                                                                True)
+                if str_error: # in content report
+                    continue
         report = self.object_point_by_id[point_id].get_report()
         # self.debugging_digitizing_in_process = False
         if not self.debugging_digitizing_in_process:

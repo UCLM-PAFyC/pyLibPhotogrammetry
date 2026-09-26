@@ -27,6 +27,8 @@ class ObjectPoint:
         self.dem_height = None
         self.position_std = []
         self.image_epipolar_line_by_image_measured_id = {}
+        self.epipolar_line_minimum_gsd = None
+        self.epipolar_line_maximum_gsd = None
 
     def add_image_matched_value(self,
                                   camera,
