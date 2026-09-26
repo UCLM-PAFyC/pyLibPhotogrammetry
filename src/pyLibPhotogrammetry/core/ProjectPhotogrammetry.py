@@ -208,12 +208,11 @@ class ProjectPhotogrammetry(Project):
                 camera.exif = exif_as_dict
         return str_error
 
-    def add_object_point_from_image_space(self,
-                                          image_id,
-                                          point_coordinates,
-                                          minimum_distance,
-                                          maximum_distance,
-                                          maximum_gsd):
+    def add_object_point_from_measured_image(self,
+                                             image_id,
+                                             point_coordinates,
+                                             minimum_gsd,
+                                             maximum_gsd):
         str_error = ''
         saved_args = {**locals()}
         point_id = None
@@ -223,11 +222,8 @@ class ProjectPhotogrammetry(Project):
         if not isinstance(image_id, str):
             str_error = ('Image id must be a string')
             return str_error, point_id
-        if not isinstance(minimum_distance, float):
+        if not isinstance(minimum_gsd, float):
             str_error = ('Minimum distance must be a float')
-            return str_error, point_id
-        if not isinstance(maximum_distance, float):
-            str_error = ('Maximum distance must be a float')
             return str_error, point_id
         if not isinstance(maximum_gsd, float):
             str_error = ('Maximum GSD must be a float')
@@ -261,9 +257,8 @@ class ProjectPhotogrammetry(Project):
             if str_error:
                 return str_error, point_id
         # self.process_set_digitizing_parameters = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
-        str_error, point_id = at_block.add_object_point_from_image_space(image_id, point_coordinates,
-                                                                         minimum_distance, maximum_distance,
-                                                                         maximum_gsd)
+        str_error, point_id = at_block.add_object_point_from_measured_image(image_id, point_coordinates,
+                                                                            minimum_gsd, maximum_gsd)
                                                                           # self.digitizing_parameters)
         if str_error:
             return str_error, point_id

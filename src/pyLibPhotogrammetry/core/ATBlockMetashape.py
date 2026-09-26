@@ -38,12 +38,11 @@ class ATBlockMetashape(ATBlock):
         self.sensors_to_object_outliers_camera_ids_before_lsa = []
         self.sensors_to_object_outliers_camera_ids = []
 
-    def add_object_point_from_image_space(self,
-                                          image_label,
-                                          point_coordinates,
-                                          minimum_distance,
-                                          maximum_distance,
-                                          maximum_gsd):
+    def add_object_point_from_measured_image(self,
+                                             image_label,
+                                             point_coordinates,
+                                             minimum_gsd,
+                                             maximum_gsd):
         str_error = ''
         point_id = None
         self.project.point_id = self.project.point_id + 1
@@ -61,14 +60,26 @@ class ATBlockMetashape(ATBlock):
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))
             return str_error, None
-        str_error = object_point.set_from_measured_image(image_label, point_coordinates,
-                                                         minimum_distance, maximum_distance,
-                                                         maximum_gsd,
-                                                         True)
+        str_error = object_point.set_epipolar_lines_from_measured_image(image_label, point_coordinates,
+                                                                        minimum_gsd, maximum_gsd,True)
         if str_error:
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))
             return str_error, None
+        camera = self.get_camera_from_image_label(image_label)
+        str_error, sensor = camera.get_sensor()
+        if str_error:
+            str_error = ('Adding object point, error:\n{}'
+                         .format(str_error))
+            return str_error, None
+        str_error, column_nd, row_nd = sensor.get_undistorted(point_coordinates[0], point_coordinates[1])
+        if str_error:
+            str_error = ('Adding object point, error:\n{}'
+                         .format(str_error))
+            return str_error, None
+        measured_values = [point_coordinates[0], point_coordinates[1]]
+        measured_undistorted_values = [column_nd, row_nd]
+        object_point.add_image_measured_value(camera, measured_values, measured_undistorted_values)
         # if dem_height is None:
         #     dem_height = tc
         # object_point.set_dem_height(dem_height)

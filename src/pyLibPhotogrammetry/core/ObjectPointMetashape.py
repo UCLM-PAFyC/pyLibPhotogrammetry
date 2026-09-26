@@ -8,6 +8,7 @@ from ..defs import defs_metashape_markers as defs_msm
 from ..core.ObjectPoint import ObjectPoint
 from ..defs import  defs_project
 from ..defs import defs_processes
+from pyLibGDAL import RasterDEM
 
 class ObjectPointMetashape(ObjectPoint):
     def __init__(self,
@@ -15,22 +16,18 @@ class ObjectPointMetashape(ObjectPoint):
         super().__init__(at_block)
         self.position_chunk = None
 
-    def set_from_measured_image(self,
-                                image_label,
-                                point_coordinates,
-                                minimum_distance,
-                                maximum_distance,
-                                maximum_gsd,
-                                write_report = False):
+    def set_epipolar_lines_from_measured_image(self,
+                                               image_label,
+                                               point_coordinates,
+                                               minimum_gsd,
+                                               maximum_gsd,
+                                               write_report = False):
         str_error = ''
         if not isinstance(image_label, str):
             str_error = ('Image id must be a string')
             return str_error
-        if not isinstance(minimum_distance, float):
+        if not isinstance(minimum_gsd, float):
             str_error = ('Minimum distance must be a float')
-            return str_error
-        if not isinstance(maximum_distance, float):
-            str_error = ('Maximum distance must be a float')
             return str_error
         if not isinstance(maximum_gsd, float):
             str_error = ('Maximum GSD must be a float')
@@ -41,7 +38,6 @@ class ObjectPointMetashape(ObjectPoint):
         if len(point_coordinates) != 2:
             str_error = ('Point image space coordinates must be a list with two values')
             return str_error
-        minimum_gsd = minimum_distance
         str_error, at_block_crs_is_geographic = self.at_block.project.crs_tools.is_geographic(self.at_block.crs_id)
         if str_error:
             str_error = ('For AT Block: {}, getting is geographic CRS: {}\nError:\n{}'
@@ -146,14 +142,13 @@ class ObjectPointMetashape(ObjectPoint):
             aux_camera_enabled = aux_camera.get_enabled()  # multisensor ...
             if not aux_camera_enabled:
                 continue
-            if aux_camera.label.casefold() != 'dsc05748':
-                continue
+            # if aux_camera.label.casefold() != 'dsc05748':
+            #     continue
+            content += "\n    - Image ..............: " + aux_camera.label
             str_error, aux_sensor = aux_camera.get_sensor()
             if str_error:
-                is_valid_image = False
                 content += ("\n    Getting sensor for image: {}, error: {}".format(aux_camera.label, str_error))
                 continue
-            content += "\n    - Image ..............: " + aux_camera.label
             aux_pc_chunk = aux_camera.get_pc_chunk()
             base_chunk = []
             base_chunk.append(aux_pc_chunk[0] - pc_chunk[0])
@@ -167,14 +162,29 @@ class ObjectPointMetashape(ObjectPoint):
             # minimum GSD
             str_error, distance_min_gsd = aux_camera.get_object_space_distance_from_gsd(minimum_gsd)
             if str_error:
-                is_valid_image = False
                 content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
                             .format(str(j + 1), aux_camera.label, mainimum_gsd, str_error))
                 continue
             # object_space_distance = chunk_distance * self.at_block.transform_scale
             distance_min_gsd_chunk = distance_min_gsd / self.at_block.transform_scale
-            # distance_min_gsd_chunk = 80. / self.at_block.transform_scale
-            ang_base_min_gsd = math.asin(b_chunk_length / distance_min_gsd_chunk * math.sin(ang_dgsd))
+            value_for_min_gsd = b_chunk_length / distance_min_gsd_chunk * math.sin(ang_dgsd)
+            if value_for_min_gsd > 1.:
+                content += ("   *** Invalid image for GSD value: {:.3f}".format(minimum_gsd))
+                continue
+            # maximum GSD
+            str_error, distance_max_gsd = aux_camera.get_object_space_distance_from_gsd(maximum_gsd)
+            if str_error:
+                content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
+                            .format(str(j + 1), aux_camera.label, maximum_gsd, str_error))
+                continue
+            # object_space_distance = chunk_distance * self.at_block.transform_scale
+            distance_max_gsd_chunk = distance_max_gsd / self.at_block.transform_scale
+            value_for_max_gsd = b_chunk_length / distance_max_gsd_chunk * math.sin(ang_dgsd)
+            if value_for_max_gsd > 1.:
+                content += ("   *** Invalid image for GSD value: {:.3f}".format(maximum_gsd))
+                continue
+            # minimum GSD
+            ang_base_min_gsd = math.asin(value_for_min_gsd)
             ang_base_min_gsd_deg = ang_base_min_gsd * 180. / math.pi
             ang_dis_min_gsd = math.pi - ang_dgsd - ang_base_min_gsd
             ang_dis_min_gsd_deg = ang_dis_min_gsd * 180. / math.pi
@@ -185,16 +195,7 @@ class ObjectPointMetashape(ObjectPoint):
             pto_chunk_min_gsd[2] = pc_chunk[2] + dis_min_gsd_chunk * pc_axis_chunk_unit[2]
             pto_chunk_min_gsd[3] = 1.0
             # maximum GSD
-            str_error, distance_max_gsd = aux_camera.get_object_space_distance_from_gsd(maximum_gsd)
-            if str_error:
-                is_valid_image = False
-                content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
-                            .format(str(j + 1), aux_camera.label, maximum_gsd, str_error))
-                continue
-            # object_space_distance = chunk_distance * self.at_block.transform_scale
-            distance_max_gsd_chunk = distance_max_gsd / self.at_block.transform_scale
-            # distance_max_gsd_chunk = 110. / self.at_block.transform_scale
-            ang_base_max_gsd = math.asin(b_chunk_length / distance_max_gsd_chunk * math.sin(ang_dgsd))
+            ang_base_max_gsd = math.asin(value_for_max_gsd)
             ang_base_max_gsd_deg = ang_base_max_gsd * 180. / math.pi
             ang_dis_max_gsd = math.pi - ang_dgsd - ang_base_max_gsd
             ang_dis_max_gsd_deg = ang_dis_max_gsd * 180. / math.pi
@@ -210,23 +211,21 @@ class ObjectPointMetashape(ObjectPoint):
              position_image_min_gsd, position_undistorted_image) \
                 = aux_camera.from_chunk_to_sensor(pto_chunk_min_gsd, try_recover_position_from_distortion)
             if str_error:
-                is_valid_image = False
                 content += ("\n    Getting sensor position for position minimum GSD for image: {}, error: {}"
                             .format(aux_camera.label, str_error))
-                break
+                continue
             positions_image.append(position_image_min_gsd)
             (str_error, within, withinAfterUndistortion,
              position_image_max_gsd, position_undistorted_image) \
                 = aux_camera.from_chunk_to_sensor(pto_chunk_max_gsd, try_recover_position_from_distortion)
             if str_error:
-                is_valid_image = False
                 content += ("\n    Getting sensor position for position maximum GSD for image: {}, error: {}"
                             .format(aux_camera.label, str_error))
-                break
+                continue
             positions_image.append(position_image_max_gsd)
-            content += ("      Minimum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
+            content += ("\n      Minimum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
                         format(positions_image[0][0], positions_image[0][1], minimum_gsd))
-            content += ("      Maximum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
+            content += ("\n      Maximum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
                         format(positions_image[1][0], positions_image[1][1], maximum_gsd))
             str_error, first_pto, second_pto = aux_sensor.get_epipolar_line_from_segment(positions_image[0],
                                                                                          positions_image[1])
@@ -235,17 +234,16 @@ class ObjectPointMetashape(ObjectPoint):
                                                                                                        str_error))
                 continue
             if first_pto == None or second_pto == None:
-                content += (
-                    "\n    Getting epipolar line from segment for image: {}, result is None".format(aux_camera.label))
+                content += ("\n        *** Invalid epipolar line")
                 continue
-            content += ("\n      Epipolar line ......: LINESTRING({:.3f}, {:.3f},{:.3f}, {:.3f})"
+            content += ("\n      Epipolar line ......: LINESTRING({:.3f} {:.3f},{:.3f} {:.3f})"
                         .format(first_pto[0], -1. * first_pto[1], second_pto[0], -1. * second_pto[1]))
-            if not image_label in self.self.image_epipolar_line_by_image_measured_id:
+            if not image_id in self.image_epipolar_line_by_image_measured_id:
                 self.image_epipolar_line_by_image_measured_id[image_id] = {}
             if not aux_camera_id in self.image_epipolar_line_by_image_measured_id[image_id]:
                 self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id] = []
-                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append = [0., 0.]  # first_pto
-                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append = [0., 0.]  # second_pto
+                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append([0., 0.])  # first_pto
+                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append([0., 0.])  # second_pto
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][0] = first_pto[0]
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][1] = first_pto[1]
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][0] = second_pto[0]
