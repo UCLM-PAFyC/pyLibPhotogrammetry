@@ -60,7 +60,7 @@ class ObjectPointMetashape(ObjectPoint):
         minimum_overlap_percentage = self.at_block.project.digitizing_parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_OVERLAP_PERCENTAGE]
 
-        content = "\n- ObjectPoint.set_from_measured_image"
+        content = "\n- ObjectPoint.set_epipolar_lines_from_measured_image"
         content += "\n  - Id ...................: " + str(self.id)
         column = point_coordinates[0]
         row = point_coordinates[1]
@@ -906,6 +906,37 @@ class ObjectPointMetashape(ObjectPoint):
                 self.report_file.flush()
             str_error = ("\n- Error: getting values for matching, exists several sensors width different focals")
             return str_error
+        if self.dem_height is None:
+            raster_dem_crs_id = raster_dem.get_crs_id()
+            fc_dem = fc
+            sc_dem = sc
+            if raster_dem_crs_id.casefold() != self.at_block.crs_id.casefold():
+                pto = [[fc, sc, 0.]]
+                str_error = self.project.crs_tools.operation(self.at_block.crs_id, raster_dem_crs_id, pto)
+                if str_error:
+                    content += ("\n- Getting position in DEM CRS, error:\n{}".format(str_error))
+                    self.report_text += content
+                    self.report_text_last_step = content
+                    if self.report_file is not None:
+                        self.report_file.write(self.report_text_last_step)
+                        self.report_file.flush()
+                    str_error = ("\n- Getting position in DEM CRS, error:\n{}".format(str_error))
+                    return str_error
+                fc_dem = pto[0][0]
+                sc_dem = pto[0][1]
+            str_error, dem_height, point_out_edge, is_no_data = raster_dem.get_elevation(fc_dem, sc_dem)
+            if str_error:
+                content += ('\nGetting height from dem:\n{}\nfor point: ({:3.f}, {:.3f})\nerror:\n:{}'.
+                              format(dem_file_path, fc, sc, str_error))
+                self.report_text += content
+                self.report_text_last_step = content
+                if self.report_file is not None:
+                    self.report_file.write(self.report_text_last_step)
+                    self.report_file.flush()
+                str_error = ('\nGetting height from dem:\n{}\nfor point: ({:3.f}, {:.3f})\nerror:\n:{}'.
+                              format(dem_file_path, fc, sc, str_error))
+                return str_error
+            self.set_dem_height(dem_height)
         point_height = self.dem_height
         str_error = self.at_block.project.epipolar_geometry_matcher_manager.matches_rfa(measuredImagesId,
                                                                                         undistortedMeasuredColumns,
