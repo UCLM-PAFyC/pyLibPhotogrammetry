@@ -144,9 +144,10 @@ class ObjectPointMetashape(ObjectPoint):
                 continue
             # if aux_camera.label.casefold() != 'dsc05748':
             #     continue
-            content += "\n    - Image ..............: " + aux_camera.label
+            # content += "\n    - Image ..............: " + aux_camera.label
             str_error, aux_sensor = aux_camera.get_sensor()
             if str_error:
+                content += "\n    - Image ..............: " + aux_camera.label
                 content += ("\n    Getting sensor for image: {}, error: {}".format(aux_camera.label, str_error))
                 continue
             aux_pc_chunk = aux_camera.get_pc_chunk()
@@ -162,6 +163,7 @@ class ObjectPointMetashape(ObjectPoint):
             # minimum GSD
             str_error, distance_min_gsd = aux_camera.get_object_space_distance_from_gsd(minimum_gsd)
             if str_error:
+                content += "\n    - Image ..............: " + aux_camera.label
                 content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
                             .format(str(j + 1), aux_camera.label, mainimum_gsd, str_error))
                 continue
@@ -169,11 +171,12 @@ class ObjectPointMetashape(ObjectPoint):
             distance_min_gsd_chunk = distance_min_gsd / self.at_block.transform_scale
             value_for_min_gsd = b_chunk_length / distance_min_gsd_chunk * math.sin(ang_dgsd)
             if value_for_min_gsd > 1.:
-                content += ("   *** Invalid image for GSD value: {:.3f}".format(minimum_gsd))
+                # content += ("   *** Invalid image for GSD value: {:.3f}".format(minimum_gsd))
                 continue
             # maximum GSD
             str_error, distance_max_gsd = aux_camera.get_object_space_distance_from_gsd(maximum_gsd)
             if str_error:
+                content += "\n    - Image ..............: " + aux_camera.label
                 content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
                             .format(str(j + 1), aux_camera.label, maximum_gsd, str_error))
                 continue
@@ -181,8 +184,9 @@ class ObjectPointMetashape(ObjectPoint):
             distance_max_gsd_chunk = distance_max_gsd / self.at_block.transform_scale
             value_for_max_gsd = b_chunk_length / distance_max_gsd_chunk * math.sin(ang_dgsd)
             if value_for_max_gsd > 1.:
-                content += ("   *** Invalid image for GSD value: {:.3f}".format(maximum_gsd))
+                # content += ("   *** Invalid image for GSD value: {:.3f}".format(maximum_gsd))
                 continue
+            content += "\n    - Image ..............: " + aux_camera.label
             # minimum GSD
             ang_base_min_gsd = math.asin(value_for_min_gsd)
             ang_base_min_gsd_deg = ang_base_min_gsd * 180. / math.pi
@@ -205,6 +209,16 @@ class ObjectPointMetashape(ObjectPoint):
             pto_chunk_max_gsd[1] = pc_chunk[1] + dis_max_gsd_chunk * pc_axis_chunk_unit[1]
             pto_chunk_max_gsd[2] = pc_chunk[2] + dis_max_gsd_chunk * pc_axis_chunk_unit[2]
             pto_chunk_max_gsd[3] = 1.0
+            # debug
+            pto_ecef_min_gsd = np.dot(self.at_block.transform, pto_chunk_min_gsd)
+            pto_crs_min_gsd = [[pto_ecef_min_gsd[0], pto_ecef_min_gsd[1], pto_ecef_min_gsd[2]]]
+            str_error = self.crs_tools.operation(self.at_block.crs_ecef_id, self.at_block.crs_id, pto_crs_min_gsd)
+            pto_ecef_max_gsd = np.dot(self.at_block.transform, pto_chunk_max_gsd)
+            pto_crs_max_gsd = [[pto_ecef_max_gsd[0], pto_ecef_max_gsd[1], pto_ecef_max_gsd[2]]]
+            str_error = self.crs_tools.operation(self.at_block.crs_ecef_id, self.at_block.crs_id, pto_crs_max_gsd)
+            str_line = ('LINESTRING({:.3f} {:.3f},{:.3f} {:.3f})'.format(pto_crs_min_gsd[0][0], pto_crs_min_gsd[0][1],
+                                                                         pto_crs_max_gsd[0][0], pto_crs_max_gsd[0][1]))
+
             # to sensor
             positions_image = []
             (str_error, within, withinAfterUndistortion,
