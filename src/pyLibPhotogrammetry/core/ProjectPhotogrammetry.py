@@ -4784,30 +4784,32 @@ class ProjectPhotogrammetry(Project):
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
         parameter_dem_file_as_dict = json.loads(str(parameter_dem_file_path))
         dem_file_path = parameter_dem_file_as_dict[defs_pars.TAG_FILE_PATH]
-        dem_file_path = os.path.normpath(dem_file_path)
-        dem_layer_index = parameter_dem_file_as_dict[defs_pars.TAG_LAYER_INDEX]
-        dem_file_scale = parameter_dem_file_as_dict[defs_pars.TAG_SCALE]
-        dem_file_offset = parameter_dem_file_as_dict[defs_pars.TAG_OFFSET]
-        if not dem_file_path:
-            str_error = ('Process: {} has a empty parameter: {}'.
-                         format(name,
-                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
-            return str_error
-        if not os.path.exists(dem_file_path):
-            str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
-                         format(name,
-                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
-            return str_error
-        # parameter dem crs
-        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS
-                in parameters):
-            str_error = ('Process: {} does not have parameter: {}'.
-                         format(name,
-                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS))
-            return str_error
-        parameter_dem_crs_id = parameters[
-            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS]
-        dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
+        dem_crs_id = ''
+        if dem_file_path:
+            dem_file_path = os.path.normpath(dem_file_path)
+            dem_layer_index = parameter_dem_file_as_dict[defs_pars.TAG_LAYER_INDEX]
+            dem_file_scale = parameter_dem_file_as_dict[defs_pars.TAG_SCALE]
+            dem_file_offset = parameter_dem_file_as_dict[defs_pars.TAG_OFFSET]
+            if not dem_file_path:
+                str_error = ('Process: {} has a empty parameter: {}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
+                return str_error
+            if not os.path.exists(dem_file_path):
+                str_error = ('Process: {} has a parameter: {}\ndoes not exists'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM))
+                return str_error
+            # parameter dem crs
+            if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS
+                    in parameters):
+                str_error = ('Process: {} does not have parameter: {}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS))
+                return str_error
+            parameter_dem_crs_id = parameters[
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM_CRS]
+            dem_crs_id = str(parameter_dem_crs_id) # can be empty for use internal of the DEM
         # parameter Ignored sensor percentage
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE
                 in parameters):
@@ -4859,28 +4861,34 @@ class ProjectPhotogrammetry(Project):
         save_rectified_homographies_images = True
         if str_save_rectified_images.casefold() == 'false':
             save_rectified_homographies_images = False
-        # parameter Rectified homographies images output path
-        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH
-                in parameters):
-            str_error = ('Process: {} does not have parameter: {}'.
-                         format(name,
-                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
-            return str_error
-        parameter_output_path = parameters[
-            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH]
-        rectified_homographies_images_output_path = str(parameter_output_path)
-        if not rectified_homographies_images_output_path:
-            str_error = ('Process {} has a empty parameter: {}'.
-                         format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
-            return str_error
-        rectified_homographies_images_output_path = os.path.normpath(rectified_homographies_images_output_path)
-        if not os.path.exists(rectified_homographies_images_output_path):
-            str_error = ('Process {} parameter: {}'.
-                         format(name,
-                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
-            str_error += ('\nnot exists path: {}'.
-                         format(rectified_homographies_images_output_path))
-            return str_error
+        rectified_homographies_images_output_path = ''
+        if save_rectified_homographies_images:
+            # parameter Rectified homographies images output path
+            if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH
+                    in parameters):
+                str_error = ('Process: {} does not have parameter: {}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+                return str_error
+            parameter_output_path = parameters[
+                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH]
+            rectified_homographies_images_output_path = str(parameter_output_path)
+            if rectified_homographies_images_output_path.casefold() == "None".casefold():
+                rectified_homographies_images_output_path = ''
+            if not rectified_homographies_images_output_path:
+                str_error = ('Process {} has a empty parameter: {}'.
+                             format(name, defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+                str_error +=("\nand parameter: {} is set to True".format(defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_RECTIFIED_HOMOGRAPHIES_IMAGES))
+                return str_error
+        if rectified_homographies_images_output_path:
+            rectified_homographies_images_output_path = os.path.normpath(rectified_homographies_images_output_path)
+            if not os.path.exists(rectified_homographies_images_output_path):
+                str_error = ('Process {} parameter: {}'.
+                             format(name,
+                                    defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_RECTIFIED_HOMOGRAPHIES_IMAGES_OUTPUT_PATH))
+                str_error += ('\nnot exists path: {}'.
+                             format(rectified_homographies_images_output_path))
+                return str_error
         # parameter Save report
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT
                 in parameters):

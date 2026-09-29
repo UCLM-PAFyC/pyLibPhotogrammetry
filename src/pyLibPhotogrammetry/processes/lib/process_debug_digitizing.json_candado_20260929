@@ -23,7 +23,7 @@
             "description": "Input json file",
             "mandatory": true,
             "output": false,
-            "value": "D:/PhotogrammetryToolsProjects/AG-MAPPING/TEST4/digitizing_reports/digitizing_report_20260929_081000.json",
+            "value": "D:/PhotogrammetryToolsProjects/CandadoCCRS/digitizing_reports/digitizing_report_20260918_113000.json",
             "type": "file",
             "file_mode": "read",
             "domain": [
