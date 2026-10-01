@@ -168,30 +168,50 @@ class ObjectPointMetashape(ObjectPoint):
             str_error, distance_min_gsd = aux_camera.get_object_space_distance_from_gsd(minimum_gsd)
             if str_error:
                 content += "\n    - Image ..............: " + aux_camera.label
-                content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
-                            .format(str(j + 1), aux_camera.label, mainimum_gsd, str_error))
+                content += ("\n    Getting object space distance for minimum GSD for image: {} and GSD: {:.3f}, error: {}"
+                            .format(aux_camera.label, minimum_gsd, str_error))
                 continue
             # object_space_distance = chunk_distance * self.at_block.transform_scale
+            computed_distance_min_gsd_chunk = b_chunk_length * math.sin(ang_dgsd)
             distance_min_gsd_chunk = distance_min_gsd / self.at_block.transform_scale
+            if distance_min_gsd_chunk < computed_distance_min_gsd_chunk:
+                computed_distance_min_gsd = computed_distance_min_gsd_chunk * self.at_block.transform_scale
+                str_error, computed_min_gsd = aux_camera.get_gsd_from_object_space_distance(computed_distance_min_gsd)
+                if str_error:
+                    content += "\n    - Image ..............: " + aux_camera.label
+                    content += (
+                        "\n    Computing GSD minimum for position: {} for image: {} and distance: {:.3f}, error: {}"
+                        .format(aux_camera.label, computed_distance_min_gsd, str_error))
+                    continue
+                distance_min_gsd_chunk = computed_distance_min_gsd / self.at_block.transform_scale
             value_for_min_gsd = b_chunk_length / distance_min_gsd_chunk * math.sin(ang_dgsd)
-            if value_for_min_gsd > 1.:
-                # content += ("   *** Invalid image for GSD value: {:.3f}".format(minimum_gsd))
-                yo = 1
-                # continue
+            # if value_for_min_gsd > 1.:
+            #     # content += ("   *** Invalid image for GSD value: {:.3f}".format(minimum_gsd))
+            #     yo = 1
+            #     # continue
             # maximum GSD
             str_error, distance_max_gsd = aux_camera.get_object_space_distance_from_gsd(maximum_gsd)
             if str_error:
                 content += "\n    - Image ..............: " + aux_camera.label
-                content += ("\n    Getting object space distance for position: {} for image: {} and GSD: {:.3f}, error: {}"
-                            .format(str(j + 1), aux_camera.label, maximum_gsd, str_error))
+                content += ("\n    Getting object space distance for maximum GSD for image: {} and GSD: {:.3f}, error: {}"
+                            .format(aux_camera.label, maximum_gsd, str_error))
                 continue
             # object_space_distance = chunk_distance * self.at_block.transform_scale
             distance_max_gsd_chunk = distance_max_gsd / self.at_block.transform_scale
+            if distance_max_gsd_chunk < computed_distance_min_gsd_chunk:
+                computed_distance_max_gsd = computed_distance_min_gsd_chunk * self.at_block.transform_scale
+                str_error, computed_max_gsd = aux_camera.get_gsd_from_object_space_distance(computed_distance_max_gsd)
+                if str_error:
+                    content += "\n    - Image ..............: " + aux_camera.label
+                    content += (
+                        "\n    Computing GSD maximum for position: {} for image: {} and distance: {:.3f}, error: {}"
+                        .format(aux_camera.label, computed_distance_min_gsd, str_error))
+                    continue
+                distance_max_gsd_chunk = computed_distance_max_gsd / self.at_block.transform_scale
             value_for_max_gsd = b_chunk_length / distance_max_gsd_chunk * math.sin(ang_dgsd)
             if value_for_max_gsd > 1.:
-                # content += ("   *** Invalid image for GSD value: {:.3f}".format(maximum_gsd))
-                yo = 1
-                # continue
+                content += ("   *** Invalid image for GSD value: {:.3f}".format(maximum_gsd))
+                continue
             content += "\n    - Image ..............: " + aux_camera.label
             # set right view direction from camera in function of axis view of aux camera
             # for each point: min_gsd and max_gsd
