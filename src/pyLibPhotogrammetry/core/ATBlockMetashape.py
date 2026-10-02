@@ -42,7 +42,8 @@ class ATBlockMetashape(ATBlock):
                                              image_label,
                                              point_coordinates,
                                              minimum_gsd,
-                                             maximum_gsd):
+                                             maximum_gsd,
+                                             front_view):
         str_error = ''
         point_id = None
         self.project.point_id = self.project.point_id + 1
@@ -61,7 +62,7 @@ class ATBlockMetashape(ATBlock):
                          .format(str_error))
             return str_error, None
         str_error = object_point.set_epipolar_lines_from_measured_image(image_label, point_coordinates,
-                                                                        minimum_gsd, maximum_gsd,True)
+                                                                        minimum_gsd, maximum_gsd, front_view, True)
         if str_error:
             str_error = ('Adding object point, error:\n{}'
                          .format(str_error))
