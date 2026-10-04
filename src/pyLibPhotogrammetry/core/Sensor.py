@@ -1,6 +1,7 @@
 # authors:
 # David Hernandez Lopez, david.hernandez@uclm.es
 
+import math
 from osgeo import gdal, ogr
 
 class GdalErrorHandler(object):
@@ -46,12 +47,13 @@ class Sensor:
         self.pinhole_camera_model = None # K
         self.geometry_pixels = None
 
-    def get_epipolar_line_from_segment(self, first_segment_pto, second_segment_pto):
+    def get_epipolar_line_from_segment(self, first_segment_pto,
+                                       second_segment_pto, full_epipolar_line):
         str_error = ''
         first_pto = second_pto = None
+        columns = self.width
+        rows = self.height
         if self.geometry_pixels is None:
-            columns = self.width
-            rows = self.height
             wkt_geometry = "POLYGON(("
             wkt_geometry += ('{:6f}'.format(0))
             wkt_geometry += " "
@@ -133,6 +135,56 @@ class Sensor:
                 # second_pto = []
                 # second_pto.append(segment_geometry_intersection.getX(1))
                 # second_pto.append(segment_geometry_intersection.getY(1))
+        if full_epipolar_line and first_pto is not None and second_pto is not None:
+            sensor_diagonal = math.sqrt(float(columns) ** 2.0 + float(rows) ** 2.0)
+            line_length = math.sqrt((second_pto[0] - first_pto[0]) ** 2. + (second_pto[1] - first_pto[1]) ** 2.)
+            line_azimuth = math.atan2(second_pto[0] - first_pto[0], second_pto[1] - first_pto[1])
+            if line_azimuth < 0:
+                line_azimuth += 2. * math.pi
+            elongated_line_first_point = []
+            elongated_line_first_point.append(first_pto[0] + sensor_diagonal * math.sin(line_azimuth - math.pi))
+            elongated_line_first_point.append(first_pto[1] + sensor_diagonal * math.cos(line_azimuth - math.pi))
+            elongated_line_second_point = []
+            elongated_line_second_point.append(first_pto[0] + sensor_diagonal * math.sin(line_azimuth))
+            elongated_line_second_point.append(first_pto[1] + sensor_diagonal * math.cos(line_azimuth))
+            wkt_geometry = "LINESTRING("
+            wkt_geometry += ('{:.3f} {:.3f}'.format(elongated_line_first_point[0], elongated_line_first_point[1]))
+            wkt_geometry += (',{:.3f} {:.3f})'.format(elongated_line_second_point[0], elongated_line_second_point[1]))
+            elongated_line_geometry = None
+            try:
+                elongated_line_geometry = ogr.CreateGeometryFromWkt(wkt_geometry)
+            except Exception as e:
+                # str_error = 'GDAL Error: ' + e.args[0]
+                # str_error = ('Setting geometry in sensor: {}\nGDAL error:\n{}}'.
+                #              format(self.label, e.args[0]))
+                str_error = ('Error setting geometry in elongated line: {} from WKT'.
+                             format(self.label))
+                return str_error, first_pto, second_pto
+            elongated_geometry_intersection = None
+            try:
+                elongated_geometry_intersection = elongated_line_geometry.Intersection(self.geometry_pixels)
+            except Exception as e:
+                # str_error = 'GDAL Error: ' + e.args[0]
+                # str_error = ('Setting geometry in sensor: {}\nGDAL error:\n{}}'.
+                #              format(self.label, e.args[0]))
+                str_error = ('Error intersecting elongated line in sensor: {} from WKT'.
+                             format(self.label))
+                return str_error, first_pto, second_pto
+            elongated_geometry_intersection_name = None
+            # wkt = segment_geometry_intersection.ExportToWkt()
+            try:
+                elongated_geometry_intersection_name = elongated_geometry_intersection.GetGeometryName()
+            except Exception as e:
+                # str_error = 'GDAL Error: ' + e.args[0]
+                # str_error = ('Setting geometry in sensor: {}\nGDAL error:\n{}}'.
+                #              format(self.label, e.args[0]))
+                str_error = ('Error getting name of type of intersection elongated line in sensor: {}'.
+                             format(self.label))
+                return str_error, first_pto, second_pto
+            # if segment_geometry_intersection.type == ogr.wkbLineString:
+            if elongated_geometry_intersection_name.casefold() == "LINESTRING".casefold():
+                first_pto = elongated_geometry_intersection.GetPoint(0)
+                second_pto = elongated_geometry_intersection.GetPoint(1)
         return str_error, first_pto, second_pto
 
 

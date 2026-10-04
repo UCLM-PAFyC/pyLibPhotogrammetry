@@ -22,6 +22,7 @@ class ObjectPointMetashape(ObjectPoint):
                                                minimum_gsd,
                                                maximum_gsd,
                                                front_view,
+                                               full_epipolar_line,
                                                write_report = False):
         str_error = ''
         if not isinstance(image_label, str):
@@ -35,6 +36,9 @@ class ObjectPointMetashape(ObjectPoint):
             return str_error
         if not isinstance(front_view, bool):
             str_error = ('Front view must be a boolean')
+            return str_error, point_id
+        if not isinstance(full_epipolar_line, bool):
+            str_error = ('Full epipolar line must be a boolean')
             return str_error, point_id
         if not isinstance(point_coordinates, list):
             str_error = ('Point image space coordinates must be a list with two values')
@@ -271,7 +275,8 @@ class ObjectPointMetashape(ObjectPoint):
             # content += ("\n      Maximum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
             #             format(positions_image[1][0], positions_image[1][1], maximum_gsd))
             str_error, first_pto, second_pto = aux_sensor.get_epipolar_line_from_segment(positions_image[0],
-                                                                                         positions_image[1])
+                                                                                         positions_image[1],
+                                                                                         full_epipolar_line)
             if str_error:
                 content += ("\n    Getting epipolar line from segment for image: {}, error: {}".format(aux_camera.label,
                                                                                                        str_error))
