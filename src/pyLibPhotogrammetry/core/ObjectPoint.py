@@ -29,6 +29,8 @@ class ObjectPoint:
         self.image_epipolar_line_by_image_measured_id = {}
         self.epipolar_line_minimum_gsd = None
         self.epipolar_line_maximum_gsd = None
+        self.front_view = None
+        self.full_epipolar_line = None
 
     def add_image_matched_value(self,
                                   camera,

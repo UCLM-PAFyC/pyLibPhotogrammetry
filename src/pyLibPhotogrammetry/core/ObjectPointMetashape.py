@@ -299,6 +299,8 @@ class ObjectPointMetashape(ObjectPoint):
             self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][1] = second_pto[1]
         self.epipolar_line_minimum_gsd = minimum_gsd
         self.epipolar_line_maximum_gsd = maximum_gsd
+        self.front_view = front_view
+        self.full_epipolar_line = full_epipolar_line
         self.report_text += content
         self.report_text_last_step = content
         if write_report and self.report_file is not None:
@@ -523,9 +525,10 @@ class ObjectPointMetashape(ObjectPoint):
                                     measured_images,
                                     ignored_images):
         str_error = ''
-        if not self.at_block.exists_footprints():
-            str_error = ('Images footprints are not loaded')
-            return str_error
+        exists_footprints = self.at_block.exists_footprints()
+        # if not self.at_block.exists_footprints():
+        #     str_error = ('Images footprints are not loaded')
+        #     return str_error
         str_error, at_block_crs_is_geographic = self.at_block.project.crs_tools.is_geographic(self.at_block.crs_id)
         if str_error:
             str_error = ('For AT Block: {}, getting is geographic CRS: {}\nError:\n{}'
@@ -541,6 +544,8 @@ class ObjectPointMetashape(ObjectPoint):
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE]
         raster_dem = None
         dem_file_path = None
+        if not use_dem:
+            ignore_hided_points_in_images = False
         if ignore_hided_points_in_images or use_dem:
             dem_file_path = self.at_block.project.digitizing_parameters[
                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
@@ -630,6 +635,7 @@ class ObjectPointMetashape(ObjectPoint):
                 content += ("\n    Error getting undistorted coordinates: {}".format(str_error))
                 continue
             content += ("\n    Coordinates (Undist) .: ({:.3f}, {:.3f})".format(column_nd, row_nd))
+            pto_dem = None
             if use_dem:
                 str_error, pto_dem = camera.from_sensor_to_dem(column, row, raster_dem)
                 if str_error:
@@ -643,7 +649,8 @@ class ObjectPointMetashape(ObjectPoint):
             undistorted_measured_by_image_id[image_id] = [column_nd, row_nd,
                                               images_meaurements_accuracy, images_meaurements_accuracy]
             measured_backward_errors_by_image_id[image_id] = [None, None]
-            projected_dem_by_image_id[image_id] = pto_dem
+            if use_dem:
+                projected_dem_by_image_id[image_id] = pto_dem
             camera_by_id[image_id] = camera
         if len(measured_by_image_id) == 0:
             content += ("\n- Error: There are no valid measurements")
@@ -763,6 +770,7 @@ class ObjectPointMetashape(ObjectPoint):
             updated_object_point_position = True
             existsObjectPointCandidate = True
         if not updated_object_point_position:
+            # str_error = ('No updated object position from images measurements')
             return str_error
         # 4. remove existing locations
         self.remove_image_points()
@@ -779,17 +787,18 @@ class ObjectPointMetashape(ObjectPoint):
             str_error = ('Error setting position after computing position from images measurements:\n{}'.format(str_error))
             return str_error
         # 6. Set projected images
-        str_error = self.set_projected_images(ignore_hided_points_in_images, ignored_images)
-        content += self.report_text_last_step
-        if str_error:
-            content += ("\n- Error: setting projected images after computing position from images measurements:\n{}".format(str_error))
-            self.report_text += content
-            self.report_text_last_step = content
-            if self.report_file is not None:
-                self.report_file.write(self.report_text_last_step)
-                self.report_file.flush()
-            str_error = ('Error setting projected images after computing position from images measurements:\n{}'.format(str_error))
-            return str_error
+        if use_dem:
+            str_error = self.set_projected_images(ignore_hided_points_in_images, ignored_images)
+            content += self.report_text_last_step
+            if str_error:
+                content += ("\n- Error: setting projected images after computing position from images measurements:\n{}".format(str_error))
+                self.report_text += content
+                self.report_text_last_step = content
+                if self.report_file is not None:
+                    self.report_file.write(self.report_text_last_step)
+                    self.report_file.flush()
+                str_error = ('Error setting projected images after computing position from images measurements:\n{}'.format(str_error))
+                return str_error
         # 7. Set measured images
         for camera_id in measured_by_image_id:
             camera = camera_by_id[camera_id]
