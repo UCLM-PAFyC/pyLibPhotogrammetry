@@ -19,20 +19,12 @@ class ObjectPointMetashape(ObjectPoint):
     def set_epipolar_lines_from_measured_image(self,
                                                image_label,
                                                point_coordinates,
-                                               minimum_gsd,
-                                               maximum_gsd,
                                                front_view,
                                                full_epipolar_line,
                                                write_report = False):
         str_error = ''
         if not isinstance(image_label, str):
             str_error = ('Image id must be a string')
-            return str_error
-        if not isinstance(minimum_gsd, float):
-            str_error = ('Minimum distance must be a float')
-            return str_error
-        if not isinstance(maximum_gsd, float):
-            str_error = ('Maximum GSD must be a float')
             return str_error
         if not isinstance(front_view, bool):
             str_error = ('Front view must be a boolean')
@@ -55,6 +47,10 @@ class ObjectPointMetashape(ObjectPoint):
         if at_block_crs_is_geographic:
             crs2d_precision = 9
         # 1. get parameters
+        minimum_gsd = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_GSD]
+        maximum_gsd = self.at_block.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_GSD]
         only_enabled_images = self.at_block.project.digitizing_parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
         ignored_sensor_percentage = self.at_block.project.digitizing_parameters[
@@ -787,18 +783,21 @@ class ObjectPointMetashape(ObjectPoint):
             str_error = ('Error setting position after computing position from images measurements:\n{}'.format(str_error))
             return str_error
         # 6. Set projected images
-        if use_dem:
-            str_error = self.set_projected_images(ignore_hided_points_in_images, ignored_images)
-            content += self.report_text_last_step
-            if str_error:
-                content += ("\n- Error: setting projected images after computing position from images measurements:\n{}".format(str_error))
-                self.report_text += content
-                self.report_text_last_step = content
-                if self.report_file is not None:
-                    self.report_file.write(self.report_text_last_step)
-                    self.report_file.flush()
-                str_error = ('Error setting projected images after computing position from images measurements:\n{}'.format(str_error))
-                return str_error
+        # if use_dem:
+        str_error = self.set_projected_images(ignore_hided_points_in_images, ignored_images, False)
+        content += self.report_text_last_step
+        if str_error:
+            content += (
+                "\n- Error: setting projected images after computing position from images measurements:\n{}".format(
+                    str_error))
+            self.report_text += content
+            self.report_text_last_step = content
+            if self.report_file is not None:
+                self.report_file.write(self.report_text_last_step)
+                self.report_file.flush()
+            str_error = ('Error setting projected images after computing position from images measurements:\n{}'.format(
+                str_error))
+            return str_error
         # 7. Set measured images
         for camera_id in measured_by_image_id:
             camera = camera_by_id[camera_id]

@@ -211,8 +211,6 @@ class ProjectPhotogrammetry(Project):
     def add_object_point_from_measured_image(self,
                                              image_id,
                                              point_coordinates,
-                                             minimum_gsd,
-                                             maximum_gsd,
                                              front_view,
                                              full_epipolar_line):
         str_error = ''
@@ -223,12 +221,6 @@ class ProjectPhotogrammetry(Project):
             return str_error, point_id
         if not isinstance(image_id, str):
             str_error = ('Image id must be a string')
-            return str_error, point_id
-        if not isinstance(minimum_gsd, float):
-            str_error = ('Minimum distance must be a float')
-            return str_error, point_id
-        if not isinstance(maximum_gsd, float):
-            str_error = ('Maximum GSD must be a float')
             return str_error, point_id
         if not isinstance(front_view, bool):
             str_error = ('Front view must be a boolean')
@@ -266,7 +258,6 @@ class ProjectPhotogrammetry(Project):
                 return str_error, point_id
         # self.process_set_digitizing_parameters = defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_NAME
         str_error, point_id = at_block.add_object_point_from_measured_image(image_id, point_coordinates,
-                                                                            minimum_gsd, maximum_gsd,
                                                                             front_view, full_epipolar_line)
                                                                           # self.digitizing_parameters)
         if str_error:
@@ -5131,7 +5122,7 @@ class ProjectPhotogrammetry(Project):
         # }
         # mRamMaximumSizeInMBytes = ramMaximumSizeInMBytes;
 
-    # parameter Match window size
+        # parameter Match window size
         if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE
                 in parameters):
             str_error = ('Process: {} does not have parameter: {}'.
@@ -5148,6 +5139,46 @@ class ProjectPhotogrammetry(Project):
             str_error = ('Process: {} does not have an integer parameter: {}, is: {}'.
                          format(name,
                                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE,
+                                str_value))
+            return str_error
+
+        # parameter minimum gsd
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_GSD
+                in parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_GSD))
+            return str_error
+        parameter_value = parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_GSD]
+        str_value = str(parameter_value)
+        minimum_gsd = None
+        try:
+            minimum_gsd = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_GSD,
+                                str_value))
+            return str_error
+
+        # parameter maximum gsd
+        if not (defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_GSD
+                in parameters):
+            str_error = ('Process: {} does not have parameter: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_GSD))
+            return str_error
+        parameter_value = parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_GSD]
+        str_value = str(parameter_value)
+        maximum_gsd = None
+        try:
+            maximum_gsd = float(str_value)
+        except ValueError:
+            str_error = ('Process: {} does not have a float parameter: {}, is: {}'.
+                         format(name,
+                                defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_GSD,
                                 str_value))
             return str_error
 
@@ -5206,6 +5237,10 @@ class ProjectPhotogrammetry(Project):
             = ram_maximum_size
         self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MATCH_WINDOW_SIZE] \
             = match_window_size
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_GSD] \
+            = minimum_gsd
+        self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_GSD] \
+            = maximum_gsd
         # end_date_time = datetime.now()
         if not self.debugging_digitizing_in_process:
             if self.digitizing_parameters[defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_SAVE_REPORT]:
@@ -5694,20 +5729,21 @@ class ProjectPhotogrammetry(Project):
                                                              ignored_images)
         if str_error:
             return str_error, point_id
-        if (object_point.epipolar_line_minimum_gsd is not None
-                and object_point.epipolar_line_minimum_gsd is not None
-                and object_point.front_view is not None
-                and object_point.full_epipolar_line is not None):
-            for image_label in measured_images:
-                str_error = object_point.set_epipolar_lines_from_measured_image(image_label,
-                                                                                measured_images[image_label],
-                                                                                object_point.epipolar_line_minimum_gsd,
-                                                                                object_point.epipolar_line_maximum_gsd,
-                                                                                object_point.front_view,
-                                                                                object_point.full_epipolar_line,
-                                                                                True)
-                if str_error: # in content report
-                    continue
+        # no compute epipolar lines when there are projections
+        # if (object_point.epipolar_line_minimum_gsd is not None
+        #         and object_point.epipolar_line_minimum_gsd is not None
+        #         and object_point.front_view is not None
+        #         and object_point.full_epipolar_line is not None):
+        #     for image_label in measured_images:
+        #         str_error = object_point.set_epipolar_lines_from_measured_image(image_label,
+        #                                                                         measured_images[image_label],
+        #                                                                         object_point.epipolar_line_minimum_gsd,
+        #                                                                         object_point.epipolar_line_maximum_gsd,
+        #                                                                         object_point.front_view,
+        #                                                                         object_point.full_epipolar_line,
+        #                                                                         True)
+        #         if str_error: # in content report
+        #             continue
         report = self.object_point_by_id[point_id].get_report()
         # self.debugging_digitizing_in_process = False
         if not self.debugging_digitizing_in_process:

@@ -251,6 +251,34 @@
                 55
             ],
             "output_format": "{:10d}"
-        }
+        },
+		{
+			"label": "Minimum GSD",
+			"argparser": "",
+			"description": "Minimum GSD used for select images, in meters",
+			"mandatory": true,
+			"output": false,
+			"value": 0.001,
+			"type": "real",
+			"domain": [
+				0.001,
+				1.000
+			],
+			"output_format": "{:10.3f}"
+		},
+		{
+			"label": "Maximum GSD",
+			"argparser": "",
+			"description": "Maximum GSD used for select images, in meters",
+			"mandatory": true,
+			"output": false,
+			"value": 0.050,
+			"type": "real",
+			"domain": [
+				0.001,
+				1.000
+			],
+			"output_format": "{:10.3f}"
+		}
     ]
 }

@@ -41,8 +41,6 @@ class ATBlockMetashape(ATBlock):
     def add_object_point_from_measured_image(self,
                                              image_label,
                                              point_coordinates,
-                                             minimum_gsd,
-                                             maximum_gsd,
                                              front_view,
                                              full_epipolar_line):
         str_error = ''
@@ -63,7 +61,6 @@ class ATBlockMetashape(ATBlock):
                          .format(str_error))
             return str_error, None
         str_error = object_point.set_epipolar_lines_from_measured_image(image_label, point_coordinates,
-                                                                        minimum_gsd, maximum_gsd,
                                                                         front_view, full_epipolar_line,
                                                                         True)
         if str_error:
@@ -1165,12 +1162,13 @@ class ATBlockMetashape(ATBlock):
                                                ignored_images):
         str_error = ''
         content = ''
-        if not self.exists_footprints():
-            str_error = ('Images footprints are not loaded')
-            return str_error, content
         # if not self.exists_footprints_undistorted():
         #     str_error = ('Images undistorted footprints are not loaded')
         #     return str_error
+        minimum_gsd = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MINIMUM_GSD]
+        maximum_gsd = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_MAXIMUM_GSD]
         only_enabled_images = self.project.digitizing_parameters[
             defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
         ignored_sensor_percentage = self.project.digitizing_parameters[
@@ -1180,6 +1178,12 @@ class ATBlockMetashape(ATBlock):
         if ignore_hided_points_in_images:
             dem_file_path = self.project.digitizing_parameters[
                 defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_DEM]
+            if not dem_file_path:
+                str_error = ('Ignore hided points needs a DEM')
+                return str_error, content
+            if not self.exists_footprints():
+                str_error = ('Ignore hided points needs images footprints')
+                return str_error, content
             if not dem_file_path in self.project.raster_dem_by_file_path:
                 raster_dem = RasterDEM(defs_project.RASTER_DEM_PRECISION_CODE)
                 dem_crs_id = self.project.digitizing_parameters[
@@ -1211,8 +1215,6 @@ class ATBlockMetashape(ATBlock):
                 str_error = ('Updating enabled images from file: {}\nError:\n{}'
                              .format(self.file_path, str_error))
                 return str_error, content
-        ogr_point = ogr.Geometry(ogr.wkbPoint)
-        ogr_point.AddPoint(object_point.position[0], object_point.position[1])
         cameras_to_process = []
         for camera_id in self.camera_by_id:
             if camera_id in ignored_images:
@@ -1220,22 +1222,36 @@ class ATBlockMetashape(ATBlock):
             camera = self.camera_by_id[camera_id]
             camera_enabled = camera.get_enabled()  # multisensor ...
             if camera_enabled:
-                if camera.is_usefull():
-                    cameras_to_process.append(camera)
+                if not camera.is_usefull():
+                    continue
+            # gsd control
+            pc_chunk = camera.get_pc_chunk()
+            pc_point_chunk_dx = object_point.position_chunk[0] - pc_chunk[0]
+            pc_point_chunk_dy = object_point.position_chunk[1] - pc_chunk[1]
+            pc_point_chunk_dz = object_point.position_chunk[2] - pc_chunk[2]
+            pc_point_chunk_length = math.sqrt(
+                pc_point_chunk_dx ** 2. + pc_point_chunk_dy ** 2. + pc_point_chunk_dz ** 2.)
+            pc_point_chunk_length_object_space = pc_point_chunk_length * self.transform_scale
+            str_error, computed_gsd = camera.get_gsd_from_object_space_distance(pc_point_chunk_length_object_space)
+            if str_error:
+                str_error = (
+                    "\n    Computing GSD for image: {} and distance: {:.3f}, error: {}"
+                    .format(camera.label, pc_point_chunk_length_object_space, str_error))
+                return str_error, content
+            if computed_gsd < minimum_gsd or computed_gsd > maximum_gsd:
+                continue
+            cameras_to_process.append(camera)
+        ogr_point = None
+        if ignore_hided_points_in_images and self.exists_footprints():
+            ogr_point = ogr.Geometry(ogr.wkbPoint)
+            ogr_point.AddPoint(object_point.position[0], object_point.position[1])
         for i in range(len(cameras_to_process)):
             camera = cameras_to_process[i]
             camera_id = camera.id
-            camera_footprint_geometry = camera.footprint_geometry
-            if not camera_footprint_geometry.Contains(ogr_point):
-                continue
-            if camera.gsd is None:
-                camera_footprint_area = camera_footprint_geometry.GetArea()
-                str_error = camera.set_gsd_from_footprint_area(camera_footprint_area)
-                if str_error:
-                    str_error = ("Getting GSD for image: {}\nError:\n{}".format(camera.label, str_error))
-                    return str_error, content
-            distance2dTolerance = 2. * camera.gsd
-            distanceTcTolerance = 3. * camera.gsd
+            if self.exists_footprints():
+                camera_footprint_geometry = camera.footprint_geometry
+                if not camera_footprint_geometry.Contains(ogr_point):
+                    continue
             str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
                 = camera.from_chunk_to_sensor(object_point.position_chunk)
             if str_error:
@@ -1274,6 +1290,14 @@ class ATBlockMetashape(ATBlock):
                 distance2d = math.sqrt((pto_dem[0] - object_point.position[0]) ** 2.
                                        + (pto_dem[1] - object_point.position[1]) ** 2.)
                 distanceTc = pto_dem[2] - object_point.position[2]
+                if camera.gsd is None:
+                    camera_footprint_area = camera_footprint_geometry.GetArea()
+                    str_error = camera.set_gsd_from_footprint_area(camera_footprint_area)
+                    if str_error:
+                        str_error = ("Getting GSD for image: {}\nError:\n{}".format(camera.label, str_error))
+                        return str_error, content
+                distance2dTolerance = 2. * camera.gsd
+                distanceTcTolerance = 3. * camera.gsd
                 if distance2d > distance2dTolerance and distanceTc > distanceTcTolerance:
                     is_visible = False
                     content += "\n    Hyde by DSM"
