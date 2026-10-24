@@ -23,6 +23,7 @@ class ObjectPointMetashape(ObjectPoint):
                                                full_epipolar_line,
                                                write_report = False):
         str_error = ''
+        epipolar_nop = defs_processes.EPIPOLAR_NUMBER_OF_POINTS
         if not isinstance(image_label, str):
             str_error = ('Image id must be a string')
             return str_error
@@ -157,6 +158,12 @@ class ObjectPointMetashape(ObjectPoint):
                 content += "\n    - Image ..............: " + aux_camera.label
                 content += ("\n    Getting sensor for image: {}, error: {}".format(aux_camera.label, str_error))
                 continue
+            str_error, aux_sensor_is_spherical = aux_sensor.get_is_spherical()
+            if str_error:
+                content += "\n    - Image ..............: " + aux_camera.label
+                content += ("\n    Getting if sensor is spherical for image: {}, error: {}".format(aux_camera.label,
+                                                                                                   str_error))
+                continue
             aux_pc_chunk = aux_camera.get_pc_chunk()
             base_chunk = []
             base_chunk.append(aux_pc_chunk[0] - pc_chunk[0])
@@ -236,10 +243,10 @@ class ObjectPointMetashape(ObjectPoint):
                 pto_chunk_first[0] = pto_chunk_first[0] - (pto_chunk_second[0] - pto_chunk_first[0])
                 pto_chunk_first[1] = pto_chunk_first[1] - (pto_chunk_second[1] - pto_chunk_first[1])
                 pto_chunk_first[2] = pto_chunk_first[2] - (pto_chunk_second[2] - pto_chunk_first[2])
-                # pto_chunk_first[0] = pc_chunk[0] - dis_max_gsd_chunk * pc_point_chunk_unit[0] # greather distortion
-                # pto_chunk_first[1] = pc_chunk[1] - dis_max_gsd_chunk * pc_point_chunk_unit[1]
-                # pto_chunk_first[2] = pc_chunk[2] - dis_max_gsd_chunk * pc_point_chunk_unit[2]
-            # debug
+            # #     # pto_chunk_first[0] = pc_chunk[0] - dis_max_gsd_chunk * pc_point_chunk_unit[0] # greather distortion
+            # #     # pto_chunk_first[1] = pc_chunk[1] - dis_max_gsd_chunk * pc_point_chunk_unit[1]
+            # #     # pto_chunk_first[2] = pc_chunk[2] - dis_max_gsd_chunk * pc_point_chunk_unit[2]
+            # # debug
             pto_ecef_first = np.dot(self.at_block.transform, pto_chunk_first)
             pto_crs_first = [[pto_ecef_first[0], pto_ecef_first[1], pto_ecef_first[2]]]
             str_error = self.crs_tools.operation(self.at_block.crs_ecef_id, self.at_block.crs_id, pto_crs_first)
@@ -248,51 +255,62 @@ class ObjectPointMetashape(ObjectPoint):
             str_error = self.crs_tools.operation(self.at_block.crs_ecef_id, self.at_block.crs_id, pto_crs_second)
             str_line = ('LINESTRING({:.3f} {:.3f},{:.3f} {:.3f})'.format(pto_crs_first[0][0], pto_crs_first[0][1],
                                                                          pto_crs_second[0][0], pto_crs_second[0][1]))
-            # to sensor
-            positions_image = []
-            (str_error, within, withinAfterUndistortion,
-             position_image_first, position_undistorted_image) \
-                = aux_camera.from_chunk_to_sensor(pto_chunk_first, try_recover_position_from_distortion)
-            if str_error:
-                content += ("\n    Getting sensor position for position first for image: {}, error: {}"
-                            .format(aux_camera.label, str_error))
-                continue
-            positions_image.append(position_image_first)
-            (str_error, within, withinAfterUndistortion,
-             position_image_second, position_undistorted_image) \
-                = aux_camera.from_chunk_to_sensor(pto_chunk_second, try_recover_position_from_distortion)
-            if str_error:
-                content += ("\n    Getting sensor position for position second for image: {}, error: {}"
-                            .format(aux_camera.label, str_error))
-                continue
-            positions_image.append(position_image_second)
-            # content += ("\n      Minimum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
-            #             format(positions_image[0][0], positions_image[0][1], minimum_gsd))
-            # content += ("\n      Maximum distance ...: ({:.3f}, {:.3f}), GSD: {:.3f} m".
-            #             format(positions_image[1][0], positions_image[1][1], maximum_gsd))
-            str_error, first_pto, second_pto = aux_sensor.get_epipolar_line_from_segment(positions_image[0],
-                                                                                         positions_image[1],
-                                                                                         full_epipolar_line)
-            if str_error:
-                content += ("\n    Getting epipolar line from segment for image: {}, error: {}".format(aux_camera.label,
-                                                                                                       str_error))
-                continue
+            n_ptos = 2
+            if aux_sensor_is_spherical:
+                n_ptos = epipolar_nop
+            dist_chunk_firts_second = math.sqrt((pto_chunk_second[0] - pto_chunk_first[0]) ** 2
+                                                + (pto_chunk_second[1] - pto_chunk_first[1]) ** 2
+                                                + (pto_chunk_second[2] - pto_chunk_first[2]) ** 2)
+            dist_increment = dist_chunk_firts_second / (n_ptos - 1)
+            epipolar_points = []
+            ptos_chunk = []
+            for np_pto in range(n_ptos):
+                dist = dist_increment * np_pto
+                pto_chunk = np.zeros(4)
+                pto_chunk[0] = (pto_chunk_first[0]
+                                + (pto_chunk_second[0] - pto_chunk_first[0]) / dist_chunk_firts_second * dist)
+                pto_chunk[1] = (pto_chunk_first[1]
+                                + (pto_chunk_second[1] - pto_chunk_first[1]) / dist_chunk_firts_second * dist)
+                pto_chunk[2] = (pto_chunk_first[2]
+                                + (pto_chunk_second[2] - pto_chunk_first[2]) / dist_chunk_firts_second * dist)
+                pto_chunk[3] = 1.0
+                ptos_chunk.append(pto_chunk)
+                (str_error, within, withinAfterUndistortion,
+                 position_image, position_undistorted_image) \
+                    = aux_camera.from_chunk_to_sensor(pto_chunk, try_recover_position_from_distortion)
+                if str_error:
+                    content += ("\n    Getting sensor position for position {} for image: {}, error: {}"
+                                .format(str(np_pto), aux_camera.label, str_error))
+                    continue
+                epipolar_points.append(position_image)
+            epipolar_wkt = 'LINESTRING('
+            for np_pto in range(len(epipolar_points)):
+                if np_pto > 0:
+                    epipolar_wkt += ' ,'
+                epipolar_wkt += ('{:.3f} {:.3f}'.format(epipolar_points[np_pto][0], - 1.0 * epipolar_points[np_pto][1]))
+            epipolar_wkt += ')'
+            if not aux_sensor_is_spherical and full_epipolar_line:
+                str_error, first_pto, second_pto = aux_sensor.get_epipolar_line_from_segment(epipolar_points[0],
+                                                                                             epipolar_points[1],
+                                                                                             full_epipolar_line)
+                if str_error:
+                    content += ("\n    Getting epipolar line from segment for image: {}, error: {}".format(aux_camera.label,
+                                                                                                           str_error))
+                    continue
+                epipolar_points[0] = first_pto
+                epipolar_points[1] = second_pto
+                epipolar_wkt = ('LINESTRING({:.3f} {:.3f},{:.3f} {:.3f})'
+                                .format(first_pto[0], -1. * first_pto[1], second_pto[0], -1. * second_pto[1]))
             content += "\n    - Image ..............: " + aux_camera.label
-            if first_pto == None or second_pto == None:
+            if len(epipolar_points) == 0:
                 content += ("\n        *** Invalid epipolar line")
                 continue
-            content += ("\n      Epipolar line ......: LINESTRING({:.3f} {:.3f},{:.3f} {:.3f})"
-                        .format(first_pto[0], -1. * first_pto[1], second_pto[0], -1. * second_pto[1]))
+            content += ("\n      Epipolar line ......: {}".format(epipolar_wkt))
             if not image_id in self.image_epipolar_line_by_image_measured_id:
                 self.image_epipolar_line_by_image_measured_id[image_id] = {}
             if not aux_camera_id in self.image_epipolar_line_by_image_measured_id[image_id]:
                 self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id] = []
-                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append([0., 0.])  # first_pto
-                self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id].append([0., 0.])  # second_pto
-            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][0] = first_pto[0]
-            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][0][1] = first_pto[1]
-            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][0] = second_pto[0]
-            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id][1][1] = second_pto[1]
+            self.image_epipolar_line_by_image_measured_id[image_id][aux_camera_id] = epipolar_points
         self.epipolar_line_minimum_gsd = minimum_gsd
         self.epipolar_line_maximum_gsd = maximum_gsd
         self.front_view = front_view

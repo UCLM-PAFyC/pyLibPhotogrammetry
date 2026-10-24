@@ -208,6 +208,25 @@ class CameraMetashape(Camera):
         undistorted_footprint_wkt += '))'
         return str_error, footprint_wkt, undistorted_footprint_wkt
 
+    def from_chunk_to_camera(self,
+                             position_chunk):
+        str_error = ''
+        position_camera = None
+        if not isinstance(self.sensor_id, int):
+            str_error = ('Not exists sensor in camera: {} in block: {} in metashape markers XML file:\n{}'.
+                         format(self.label, self.at_block.label, self.at_block.file_path))
+            return str_error, position_camera
+        if not self.sensor_id in self.at_block.sensor_by_id:
+            str_error = ('Not exists sensor id: {} in camera: {} in block: {} in metashape markers XML file:\n{}'.
+                         format(str(self.sensor_id), self.label, self.at_block.label, self.at_block.file_path))
+            return str_error, position_camera
+        sensor = self.at_block.sensor_by_id[self.sensor_id]
+        pc_chunk = self.get_pc_chunk()
+        transform_inv = self.get_transform_inv()
+        position_chunk_from_cp = position_chunk - pc_chunk
+        position_camera = np.dot(transform_inv, position_chunk_from_cp)
+        return str_error, position_camera
+
     def from_chunk_to_sensor(self,
                              position_chunk,
                              try_recover_position_from_distortion = True):

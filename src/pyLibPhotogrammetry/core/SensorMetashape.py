@@ -571,6 +571,34 @@ class SensorMetashape(Sensor):
             focal = calibration.parameters[defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_F_TAG]
         return str_error, focal
 
+    def get_is_spherical(self):
+        str_error = ''
+        is_spherical = False
+        if not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class \
+                and not defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL in self.calibration_by_class:
+            str_error = ('For sensor: {} not found calibration class: {}'.
+                         format(self.label,
+                                defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED))
+            return str_error, is_spherical
+        calibration = None
+        if defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED in self.calibration_by_class:
+            calibration = self.calibration_by_class[
+                defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED]
+        else:
+            calibration = self.calibration_by_class[
+                defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_INITIAL]
+        if (calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FRAME
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_FISHEYE
+                and calibration.type.casefold() != defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL):
+            str_error = ('For sensor: {} invalid calibration type: {}'.
+                         format(self.label,
+                                defs_msm.METASHAPE_MARKERS_XML_SENSOR_CALIBRATION_ATTRIBUTE_CLASS_ADJUSTED,
+                                calibration.type))
+            return str_error, is_spherical
+        if calibration.type.casefold() == defs_msm.METASHAPE_CALIBRATION_TYPE_SPHERICAL:
+            is_spherical = True
+        return str_error, is_spherical
+
     def get_undistorted(self,
                         column, row):
         str_error = ''
