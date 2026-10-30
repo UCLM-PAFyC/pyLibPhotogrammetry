@@ -1247,7 +1247,7 @@ class ObjectPointMetashape(ObjectPoint):
                             str_aux_error += ("\n- Error: computing chunk position from image measurement: {} and image matched: {}\n{}"
                                         .format(measured_camera_label, matched_camera_label, str_error))
                             return str_aux_error
-                        content += "\n";
+                        content += "\n"
                         content += ("{:>20s}".format(measured_camera_label))
                         content += ("{:>20s}".format(matched_camera_label))
                         content += ("{:>22s}".format(matchedName))

@@ -5,6 +5,9 @@ import numpy as np
 import math
 
 from osgeo import gdal, osr, ogr
+
+from .Camera import Camera
+
 gdal.UseExceptions()
 
 from ..defs import  defs_project
@@ -531,6 +534,94 @@ class ATBlockMetashape(ATBlock):
         self.sensors_to_object_outliers_camera_ids_before_lsa = outliers_camera_ids_before_lsa
         self.sensors_to_object_outliers_camera_ids = outliers_camera_ids
         return str_error, position, std_position, image_position_backward_error_by_camera_id
+    def get_candidate_images_from_object_space(self,
+                                               point_coordinates,
+                                               crs_id,
+                                               distance):
+        str_error = ''
+        candidate_images = {}
+        if not isinstance(point_coordinates, list):
+            str_error = ('Coordinates must be a list with two or three values')
+            return str_error, candidate_images
+        if len(point_coordinates) < 2:
+            str_error = ('Coordinates must be a list with two or three values')
+            return str_error, candidate_images
+        if not isinstance(distance, float):
+            str_error = ('Distance must be a float')
+            return str_error, candidate_images
+        fc = point_coordinates[0]
+        sc = point_coordinates[1]
+        tc = None
+        if len(point_coordinates) == 3:
+            tc = point_coordinates[2]
+        if crs_id.casefold() != self.crs_id.casefold():
+            tc_aux = 0.
+            if not tc is None:
+                tc_aux = tc
+            position = [[fc, sc, tc_aux]]
+            str_error = self.project.crs_tools.operation(crs_id, self.crs_id, position)
+            if str_error:
+                str_error += ('\nFrom AT Block CRS: {} to CRS: {}\nfor point: [{:.3f}, {:.3f}, {:.3f}]\nerror:\n{}'.
+                              format(crs_id, self.crs_id,
+                                     fc, sc, tc_aux, str_error))
+                return str_error, candidate_images
+        only_enabled_images = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_ENABLED_IMAGES]
+        ignored_sensor_percentage = self.project.digitizing_parameters[
+            defs_processes.PROCESS_FUNCTION_SET_DIGITALIZING_PARAMETERS_PARAMETER_IGNORED_SENSOR_PERCENTAGE]
+        if only_enabled_images:
+            str_error = self.project.update_enabled_images_from_db()
+            if str_error:
+                str_error = ('Updating enabled images from file: {}\nError:\n{}'
+                             .format(self.file_path, str_error))
+                return str_error, candidate_images
+        for camera_id in self.camera_by_id:
+            # if camera_id in ignored_images:
+            #     continue
+            camera = self.camera_by_id[camera_id]
+            camera_enabled = camera.get_enabled()  # multisensor ...
+            if camera_enabled:
+                if not camera.is_usefull():
+                    continue
+            pc = camera.get_pc()
+            pc_2d_distance = math.sqrt((pc[0] - fc) ** 2. + (pc[1] - sc) ** 2.)
+            if pc_2d_distance > distance:
+                continue
+            tc_aux = pc[2]
+            if tc is not None:
+                tc_aux = tc
+            str_error, position_chunk = self.from_coordinates_object_to_chunk(self.crs_id, [fc, sc, tc_aux])
+            if str_error:
+                str_aux_error = ("\nFor point: ({:.3f, :.3f, :.3f}".format(fc, sc, tc_aux))
+                str_aux_error += (
+                    "\n- Error: computing chunk position from image: {}\n{}"
+                    .format(camera.label, str_error))
+                return str_error, candidate_images
+            pc_chunk = camera.get_pc_chunk()
+            camera_id = camera.id
+            str_error, within, withinAfterUndistortion, position_image, position_undistorted_image \
+                = camera.from_chunk_to_sensor(position_chunk)
+            if str_error:
+                str_error = ("Getting position in image: {}\nError:\n{}".format(camera.label, str_error))
+                return str_error, candidate_images
+            column = position_image[0]
+            row = position_image[1]
+            sensor = self.sensor_by_id[camera.sensor_id]
+            columns = sensor.width
+            rows = sensor.height
+            number_of_columns_to_ignore = math.floor(float(columns * ignored_sensor_percentage / 100.))
+            number_of_rows_to_ignore = math.floor(float(rows * ignored_sensor_percentage / 100.))
+            min_column = number_of_columns_to_ignore
+            max_column = columns - number_of_columns_to_ignore
+            min_row = number_of_rows_to_ignore
+            max_row = rows - number_of_rows_to_ignore
+            if column < min_column or column > max_column or row < min_row or row > max_row:
+                continue
+            distance_to_center_column = abs(column - columns / 2.)
+            candidate_images[round(distance_to_center_column, 6)] = {}
+            candidate_images[round(distance_to_center_column, 6)]['id'] = camera_id
+            candidate_images[round(distance_to_center_column, 6)]['label'] = camera.label
+        return str_error, candidate_images
 
     def set_from_xml(self,
                      xml_element,
